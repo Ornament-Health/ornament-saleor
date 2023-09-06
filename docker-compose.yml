@@ -44,7 +44,7 @@ services:
     volumes:
       - saleor-redis:/data
 
-  worker:
+  celery:
     build:
       context: .
       dockerfile: ./Dockerfile_ornament
