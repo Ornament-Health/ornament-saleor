@@ -1,7 +1,7 @@
 {
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.formatting.provider": "black",
+    "python.formatting.provider": "none",
     "python.languageServer": "Pylance",
     "python.linting.mypyEnabled": true,
     "python.analysis.typeCheckingMode": "basic",
@@ -11,5 +11,8 @@
         "preorders",
         "undiscounted"
     ],
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    }
 }
