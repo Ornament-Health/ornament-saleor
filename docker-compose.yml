@@ -21,12 +21,6 @@ services:
     env_file:
       - .env
 
-  dashboard:
-    image: ghcr.io/saleor/saleor-dashboard:3.14.4
-    ports:
-      - 9000:80
-    restart: unless-stopped
-
   db:
     image: library/postgres:13-alpine
     ports:
@@ -37,9 +31,8 @@ services:
     volumes:
       - saleor-db:/var/lib/postgresql/data
       - ./replica_user.sql:/docker-entrypoint-initdb.d/replica_user.sql
-    environment:
-      - POSTGRES_USER=saleor
-      - POSTGRES_PASSWORD=saleor
+    env_file:
+      - .env.db
 
   redis:
     image: library/redis:7.0-alpine
