@@ -177,6 +177,10 @@ class ProductType(ModelWithMetadata):
 
 
 class Product(SeoModel, ModelWithMetadata, ModelWithExternalReference):
+    # @cf::ornament.saleor.product
+    checkup_product_categories = models.ManyToManyField(
+        "checkupcenter.CheckUpProductCategory", blank=True
+    )
     product_type = models.ForeignKey(
         ProductType, related_name="products", on_delete=models.CASCADE
     )

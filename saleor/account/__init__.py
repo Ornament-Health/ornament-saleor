@@ -1,6 +1,17 @@
 default_app_config = "saleor.account.app.AccountAppConfig"
 
 
+# @cf::ornament.saleor.account
+class Sex:
+    """The different sex types"""
+
+    MALE = "M"
+    FEMALE = "F"
+    UNSPECIFIED = "U"
+
+    CHOICES = [(MALE, "Male"), (FEMALE, "Female"), (UNSPECIFIED, "Unspecified")]
+
+
 class CustomerEvents:
     """The different customer event types."""
 

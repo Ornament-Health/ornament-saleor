@@ -210,6 +210,8 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
     "saleor.core.middleware.jwt_refresh_token_middleware",
+    # @cf::ornament.geo
+    "saleor.ornament.geo.middleware.GeoChannelMiddleware",
 ]
 
 INSTALLED_APPS = [
@@ -249,6 +251,12 @@ INSTALLED_APPS = [
     "saleor.app",
     "saleor.thumbnail",
     "saleor.schedulers",
+    # @cf::ornament.checkupcenter
+    "saleor.ornament.checkupcenter",
+    # @cf::ornament.vendors
+    "saleor.ornament.vendors",
+    # @cf::ornament.geo
+    "saleor.ornament.geo",
     # External apps
     "django_measurement",
     "django_prices",
@@ -719,7 +727,8 @@ BUILTIN_PLUGINS = [
 ]
 
 # Plugin discovery
-EXTERNAL_PLUGINS = []
+# @cf::ornament.auth
+EXTERNAL_PLUGINS = ["saleor.ornament.auth.OrnamentSSOAuthBackend"]
 installed_plugins = pkg_resources.iter_entry_points("saleor.plugins")
 for entry_point in installed_plugins:
     plugin_path = "{}.{}".format(entry_point.module_name, entry_point.attrs[0])
@@ -831,4 +840,30 @@ CONFIRMATION_EMAIL_LOCK_TIME = parse(
 # Time threshold to update user last_login when performing requests with OAUTH token.
 OAUTH_UPDATE_LAST_LOGIN_THRESHOLD = parse(
     os.environ.get("OAUTH_UPDATE_LAST_LOGIN_THRESHOLD", "15 minutes")
+)
+
+# @cf::ornament.env
+ORNAMENT_INTERNAL_DATA_API = os.environ.get("ORNAMENT_INTERNAL_DATA_API", None)
+ORNAMENT_API_PUBLIC_HOST = os.environ.get("ORNAMENT_API_PUBLIC_HOST", None)
+ORNAMENT_API_INTERNAL_HOST = os.environ.get("ORNAMENT_API_INTERNAL_HOST", None)
+ORNAMENT_SSO_VALIDATION_URL = os.environ.get("ORNAMENT_SSO_VALIDATION_URL", None)
+
+CHECKUP_SKU_GROUPS_DEFAULT = (
+    {"name": "CBC", "skus": ["1.0.D1.202", "1.0.D2.202"], "part": 36},
+    {"name": "URINALYSIS", "skus": ["6.1.D1.401"], "part": 28},
+    {"name": "SPECIAL", "skus": None, "part": 36},  # skus:None means all, fallback
+)
+
+CHECKUP_SKU_GROUPS = os.environ.get("CHECKUP_SKU_GROUPS", CHECKUP_SKU_GROUPS_DEFAULT)
+CHECKUP_DURATION_DAYS = os.environ.get("CHECKUP_DURATION_DAYS", 365)
+CHECKUP_MOST_FILLED_STATE_EXPIRATION_DAYS = os.environ.get(
+    "CHECKUP_MOST_FILLED_STATE_EXPIRATION_DAYS", 365
+)
+
+
+GEO_LITE_DB_FILE_PATH_COMPRESSED = os.path.join(
+    PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb.gz"
+)
+GEO_LITE_DB_FILE_PATH = os.path.join(
+    PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb"
 )
