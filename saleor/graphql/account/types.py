@@ -70,6 +70,12 @@ from .dataloaders import (
 from .enums import CountryCodeEnum, CustomerEventsEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
 
+# @cf::ornament.geo
+from saleor.graphql.ornament.geo.types import City
+
+# @cf::ornament.vendors
+from saleor.graphql.ornament.vendors.types import Vendor
+
 
 class AddressInput(BaseInputObjectType):
     first_name = graphene.String(description="Given name.")
@@ -446,6 +452,10 @@ class User(ModelObjectType[models.User]):
             required=True,
         ),
     )
+    # @cf::ornament.geo
+    city = graphene.Field(City, description="User selected and confirmed city")
+    # @cf::ornament.vendors
+    vendor = graphene.Field(Vendor, description="User's global vendor")
 
     class Meta:
         description = "Represents user data."

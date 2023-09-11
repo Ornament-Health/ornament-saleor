@@ -17,19 +17,13 @@ from . import CheckUpStateStatus, CheckUpStateApprovement
 # QuerySets
 # ---------
 class CheckUpProductQueryset(models.QuerySet):
-    # TODO[ornament]: reuse or refactor to a new approach
-    def annotate_available_in_local_provider(self):
-        # Annotate items with availability of related product in current local provider.
-        # local_provider = get_geodata().get("local_provider")
-        # if not local_provider:
-        #     return self.none()
-
-        # todo: get published only
-        subquery = ProductVariant.objects.filter(
-            product=models.OuterRef("product_id"),
-            # localproviderproductvariant__is_active=True,
-            # localproviderproductvariant__local_provider=local_provider,
-        ).values("id")
+    def annotate_available_by_rules(self, requestor=None):
+        # Annotate items with availability of related product in current users vendors rules.
+        subquery = (
+            ProductVariant.objects.filter(product=models.OuterRef("product_id"))
+            .available_by_rules(requestor)
+            .values("id")
+        )
 
         return self.annotate(is_available_in_local_provider=models.Exists(subquery))
 

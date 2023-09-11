@@ -349,7 +349,7 @@ def calculate_checkup_states_from_history(scheme: dict, history: dict):
 
 
 # Tasks
-# @app.task
+@app.task
 def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
     """
     Handle checkup matching event.
@@ -494,11 +494,10 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
 
     # 7. Emit checkup calculation event
     if new:
-        # handle_checkup_calculation_event_task.delay(user.id, profile_uuid)
-        handle_checkup_calculation_event_task(user.id, profile_uuid)
+        handle_checkup_calculation_event_task.delay(user.id, profile_uuid)
 
 
-# @app.task
+@app.task
 def handle_checkup_calculation_event_task(user_id, profile_uuid, history=None):
     """
     Handle checkup calculation event.

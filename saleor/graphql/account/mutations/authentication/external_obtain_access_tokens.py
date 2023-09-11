@@ -21,6 +21,10 @@ class ExternalObtainAccessTokens(BaseMutation):
         description="CSRF token required to re-generate external access token."
     )
     user = graphene.Field(User, description="A user instance.")
+    # @cf::ornament.geo
+    current_channel = graphene.String(
+        required=False, description="Current user channel"
+    )
 
     class Arguments:
         plugin_id = graphene.String(
@@ -58,4 +62,6 @@ class ExternalObtainAccessTokens(BaseMutation):
             refresh_token=access_tokens_response.refresh_token,
             csrf_token=access_tokens_response.csrf_token,
             user=access_tokens_response.user,
+            # @cf::ornament.geo
+            current_channel=access_tokens_response.current_channel,
         )

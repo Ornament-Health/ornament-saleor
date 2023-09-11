@@ -87,6 +87,7 @@ class SitePermissions(BasePermissionEnum):
 # @cf::ornament.saleor.permissions
 class InternalAPIPermissions(BasePermissionEnum):
     MANAGE_USERS_VENDORS = "account.manage_users_vendors"
+    MANAGE_CHECKUPS = "checkupcenter.manage_checkups"
 
 
 PERMISSIONS_ENUMS = [

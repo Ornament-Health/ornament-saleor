@@ -12,10 +12,10 @@ def get_s3_client():
     session = boto3.session.Session()
     return session.client(
         "s3",
-        region_name=settings.S3_REGION_NAME,
-        endpoint_url=settings.S3_ENDPOINT_URL,
-        aws_access_key_id=settings.S3_AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.S3_AWS_SECRET_ACCESS_KEY,
+        region_name=settings.ORNAMENT_S3_REGION_NAME,
+        endpoint_url=settings.ORNAMENT_S3_ENDPOINT_URL,
+        aws_access_key_id=settings.ORNAMENT_S3_AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.ORNAMENT_S3_AWS_SECRET_ACCESS_KEY,
     )
 
 
@@ -41,7 +41,7 @@ def download_geo_lite_db() -> bool:
 
         client = get_s3_client()
         client.download_file(
-            settings.S3_BUCKET,
+            settings.ORNAMENT_S3_BUCKET,
             "GeoLite2-City.mmdb.gz",
             file_path,
         )

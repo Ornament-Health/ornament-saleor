@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 import geoip2.database
@@ -8,6 +9,8 @@ from saleor.core.utils import get_client_ip
 from saleor.ornament.geo.channel_utils import set_channel
 from saleor.ornament.geo.models import City
 from saleor.graphql.context import get_context_value
+
+logger = logging.getLogger(__name__)
 
 
 class GeoChannelMiddleware(MiddlewareMixin):
@@ -26,27 +29,31 @@ class GeoChannelMiddleware(MiddlewareMixin):
         else:
             client_ip = get_client_ip(request)
             with geoip2.database.Reader(settings.GEO_LITE_DB_FILE_PATH) as reader:
-                geodata = reader.city(client_ip)
+                try:
+                    geodata = reader.city(client_ip)
 
-                # if geodata and geodata.country.iso_code == "RU":
-                if geodata:
-                    city: Optional[City] = (
-                        City.objects.all()
-                        .extra(
-                            select={
-                                "distance": "6371 * acos("
-                                "  sin(radians({latitude})) * sin(radians(latitude)) +"
-                                "  cos(radians({latitude})) * cos(radians(latitude)) *"
-                                "  cos(radians({longitude}) - radians(longitude))"
-                                ")".format(
-                                    latitude=geodata.location.latitude,
-                                    longitude=geodata.location.longitude,
-                                )
-                            }
+                    # if geodata and geodata.country.iso_code == "RU":
+                    if geodata:
+                        city: Optional[City] = (
+                            City.objects.all()
+                            .extra(
+                                select={
+                                    "distance": "6371 * acos("
+                                    "  sin(radians({latitude})) * sin(radians(latitude)) +"
+                                    "  cos(radians({latitude})) * cos(radians(latitude)) *"
+                                    "  cos(radians({longitude}) - radians(longitude))"
+                                    ")".format(
+                                        latitude=geodata.location.latitude,
+                                        longitude=geodata.location.longitude,
+                                    )
+                                }
+                            )
+                            .order_by("distance")
+                            .first()
                         )
-                        .order_by("distance")
-                        .first()
-                    )
+                except Exception as e:
+                    logger.warning(f"GeoIP geodata failed. Error: {e}")
+                    city = None
 
         if (
             city
