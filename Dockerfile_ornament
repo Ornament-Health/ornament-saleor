@@ -63,6 +63,7 @@ COPY templates/ /opt/ornament-saleor/templates/
 COPY manage.py /opt/ornament-saleor/manage.py
 COPY package-lock.json /opt/ornament-saleor/package-lock.json
 COPY package.json /opt/ornament-saleor/package.json
+COPY gunicorn_conf.py /opt/ornament-saleor/gunicorn_conf.py
 # COPY .env /opt/ornament-saleor/.env
 
 
@@ -77,17 +78,6 @@ ARG COMMIT_ID
 ARG PROJECT_VERSION
 ENV PROJECT_VERSION="${PROJECT_VERSION}"
 
-LABEL org.opencontainers.image.title="mirumee/saleor"                                  \
-      org.opencontainers.image.description="\
-A modular, high performance, headless e-commerce platform built with Python, \
-GraphQL, Django, and ReactJS."                                                         \
-      org.opencontainers.image.url="https://saleor.io/"                                \
-      org.opencontainers.image.source="https://github.com/saleor/saleor"               \
-      org.opencontainers.image.revision="$COMMIT_ID"                                   \
-      org.opencontainers.image.version="$PROJECT_VERSION"                              \
-      org.opencontainers.image.authors="Saleor Commerce (https://saleor.io)"           \
-      org.opencontainers.image.licenses="BSD 3"
-
 RUN find / | grep -E "(__pycache__$)" | xargs rm -rf
 
-CMD ["gunicorn", "--bind", ":8000", "--workers", "2", "--worker-class", "saleor.asgi.gunicorn_worker.UvicornWorker", "saleor.asgi:application"]
+CMD gunicorn "saleor.asgi:application" -c gunicorn_conf.py
