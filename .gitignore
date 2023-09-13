@@ -2,6 +2,7 @@
 
 *.py[cod]
 .*
+!.keep
 !.devcontainer
 !.dockerignore
 !.github
