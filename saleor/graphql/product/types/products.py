@@ -1373,9 +1373,13 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
     def resolve_variants(root: ChannelContext[models.Product], info):
         requestor = get_user_or_app_from_context(info.context)
         # @cf::ornament.saleor.product
-        channel_slug = root.channel_slug or get_channel()
         has_required_permissions = has_one_of_permissions(
             requestor, ALL_PRODUCTS_PERMISSIONS
+        )
+        channel_slug = (
+            root.channel_slug
+            if (root.channel_slug or has_required_permissions)
+            else get_channel()
         )
         # @cf::ornament.saleor.product
         if has_required_permissions and not channel_slug:

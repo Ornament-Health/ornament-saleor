@@ -691,7 +691,9 @@ class ProductVariantBulkCreate(BaseMutation):
 
         # @cf::ornament.saleor.product
         name = cleaned_input.get("name")
-        is_vendor_available = Vendor.objects.filter(name=name).exists()
+        is_vendor_available = (
+            True if name is None else Vendor.objects.filter(name=name).exists()
+        )
 
         if not is_vendor_available:
             message = f"Vendor {name} is not available."
