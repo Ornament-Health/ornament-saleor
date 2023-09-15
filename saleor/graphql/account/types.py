@@ -454,6 +454,10 @@ class User(ModelObjectType[models.User]):
     )
     # @cf::ornament.geo
     city = graphene.Field(City, description="User selected and confirmed city")
+    city_approved = graphene.Boolean(
+        description=("Determine if user's city is approved"),
+        required=True,
+    )
     # @cf::ornament.vendors
     vendor = graphene.Field(Vendor, description="User's global vendor")
 
