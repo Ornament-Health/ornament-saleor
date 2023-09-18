@@ -48,7 +48,7 @@ def prepare_image_proxy_url(
         kwargs["format"] = format.lower()
 
     # @cf::ornament.saleor.utils
-    return settings.MEDIA_URL + reverse("thumbnail", kwargs=kwargs)
+    return settings.PROJECT_URL_SFX + reverse("thumbnail", kwargs=kwargs)
     # return reverse("thumbnail", kwargs=kwargs)
 
 
