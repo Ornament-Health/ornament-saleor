@@ -874,3 +874,5 @@ GEO_LITE_DB_FILE_PATH_COMPRESSED = os.path.join(
 GEO_LITE_DB_FILE_PATH = os.path.join(
     PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb"
 )
+
+PROJECT_URL_SFX: str = os.environ.get("PROJECT_URL_SFX", "")
