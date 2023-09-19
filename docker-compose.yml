@@ -17,7 +17,7 @@ services:
       - redis
     volumes:
       # shared volume between worker and api for media
-      - saleor-media:/app/media
+      - saleor-media:/opt/ornament-saleor/media
     env_file:
       - .env
 
@@ -58,7 +58,7 @@ services:
       - redis
     volumes:
       # shared volume between worker and api for media
-      - saleor-media:/app/media
+      - saleor-media:/opt/ornament-saleor/media
 
 volumes:
   saleor-db:
