@@ -115,7 +115,7 @@ class GraphQLView(View):
     def render_playground(self, request):
         # @cf::ornament.saleor.graphql
         site: Site = Site.objects.get_current()
-        api_url = f"{site.domain}/{settings.PROJECT_URL_SFX}/graphql/"
+        api_url = f"{settings.PROJECT_URL_SFX}/graphql/"
 
         return render(
             request,
