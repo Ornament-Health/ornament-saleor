@@ -8,7 +8,6 @@ import opentracing
 import opentracing.tags
 from django.conf import settings
 from django.core.cache import cache
-from django.contrib.sites.models import Site
 from django.db import connection
 from django.db.backends.postgresql.base import DatabaseWrapper
 from django.http import HttpRequest, HttpResponseNotAllowed, JsonResponse
@@ -113,17 +112,11 @@ class GraphQLView(View):
                 return HttpResponseNotAllowed(["OPTIONS", "POST"])
 
     def render_playground(self, request):
-        # @cf::ornament.saleor.graphql
-        site: Site = Site.objects.get_current()
-        api_url = f"{settings.PROJECT_URL_SFX}/graphql/"
-
         return render(
             request,
             "graphql/playground.html",
             {
-                # @cf::ornament.saleor.graphql
-                "api_url": api_url,
-                # "api_url": request.build_absolute_uri(str(API_PATH)),
+                "api_url": request.build_absolute_uri(str(API_PATH)),
                 "plugins_url": request.build_absolute_uri("/plugins/"),
             },
         )
