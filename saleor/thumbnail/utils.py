@@ -46,10 +46,7 @@ def prepare_image_proxy_url(
     kwargs = {"instance_id": instance_id, "size": size}
     if format and format.lower() != ThumbnailFormat.ORIGINAL:
         kwargs["format"] = format.lower()
-
-    # @cf::ornament.saleor.utils
-    return settings.PROJECT_URL_SFX + reverse("thumbnail", kwargs=kwargs)
-    # return reverse("thumbnail", kwargs=kwargs)
+    return reverse("thumbnail", kwargs=kwargs)
 
 
 def get_thumbnail_size(size: Optional[int]) -> int:
