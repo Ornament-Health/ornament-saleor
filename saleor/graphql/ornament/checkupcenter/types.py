@@ -208,6 +208,8 @@ class CheckUp(ModelObjectType[models.CheckUp]):
         prefetch_related=prefetch_checkup_products,
     )
 
+    is_personalized = graphene.Boolean(description="Is checkup personalized or not")
+
     # products = ConnectionField(
     #     CheckUpProductCountableConnection,
     #     description="List of checkup products in the checkup.",
