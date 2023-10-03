@@ -21,6 +21,20 @@ SPECIAL_CASE_FULL_SKU_BIOMARKERS = [190, 337]
 
 
 # Utils
+
+
+# only for multiselect attribute types
+def get_int_product_attribute_values_by_slug(product: Product, attribute_slug: str):
+    return list(
+        map(
+            lambda x: int(x),
+            product.attributevalues.filter(
+                assignment__assignment__attribute__slug=attribute_slug
+            ).values_list("value__name", flat=True),
+        )
+    )
+
+
 def get_user_medical_history_from_dataapi(pid, history=None):
     """
     DataApi json history:
@@ -412,13 +426,18 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
             matched_at=timezone.now(),
         )
         for product in template.products.all():
+            biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
+            medical_exams = get_int_product_attribute_values_by_slug(
+                product, "medical_exams"
+            )
             checkup.products.add(
                 product,
                 through_defaults={
                     "meta": {
-                        "ornament": product.metadata.get("details", {}).get(
-                            "ornament", {}
-                        )
+                        "ornament": {
+                            "biomarkers": biomarkers,
+                            "medical_exams": medical_exams,
+                        }
                     }
                 },
             )
@@ -471,13 +490,18 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
             matched_at=timezone.now(),
         )
         for product in base.template.products.all():
+            biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
+            medical_exams = get_int_product_attribute_values_by_slug(
+                product, "medical_exams"
+            )
             checkup.products.add(
                 product,
                 through_defaults={
                     "meta": {
-                        "ornament": product.metadata.get("details", {}).get(
-                            "ornament", {}
-                        )
+                        "ornament": {
+                            "biomarkers": biomarkers,
+                            "medical_exams": medical_exams,
+                        }
                     }
                 },
             )
@@ -706,13 +730,18 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             matched_at=timezone.now(),
         )
         for product in base.template.products.all():
+            biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
+            medical_exams = get_int_product_attribute_values_by_slug(
+                product, "medical_exams"
+            )
             checkup.products.add(
                 product,
                 through_defaults={
                     "meta": {
-                        "ornament": product.metadata.get("details", {}).get(
-                            "ornament", {}
-                        ),
+                        "ornament": {
+                            "biomarkers": biomarkers,
+                            "medical_exams": medical_exams,
+                        }
                     }
                 },
             )
@@ -735,14 +764,21 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             # Remove non-personalized SKU by REMOVE_RULE.
             inactive.append(checkup_products[sku].id)
         elif not sku in checkup_products and not REMOVE_RULE in actions:
+            biomarkers = get_int_product_attribute_values_by_slug(
+                bproduct.product, "biomarkers"
+            )
+            medical_exams = get_int_product_attribute_values_by_slug(
+                bproduct.product, "medical_exams"
+            )
             # Revert non-personalized SKU in case of no more REMOVE_RULE exists.
             checkup.products.add(
                 bproduct.product,
                 through_defaults={
                     "meta": {
-                        "ornament": bproduct.product.metadata.get("details", {}).get(
-                            "ornament", {}
-                        ),
+                        "ornament": {
+                            "biomarkers": biomarkers,
+                            "medical_exams": medical_exams,
+                        }
                     },
                 },
             )
@@ -757,6 +793,10 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             product = Product.objects.published().filter(name=sku).first()
             if not product:
                 continue
+            biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
+            medical_exams = get_int_product_attribute_values_by_slug(
+                product, "medical_exams"
+            )
             # Add new personalized SKU by ADD_RULE.
             checkup.products.add(
                 product,
@@ -765,7 +805,8 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
                     "meta": {
                         "ornament": {
                             "rules": rules,
-                            **product.metadata.get("details", {}).get("ornament", {}),
+                            "biomarkers": biomarkers,
+                            "medical_exams": medical_exams,
                         },
                     },
                 },
