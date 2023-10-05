@@ -134,6 +134,9 @@ documentation = "https://docs.saleor.io/"
   vcrpy = ">=4.0,<5.0"
   fakeredis = "^2.10"
 
+[tool.poetry.group.dev.dependencies]
+python-slugify = "^8.0.1"
+
 [tool.black]
 target_version = [ "py35", "py36", "py37", "py38" ]
 include = "\\.pyi?$"

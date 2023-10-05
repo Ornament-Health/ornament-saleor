@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from django.utils.translation import pgettext_lazy
+
 if TYPE_CHECKING:
     from .models import FulfillmentLine
 
@@ -145,6 +147,12 @@ class OrderEvents:
     # Used mostly for importing legacy data from before Enum-based events
     OTHER = "other"
 
+    # @cf::ornament.saleor.order
+    PLACED_TO_LAB = "placed_to_lab"
+    PDF_RESULT_GOT_FROM_LAB = "pdf_result_got_from_lab"
+    PDF_RESULT_IMAGESET_UPLOAD = "pdf_result_imageset_upload"
+    UPDATED_LABORATORY_DATA = "updated_laboratory_data"
+
     CHOICES = [
         (DRAFT_CREATED, "The draft order was created"),
         (DRAFT_CREATED_FROM_REPLACE, "The draft order with replace lines was created"),
@@ -198,6 +206,17 @@ class OrderEvents:
         (NOTE_ADDED, "A note was added to the order"),
         (NOTE_UPDATED, "A note was updated in the order"),
         (OTHER, "An unknown order event containing a message"),
+        # @cf::ornament.saleor.order
+        (PLACED_TO_LAB, "Order placed to lab's FTP in XML"),
+        (PDF_RESULT_GOT_FROM_LAB, "Downloaded PDF results from the lab"),
+        (PDF_RESULT_IMAGESET_UPLOAD, "Attempt to upload PDF results to Imageset API"),
+        (
+            UPDATED_LABORATORY_DATA,
+            pgettext_lazy(
+                "Event from a staff user that updated any laboratory data of a placed order",
+                "Laboratory data from the placed order was updated",
+            ),
+        ),
     ]
 
 

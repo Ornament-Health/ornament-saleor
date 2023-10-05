@@ -67,8 +67,11 @@ from .dataloaders import (
     RestrictedChannelAccessByUserIdLoader,
     ThumbnailByUserIdSizeAndFormatLoader,
 )
-from .enums import CountryCodeEnum, CustomerEventsEnum
+from .enums import CountryCodeEnum, CustomerEventsEnum, SexEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
+
+# @cf::ornament.saleor.account
+from saleor.graphql.core.scalars import Date
 
 # @cf::ornament.geo
 from saleor.graphql.ornament.geo.types import City
@@ -96,6 +99,9 @@ class AddressInput(BaseInputObjectType):
             "[libphonenumber](https://github.com/google/libphonenumber) library."
         )
     )
+    # @cf::ornament.saleor.account
+    sex = SexEnum(description="Sex.")
+    date_of_birth = Date(description="Date of birth.")
 
     metadata = graphene.List(
         graphene.NonNull(MetadataInput),

@@ -255,6 +255,7 @@ INSTALLED_APPS = [
     "saleor.ornament.checkupcenter",
     # @cf::ornament.vendors
     "saleor.ornament.vendors",
+    "saleor.ornament.vendors.kdl",
     # @cf::ornament.geo
     "saleor.ornament.geo",
     # External apps
@@ -868,6 +869,15 @@ ORNAMENT_S3_AWS_SECRET_ACCESS_KEY = os.environ.get(
 )
 ORNAMENT_S3_BUCKET = os.environ.get("ORNAMENT_S3_BUCKET", None)
 
+ORNAMENT_NOTIFICATION_API_URL = os.environ.get("ORNAMENT_NOTIFICATION_API_URL", None)
+ORNAMENT_IMAGESET_API_UPLOAD_PDF_URL = os.environ.get(
+    "ORNAMENT_IMAGESET_API_UPLOAD_PDF_URL", None
+)
+ORNAMENT_SSO_VALIDATION_URL = os.environ.get("ORNAMENT_SSO_VALIDATION_URL", None)
+ORNAMENT_INTERNAL_DATA_API = os.environ.get("ORNAMENT_INTERNAL_DATA_API", None)
+ORNAMENT_API_PUBLIC_HOST = os.environ.get("ORNAMENT_API_PUBLIC_HOST", None)
+ORNAMENT_API_INTERNAL_HOST = os.environ.get("ORNAMENT_API_INTERNAL_HOST", None)
+
 GEO_LITE_DB_FILE_PATH_COMPRESSED = os.path.join(
     PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb.gz"
 )
@@ -875,4 +885,31 @@ GEO_LITE_DB_FILE_PATH = os.path.join(
     PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb"
 )
 
-PROJECT_URL_SFX: str = os.environ.get("PROJECT_URL_SFX", "")
+SLACK_ENABLED = os.environ.get("SLACK_ENABLED", None)
+SLACK_ENVIRONMENT = os.environ.get("SLACK_ENVIRONMENT", None)
+SLACK_API_TOKEN = os.environ.get("SLACK_API_TOKEN", None)
+SLACK_API_CHANNEL_NAME = os.environ.get("SLACK_API_CHANNEL_NAME", None)
+
+KDL_ORDER_RECIPIENTS = os.environ.get("KDL_ORDER_RECIPIENTS", None)
+KDL_CLINIC_ID = os.environ.get("KDL_CLINIC_ID", None)
+KDL_CLINIC_NOVOUCHER_ID = os.environ.get("KDL_CLINIC_NOVOUCHER_ID", None)
+KDL_DOCTOR_NOVOUCHER_ID = os.environ.get("KDL_DOCTOR_NOVOUCHER_ID", None)
+KDL_CLINIC_NAME = os.environ.get("KDL_CLINIC_NAME", None)
+KDL_WSDL_URL = os.environ.get("KDL_WSDL_URL", None)
+KDL_WSDL_USERNAME = os.environ.get("KDL_WSDL_USERNAME", None)
+KDL_WSDL_PASSWORD = os.environ.get("KDL_WSDL_PASSWORD", None)
+KDL_FTP_LOGIN = os.environ.get("KDL_FTP_LOGIN", None)
+KDL_FTP_HOST = os.environ.get("KDL_FTP_HOST", None)
+KDL_FTP_PASSWORD = os.environ.get("KDL_FTP_PASSWORD", None)
+KDL_LABORATORY_ID = "77MS"
+KDL_LABORATORY_NAME = "КДЛТЕСТ"
+KDL_MANDATORY_ORDER_SKU_LIST = [
+    ("Взятие биоматериала", "0.1.C1.0"),
+    ("Плановый выезд процедурной бригады к пациенту (город)", "0.1.C17"),
+]
+
+DATA_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "datadir"))
+LOCK_DIR = os.path.abspath(os.path.join(DATA_DIR, "lock"))
+
+KDL_PDF_STORAGE_DIR = os.path.join(MEDIA_ROOT, "kdl_pdf_results")
+os.makedirs(KDL_PDF_STORAGE_DIR, exist_ok=True)

@@ -1,20 +1,17 @@
 import json
-
-from ftplib import FTP
-from lxml import etree
-from typing import List, Optional
 from datetime import datetime, timedelta
-from ftpparser import FTPParser
+from ftplib import FTP
+from typing import List, Optional
 
 from django.conf import settings
 from django.utils import timezone
+from ftpparser import FTPParser
+from lxml import etree
 
 from saleor.account import Sex
 from saleor.order.models import Order
-
-# TODO[ornament]: VoucherScope, KDLDiscount
-# from saleor.discount import VoucherScope
-# from saleor.discount.models import KDLDiscount
+from saleor.ornament.vendors import VoucherScope
+from saleor.ornament.vendors.kdl.models import KDLDiscount
 
 
 def add_sub_element(
@@ -101,7 +98,7 @@ def make_preorder_data(order: Order) -> dict:
     laboratory_id = settings.KDL_LABORATORY_ID
     laboratory_name = settings.KDL_LABORATORY_NAME
     promocode = order.voucher and order.voucher.name
-    kdl_discount = KDLDiscount.get_for_order(order)
+    kdl_discount = KDLDiscount.objects.get_for_order(order)
     if kdl_discount:
         clinic_id = kdl_discount.clinic_id
         doctor_id = kdl_discount.doctor_id
@@ -134,7 +131,7 @@ def make_preorder_data(order: Order) -> dict:
         )
     if promocode:
         patient_note = f'Промокод: "{promocode}", {patient_note}'
-    tests = [{"TestShortName": line.product_sku} for line in order.lines.all()]
+    tests = [{"TestShortName": line.product_name} for line in order.lines.all()]
     tests.extend([{"TestShortName": sku} for _, sku in mandatory_order_sku_list])
     return {
         "Header": {

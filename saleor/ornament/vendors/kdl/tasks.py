@@ -3,22 +3,23 @@ import os
 import re
 import ftplib
 import logging
+from uuid import UUID
 import requests
 
 from ftplib import FTP
 from lxml import etree
-from functools import reduce
-from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from zeep import Client
+from zeep import Client, Settings as WSDL_Settings
 from django.conf import settings
 from django.utils import timezone
 
 from saleor.celeryconf import app
 from saleor.order import events, models
-from saleor.utils.notifications import slack_send_message_task
 from saleor.utils import get_safe_lxml_parser
+from saleor.order.actions import create_fulfillments_internal
+
+# from saleor.utils.notifications import slack_send_message_task
 
 from .utils import (
     make_order_xml_tree,
@@ -46,13 +47,14 @@ IMAGESET_API_SOURCE = "lab@home"
 
 
 @app.task(autoretry_for=[Exception])
-def place_preorder_via_wsdl(order_id: int) -> None:
+def place_preorder_via_wsdl(order_id: UUID) -> None:
     order = (
         models.Order.objects.select_related("user", "shipping_address")
         .prefetch_related("lines")
         .get(pk=order_id)
     )
-    client = Client(settings.KDL_WSDL_URL)
+    kdl_wsdl_client_settings = WSDL_Settings(strict=False, xml_huge_tree=True)
+    client = Client(settings.KDL_WSDL_URL, settings=kdl_wsdl_client_settings)
     order_data = make_preorder_data(order)
     if order_data is None:
         logger.info(f"WSDL order_data is empty for order #{order.id}")
@@ -78,8 +80,7 @@ def place_preorder_via_wsdl(order_id: int) -> None:
     kdl_preorder_id = result["PreOrderID"]
     order.external_lab_id = kdl_preorder_id
     order.save(update_fields=["external_lab_id"])
-    # TODO[ornament]: add events.order_placed_to_lab_event
-    # events.order_placed_to_lab_event(order=order, user=order.user, lab_name="KDL")
+    events.order_placed_to_lab_event(order=order, user=order.user, lab_name="KDL")
 
 
 @app.task(autoretry_for=[Exception])
@@ -103,13 +104,12 @@ def place_xml_order_via_ftp(order_id: int) -> None:
             f"{settings.KDL_CLINIC_ID[-4:]}{order.pk:05}.xml",
             xml_doc,
         )
-    # TODO[ornament]: add events.order_placed_to_lab_event
-    # events.order_placed_to_lab_event(order=order, user=order.user, lab_name="KDL")
+    events.order_placed_to_lab_event(order=order, user=order.user, lab_name="KDL")
 
 
 @app.task(autoretry_for=[Exception])
 def upload_pdf_to_imageset_api(
-    order_id: int, user_id: int, full_path: str, sso_id: str
+    order_id: UUID, user_id: int, full_path: str, sso_id: str
 ) -> None:
     error = None
     iid = None
@@ -124,18 +124,17 @@ def upload_pdf_to_imageset_api(
         iid = response.json()["iid"]
     else:
         error = response.text
-    # TODO[ornament]: add events.order_result_imageset_upload_event
-    # events.order_result_imageset_upload_event(
-    #     order_id=order_id, user_id=user_id, lab_name="KDL", error=error, iid=iid
-    # )
+    events.order_result_imageset_upload_event(
+        order_id=order_id, user_id=user_id, lab_name="KDL", error=error, iid=iid
+    )
     os.remove(full_path)
     # If everything went well we fetch the whole order with all lines and pass it for
     # automatic fulfillment. Local import to avoid circular import.
     whole_order = models.Order.objects.prefetch_related("lines").get(pk=order_id)
     from saleor.order import utils
 
-    # TODO[ornament]: add utils.force_fulfill_all_lines
-    # utils.force_fulfill_all_lines(order=whole_order)
+    create_fulfillments_internal(whole_order)
+
     utils.update_order_status(order=whole_order)
 
 
@@ -299,13 +298,12 @@ def check_for_new_results() -> None:
 
             # create new order event and send file to imageset api
 
-            # TODO[ornament]: add events.order_result_downloaded_from_lab_event
-            # events.order_result_downloaded_from_lab_event(
-            #     order_id=order.pk,
-            #     user_id=order.user.pk,
-            #     lab_name="KDL",
-            #     filename=pdf_filename,
-            # )
+            events.order_result_downloaded_from_lab_event(
+                order=order,
+                user_id=order.user.pk,
+                lab_name="KDL",
+                filename=pdf_filename,
+            )
             upload_pdf_to_imageset_api.delay(
                 order_id=order.pk,
                 user_id=order.user.pk,
@@ -355,117 +353,117 @@ def check_for_new_results() -> None:
             except ftplib.all_errors as e:
                 pass  # do nothing on error while waste clearing
 
-        # generate slack report
-        # ---------------------
-        slack_block = []
+        # # generate slack report
+        # # ---------------------
+        # slack_block = []
 
-        # incorrect xml files
-        if kdl_files_indexed_by_order_id["orphans"]["xml"]:
-            slack_block.append(
-                f"Удалены некорректные файлы xml с пустым OrderID:\n    %s"
-                % "\n    ".join(kdl_files_indexed_by_order_id[None]["xml"])
-            )
+        # # incorrect xml files
+        # if kdl_files_indexed_by_order_id["orphans"]["xml"]:
+        #     slack_block.append(
+        #         f"Удалены некорректные файлы xml с пустым OrderID:\n    %s"
+        #         % "\n    ".join(kdl_files_indexed_by_order_id[None]["xml"])
+        #     )
 
-        # empty BookingId files
-        files = [
-            (i["xml"], i["pdf"])
-            for i in kdl_files_to_be_deleted
-            if not i["kdl_preorder_id"]
-        ]
-        if files:
-            files = filter(bool, reduce(tuple.__add__, files, ()))
-            slack_block.append(
-                f"Удалены файлы с пустым BookingId:\n    %s" % "\n    ".join(files)
-            )
+        # # empty BookingId files
+        # files = [
+        #     (i["xml"], i["pdf"])
+        #     for i in kdl_files_to_be_deleted
+        #     if not i["kdl_preorder_id"]
+        # ]
+        # if files:
+        #     files = filter(bool, reduce(tuple.__add__, files, ()))
+        #     slack_block.append(
+        #         f"Удалены файлы с пустым BookingId:\n    %s" % "\n    ".join(files)
+        #     )
 
-        # standalone xml files
-        files = [
-            j["xml"]
-            for i in kdl_files_indexed_by_order_id["index"].values()
-            for j in i["files"]
-            if j["kdl_preorder_id"] and not j["pdf"]
-        ]
-        if files:
-            slack_block.append(
-                f"XML файлы без сзязанных PDF файлов:\n    %s" % "\n    ".join(files)
-            )
+        # # standalone xml files
+        # files = [
+        #     j["xml"]
+        #     for i in kdl_files_indexed_by_order_id["index"].values()
+        #     for j in i["files"]
+        #     if j["kdl_preorder_id"] and not j["pdf"]
+        # ]
+        # if files:
+        #     slack_block.append(
+        #         f"XML файлы без сзязанных PDF файлов:\n    %s" % "\n    ".join(files)
+        #     )
 
-        # standalone pdf files
-        if kdl_files_indexed_by_order_id["orphans"]["pdf"]:
-            slack_block.append(
-                f"PDF файлы без сзязанных xml файлов:\n    %s"
-                % "\n    ".join(kdl_files_indexed_by_order_id["orphans"]["pdf"])
-            )
+        # # standalone pdf files
+        # if kdl_files_indexed_by_order_id["orphans"]["pdf"]:
+        #     slack_block.append(
+        #         f"PDF файлы без сзязанных xml файлов:\n    %s"
+        #         % "\n    ".join(kdl_files_indexed_by_order_id["orphans"]["pdf"])
+        #     )
 
-        # xml and pdf couples without related Order in DB
-        files = [
-            f'{j["xml"]} ({j["pdf"]})'
-            for i in kdl_files_indexed_by_order_id["index"].values()
-            for j in i["files"]
-            if j["kdl_preorder_id"] and j["pdf"] and not i["order_exists"]
-        ]
-        if files:
-            slack_block.append(
-                f"XML (PDF) файлы без соответствующего заказа в БД:\n    %s"
-                % "\n    ".join(files)
-            )
+        # # xml and pdf couples without related Order in DB
+        # files = [
+        #     f'{j["xml"]} ({j["pdf"]})'
+        #     for i in kdl_files_indexed_by_order_id["index"].values()
+        #     for j in i["files"]
+        #     if j["kdl_preorder_id"] and j["pdf"] and not i["order_exists"]
+        # ]
+        # if files:
+        #     slack_block.append(
+        #         f"XML (PDF) файлы без соответствующего заказа в БД:\n    %s"
+        #         % "\n    ".join(files)
+        #     )
 
-        # xml and pdf couples with errors while downloading files
-        files = [
-            f'{j["xml"]} ({j["pdf"]})'
-            for i in kdl_files_indexed_by_order_id["index"].values()
-            for j in i["files"]
-            if i["order_exists"]
-            and j["pdf"]
-            and j["kdl_preorder_id"]
-            and not j["pdf_is_loaded"]
-        ]
-        if files:
-            slack_block.append(
-                f"Корректные файлы, не загруженные из-за ошибок FTP:\n    %s"
-                % "\n    ".join(files)
-            )
+        # # xml and pdf couples with errors while downloading files
+        # files = [
+        #     f'{j["xml"]} ({j["pdf"]})'
+        #     for i in kdl_files_indexed_by_order_id["index"].values()
+        #     for j in i["files"]
+        #     if i["order_exists"]
+        #     and j["pdf"]
+        #     and j["kdl_preorder_id"]
+        #     and not j["pdf_is_loaded"]
+        # ]
+        # if files:
+        #     slack_block.append(
+        #         f"Корректные файлы, не загруженные из-за ошибок FTP:\n    %s"
+        #         % "\n    ".join(files)
+        #     )
 
-        if settings.SLACK_SYNC_RESULTS and slack_block:
-            # send slack report chunked by max limit size (in slack - 3001 characters)
-            blocks = [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Результат синхронизации KDL по FTP.",
-                        "emoji": True,
-                    },
-                },
-                {"type": "divider"},
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "",
-                    },
-                },
-            ]
+        # if settings.SLACK_SYNC_RESULTS and slack_block:
+        #     # send slack report chunked by max limit size (in slack - 3001 characters)
+        #     blocks = [
+        #         {
+        #             "type": "section",
+        #             "text": {
+        #                 "type": "plain_text",
+        #                 "text": "Результат синхронизации KDL по FTP.",
+        #                 "emoji": True,
+        #             },
+        #         },
+        #         {"type": "divider"},
+        #         {
+        #             "type": "section",
+        #             "text": {
+        #                 "type": "mrkdwn",
+        #                 "text": "",
+        #             },
+        #         },
+        #     ]
 
-            lines = "\n\n".join(slack_block).split("\n")
-            line_last = len(lines) - 1
+        #     lines = "\n\n".join(slack_block).split("\n")
+        #     line_last = len(lines) - 1
 
-            chunk, chunk_first, chunk_size, chunk_size_max = [], True, 0, 1024 * 2.5
-            for index, line in enumerate(lines):
-                chunk.append(line)
-                chunk_size += len(line)
-                if chunk_size < chunk_size_max and index < line_last:
-                    continue
+        #     chunk, chunk_first, chunk_size, chunk_size_max = [], True, 0, 1024 * 2.5
+        #     for index, line in enumerate(lines):
+        #         chunk.append(line)
+        #         chunk_size += len(line)
+        #         if chunk_size < chunk_size_max and index < line_last:
+        #             continue
 
-                if chunk_first:
-                    blocks[-1]["text"]["text"] = (
-                        f"```{timezone.now()} {settings.SLACK_ENVIRONMENT}"
-                        f"\n\n{chr(10).join(chunk)}```"
-                    )
-                    payload = blocks
-                else:
-                    blocks[-1]["text"]["text"] = f"```{(chr(10)).join(chunk)}```"
-                    payload = blocks[-1:]
+        #         if chunk_first:
+        #             blocks[-1]["text"]["text"] = (
+        #                 f"```{timezone.now()} {settings.SLACK_ENVIRONMENT}"
+        #                 f"\n\n{chr(10).join(chunk)}```"
+        #             )
+        #             payload = blocks
+        #         else:
+        #             blocks[-1]["text"]["text"] = f"```{(chr(10)).join(chunk)}```"
+        #             payload = blocks[-1:]
 
-                slack_send_message_task.delay({"blocks": payload})
-                chunk, chunk_size, chunk_first = [], 0, False
+        #         slack_send_message_task.delay({"blocks": payload})
+        #         chunk, chunk_size, chunk_first = [], 0, False

@@ -21,6 +21,9 @@ from ..core.utils.translations import Translation
 from ..permission.enums import DiscountPermissions
 from . import DiscountType, DiscountValueType, VoucherType
 
+# @cf::ornament.saleor.discount
+from saleor.ornament.vendors import VoucherScope
+
 if TYPE_CHECKING:
     from ..account.models import User
 
@@ -93,6 +96,11 @@ class Voucher(ModelWithMetadata):
     variants = models.ManyToManyField("product.ProductVariant", blank=True)
     collections = models.ManyToManyField("product.Collection", blank=True)
     categories = models.ManyToManyField("product.Category", blank=True)
+
+    # @cf::ornament.saleor.discount
+    scope = models.CharField(
+        max_length=20, choices=VoucherScope.CHOICES, default=VoucherScope.RETAIL
+    )
 
     objects = VoucherManager()
 

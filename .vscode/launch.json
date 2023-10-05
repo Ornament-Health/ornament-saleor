@@ -37,6 +37,18 @@
                 "worker",
                 "--beat"
             ]
+        },
+        {
+            "name": "Saleor check_kdl_results",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": [
+                "check_kdl_results"
+            ],
+            "django": true,
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
         }
     ]
 }
