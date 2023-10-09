@@ -889,6 +889,7 @@ SLACK_ENABLED = os.environ.get("SLACK_ENABLED", None)
 SLACK_ENVIRONMENT = os.environ.get("SLACK_ENVIRONMENT", None)
 SLACK_API_TOKEN = os.environ.get("SLACK_API_TOKEN", None)
 SLACK_API_CHANNEL_NAME = os.environ.get("SLACK_API_CHANNEL_NAME", None)
+SLACK_WEBHOOK = os.environ.get("SLACK_WEBHOOK", None)
 
 KDL_ORDER_RECIPIENTS = os.environ.get("KDL_ORDER_RECIPIENTS", None)
 KDL_CLINIC_ID = os.environ.get("KDL_CLINIC_ID", None)
