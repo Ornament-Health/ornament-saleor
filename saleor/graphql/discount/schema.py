@@ -25,7 +25,13 @@ from .mutations import (
     VoucherUpdate,
 )
 from .mutations.bulk_mutations import SaleBulkDelete, VoucherBulkDelete
-from .resolvers import resolve_sale, resolve_sales, resolve_voucher, resolve_vouchers
+from .resolvers import (
+    resolve_sale,
+    resolve_sales,
+    resolve_voucher,
+    resolve_vouchers,
+    resolve_voucher_by_code,
+)
 from .sorters import SaleSortingInput, VoucherSortingInput
 from .types import Sale, SaleCountableConnection, Voucher, VoucherCountableConnection
 
@@ -107,6 +113,14 @@ class DiscountQueries(graphene.ObjectType):
         ],
         doc_category=DOC_CATEGORY_DISCOUNTS,
     )
+    voucherByCode = graphene.Field(
+        Voucher,
+        code=graphene.Argument(graphene.String, required=True),
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned."
+        ),
+        description="Lookup a voucher by Code.",
+    )
 
     @staticmethod
     def resolve_sale(_root, _info, *, id, channel=None):
@@ -131,6 +145,10 @@ class DiscountQueries(graphene.ObjectType):
         kwargs["channel"] = channel
         qs = filter_connection_queryset(qs, kwargs)
         return create_connection_slice(qs, info, kwargs, VoucherCountableConnection)
+
+    @staticmethod
+    def resolve_voucherByCode(_root, info: ResolveInfo, *, code, channel=None):
+        return resolve_voucher_by_code(code, channel)
 
 
 class DiscountMutations(graphene.ObjectType):

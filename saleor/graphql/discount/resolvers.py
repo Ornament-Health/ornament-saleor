@@ -35,3 +35,8 @@ def resolve_sales(info, channel_slug, **kwargs) -> ChannelQsContext:
         qs = filter_sale_search(qs, None, query)
 
     return ChannelQsContext(qs=qs, channel_slug=channel_slug)
+
+
+def resolve_voucher_by_code(code, channel):
+    voucher = models.Voucher.objects.filter(code=code).first()
+    return ChannelContext(node=voucher, channel_slug=channel) if voucher else None
