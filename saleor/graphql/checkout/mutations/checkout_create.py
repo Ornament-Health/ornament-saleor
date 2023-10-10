@@ -159,6 +159,7 @@ class CheckoutCreateInput(BaseInputObjectType):
             "The checkout validation rules that can be changed." + ADDED_IN_35
         ),
     )
+    note = graphene.String(description="Free form note for checkout")
 
     class Meta:
         doc_category = DOC_CATEGORY_CHECKOUT
