@@ -908,9 +908,19 @@ KDL_MANDATORY_ORDER_SKU_LIST = [
     ("Взятие биоматериала", "0.1.C1.0"),
     ("Плановый выезд процедурной бригады к пациенту (город)", "0.1.C17"),
 ]
+KDL_ORDER_EMAIL_TEMPLATE_PATH = os.path.join(
+    PROJECT_ROOT,
+    "saleor",
+    "ornament",
+    "vendors",
+    "templates",
+    "confirm_kdl_order_email.html",
+)
 
 DATA_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "datadir"))
 LOCK_DIR = os.path.abspath(os.path.join(DATA_DIR, "lock"))
 
 KDL_PDF_STORAGE_DIR = os.path.join(MEDIA_ROOT, "kdl_pdf_results")
 os.makedirs(KDL_PDF_STORAGE_DIR, exist_ok=True)
+
+ORDER_FROM_EMAIL = os.environ.get("ORDER_FROM_EMAIL", "hello@ornament.health")

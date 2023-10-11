@@ -1,0 +1,43 @@
+<html>
+  <head>
+    <title>Заказ № {{ order.id }}</title>
+  </head>
+  <body>
+    Код отправителя: {{ clinic_id }}<br>
+    Код врача: {{ doctor_id }}<br>
+    Промокод: {{ promocode|default('-') }}<br>
+    Заказ № {{ order.id }}<br><br>
+    ФИО: {{ order.shipping_address.last_name }}<br>
+    Дата рождения: {{ user_date_of_birth }}<br>
+    Адрес забора б/м: г. {{ order.shipping_address.city }}, {{ order.shipping_address.street_address_1 }}<br>
+    Телефон: {{ order.shipping_address.phone }}<br>
+    Дата приезда медсестры: {{ visit_date }}<br>
+    Время забора б/м: {{ visit_time }}<br><br>
+    ПЛАН ОБСЛЕДОВАНИЯ:<br><br>
+    <table border="1">
+      <thead>
+        <tr>
+          <td>№</td>
+          <td>Название теста по прейскуранту</td>
+          <td>Код исследования по прейскуранту</td>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line_title, line_sku in kdl_mandatory_order_sku_list %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ line_title }}</td>
+            <td>{{ line_sku }}</td>
+          </tr>
+        {% endfor %}
+        {% for line in numbered_lines %}
+          <tr>
+            <td>{{ line.number }}</td>
+            <td>{{ line.title }}</td>
+            <td>{{ line.sku }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

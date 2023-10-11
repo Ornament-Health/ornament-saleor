@@ -4,6 +4,7 @@ import re
 import ftplib
 import logging
 from uuid import UUID
+from jinja2 import Template
 import requests
 
 from ftplib import FTP
@@ -16,8 +17,10 @@ from django.utils import timezone
 
 from saleor.celeryconf import app
 from saleor.order import events, models
+from saleor.ornament.utils.notification_api import NotificationApi
 from saleor.utils import get_safe_lxml_parser
 from saleor.order.actions import create_fulfillments_internal
+from saleor.ornament.vendors.kdl.utils import collect_data_for_email
 
 # from saleor.utils.notifications import slack_send_message_task
 
@@ -136,6 +139,18 @@ def upload_pdf_to_imageset_api(
     create_fulfillments_internal(whole_order)
 
     utils.update_order_status(order=whole_order)
+
+
+@app.task(autoretry_for=[Exception])
+def send_order_confirmation(order_id: UUID):
+    email_data = collect_data_for_email(order_id)
+    with open(settings.KDL_ORDER_EMAIL_TEMPLATE_PATH, "r") as f:
+        email_html = f.read()
+    t = Template(email_html)
+    body = t.render(**email_data.context)
+    NotificationApi.send_email(
+        recipients=email_data.recipient_list, subject=email_data.subject, body=body
+    )
 
 
 def check_for_new_results() -> None:

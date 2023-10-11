@@ -1,7 +1,9 @@
+from dataclasses import dataclass
 import json
 from datetime import datetime, timedelta
 from ftplib import FTP
 from typing import List, Optional
+from uuid import UUID
 
 from django.conf import settings
 from django.utils import timezone
@@ -12,6 +14,14 @@ from saleor.account import Sex
 from saleor.order.models import Order
 from saleor.ornament.vendors import VoucherScope
 from saleor.ornament.vendors.kdl.models import KDLDiscount
+
+
+@dataclass
+class KDLOrderEmail:
+    recipient_list: list[str]
+    context: dict
+    from_email: str
+    subject: str
 
 
 def add_sub_element(
@@ -221,3 +231,77 @@ def parse_ftp_dir_listing(
         )
 
     return result
+
+
+def collect_data_for_email(order_id: UUID) -> KDLOrderEmail:
+    """Collect the required data for sending KDL order email."""
+    order = Order.objects.get(id=order_id)
+    promocode = order.voucher and order.voucher.name
+    kdl_discount = KDLDiscount.objects.get_for_order(order)
+    kdl_email = settings.KDL_ORDER_RECIPIENTS  # one address
+    if kdl_discount:
+        clinic_id = kdl_discount.clinic_id
+        doctor_id = kdl_discount.doctor_id
+        promocode = kdl_discount.discount_title
+        kdl_email = kdl_discount.email and [kdl_discount.email] or kdl_email
+    elif order.voucher is None or order.voucher.scope == VoucherScope.RETAIL:
+        clinic_id = settings.KDL_CLINIC_NOVOUCHER_ID
+        doctor_id = settings.KDL_DOCTOR_NOVOUCHER_ID
+    else:
+        clinic_id = settings.KDL_CLINIC_ID
+        doctor_id = ""
+
+    mandatory_order_sku_list = KDLDiscount.get_mandatory_order_sku_list(kdl_discount)
+
+    email_context = {}
+    email_context["order"] = order
+    email_context["clinic_id"] = clinic_id
+    email_context["doctor_id"] = doctor_id
+    email_context["promocode"] = promocode
+    email_context["kdl_mandatory_order_sku_list"] = mandatory_order_sku_list
+
+    try:
+        note_data = json.loads(order.customer_note)
+        email_context["visit_date"] = note_data.get(
+            "date", "просьба согласовать по телефону"
+        )
+        email_context["visit_time"] = note_data.get(
+            "time", "просьба согласовать по телефону"
+        )
+    except json.JSONDecodeError:
+        email_context["visit_date"] = "просьба согласовать по телефону"
+        email_context["visit_time"] = "просьба согласовать по телефону"
+
+    try:
+        email_context["user_date_of_birth"] = datetime.strftime(
+            order.shipping_address.date_of_birth, "%d.%m.%Y"
+        )
+    except (KeyError, ValueError, TypeError, AttributeError):
+        email_context["user_date_of_birth"] = "не указано"
+
+    lines = []
+    for number, line in enumerate(
+        list(order.lines.all()), start=len(mandatory_order_sku_list) + 1
+    ):
+        sku = line.product_name
+        title = sku
+        if line.variant.product.description:
+            header = [
+                b
+                for b in line.variant.product.description.get("blocks", [])
+                if b.get("type") == "header"
+            ]
+            if len(header):
+                title = header[0].get("data", {}).get("text")
+
+        lines.append({"number": number, "title": title, "sku": sku})
+    email_context["numbered_lines"] = lines
+
+    subject = f"Заказ № {order.id}"
+
+    return KDLOrderEmail(
+        from_email=settings.ORDER_FROM_EMAIL,
+        recipient_list=kdl_email,
+        context=email_context,
+        subject=subject,
+    )
