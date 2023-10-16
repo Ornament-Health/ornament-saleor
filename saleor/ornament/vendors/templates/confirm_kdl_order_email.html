@@ -7,7 +7,7 @@
     Код врача: {{ doctor_id }}<br>
     Промокод: {{ promocode|default('-') }}<br>
     Заказ № {{ order.id }}<br><br>
-    ФИО: {{ order.shipping_address.last_name }}<br>
+    ФИО: {{ order.shipping_address.first_name }} {{ order.shipping_address.last_name }}<br>
     Дата рождения: {{ user_date_of_birth }}<br>
     Адрес забора б/м: г. {{ order.shipping_address.city }}, {{ order.shipping_address.street_address_1 }}<br>
     Телефон: {{ order.shipping_address.phone }}<br>

@@ -53,7 +53,9 @@ def make_order_xml_tree(order: Order) -> etree.Element:
     add_sub_element(order_element, "OrderID", str(order.pk))
 
     patient_element = add_sub_element(root_element, "Patient")
-    full_name = order.shipping_address.last_name
+    full_name = (
+        f"{order.shipping_address.first_name} {order.shipping_address.last_name}"
+    )
     add_sub_element(patient_element, "LastName", full_name)
     add_sub_element(patient_element, "FirstMiddleName", full_name)
     date_of_birth = order.shipping_address.date_of_birth
@@ -100,7 +102,9 @@ def make_preorder_data(order: Order) -> dict:
         return None
 
     now = timezone.now().replace(microsecond=0)
-    full_name = order.shipping_address.last_name
+    full_name = (
+        f"{order.shipping_address.first_name} {order.shipping_address.last_name}"
+    )
     date_of_birth = order.shipping_address.date_of_birth
     phone = str(order.shipping_address.phone).replace("+7", "", 1)
     sex = order.shipping_address.sex or Sex.UNSPECIFIED
