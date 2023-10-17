@@ -1,10 +1,13 @@
 import logging
 from typing import Optional
 
+from django.conf import settings
+
 from saleor.order.fetch import OrderLineInfo
 from saleor.order.models import Order
 from saleor.ornament.vendors.kdl import tasks as kdl_tasks
 from saleor.ornament.vendors.models import Vendor
+from saleor.product.models import ProductVariant
 
 logger = logging.getLogger(__name__)
 
@@ -17,17 +20,21 @@ def apply_kdl_order_notification(order: Order):
     kdl_tasks.send_order_confirmation.delay(order_id=order.pk)
 
 
-def get_order_vendor_name(order_lines: list[OrderLineInfo]) -> Optional[str]:
-    vendors = set([l.variant.name for l in order_lines if l.variant])
+def apply_kdl_vendor_address_augmentation(data: dict) -> dict:
+    data["shipping_address"]["postal_code"] = settings.DEFAULT_KDL_POSTAL_CODE
+    data["shipping_address"]["country_area"] = settings.DEFAULT_KDL_COUNTRY_AREA
+    data["billing_address"]["postal_code"] = settings.DEFAULT_KDL_POSTAL_CODE
+    data["billing_address"]["country_area"] = settings.DEFAULT_KDL_COUNTRY_AREA
+    return data
 
+
+def get_vendor_name(vendors: set[str]) -> Optional[str]:
     if len(vendors) < 1:
-        logger.error("get_order_vendor_name: no valid Vendor in order lines")
+        logger.error("get_vendor_name: no valid Vendor in order lines")
         return None
 
     if len(vendors) > 1:
-        logger.error(
-            "get_order_vendor_name: found more then 1 valid Vendors in order lines"
-        )
+        logger.error("get_vendor_name: found more then 1 valid Vendors in order lines")
         return None
 
     vendor_name = vendors.pop()
@@ -39,7 +46,8 @@ def get_order_vendor_name(order_lines: list[OrderLineInfo]) -> Optional[str]:
 
 
 def apply_vendors_logic(order: Order, order_lines_info: list[OrderLineInfo]) -> None:
-    vendor_name = get_order_vendor_name(order_lines_info)
+    vendors = set([l.variant.name for l in order_lines_info if l.variant])
+    vendor_name = get_vendor_name(vendors)
 
     if vendor_name:
         vendor_logic = vendor_order_logic_map.get(vendor_name)
@@ -52,7 +60,8 @@ def apply_vendors_logic(order: Order, order_lines_info: list[OrderLineInfo]) -> 
 def apply_vendors_notification(
     order: Order, order_lines_info: list[OrderLineInfo]
 ) -> None:
-    vendor_name = get_order_vendor_name(order_lines_info)
+    vendors = set([l.variant.name for l in order_lines_info if l.variant])
+    vendor_name = get_vendor_name(vendors)
 
     if vendor_name:
         vendor_notification = vendor_order_notification_map.get(vendor_name)
@@ -62,5 +71,20 @@ def apply_vendors_notification(
     return
 
 
+def apply_vendor_address_augmentation(
+    variants: list[ProductVariant], data: dict
+) -> dict:
+    vendors = set([v.name for v in variants])
+    vendor_name = get_vendor_name(vendors)
+
+    if vendor_name:
+        vendor_address_augmentation = vendor_address_augmentation_map.get(vendor_name)
+        if vendor_address_augmentation:
+            return vendor_address_augmentation(data)
+
+    return data
+
+
 vendor_order_logic_map = {"KDL": apply_kdl_order_logic}
 vendor_order_notification_map = {"KDL": apply_kdl_order_notification}
+vendor_address_augmentation_map = {"KDL": apply_kdl_vendor_address_augmentation}
