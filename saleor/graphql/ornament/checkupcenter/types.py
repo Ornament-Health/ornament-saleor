@@ -292,6 +292,9 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
     approvement = enums.CheckUpStateApprovement(
         description="CheckUp state approvement value."
     )
+    status = graphene.String(description="CheckUp state status.")
+    date_from = graphene.DateTime(description="CheckUp state date from.")
+    date_to = graphene.DateTime(description="CheckUp state date to.")
 
     class Meta:
         model = models.CheckUpState
