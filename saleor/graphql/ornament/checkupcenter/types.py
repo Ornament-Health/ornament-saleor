@@ -108,6 +108,7 @@ class CheckUpProductMetaItem(graphene.ObjectType):
     medical_exams = graphene.List(
         graphene.Int, required=True, description="Medical Exams ids"
     )
+    rules = graphene.List(graphene.Int, required=True, description="Personalized Rules")
 
 
 class CheckUpProduct(ModelObjectType[models.CheckUpProduct]):
@@ -140,7 +141,9 @@ class CheckUpProduct(ModelObjectType[models.CheckUpProduct]):
         root_meta = root.meta.get("ornament", {})
 
         return CheckUpProductMetaItem(
-            root_meta.get("biomarkers", []), root_meta.get("medical_exams", [])
+            root_meta.get("biomarkers", []),
+            root_meta.get("medical_exams", []),
+            root_meta.get("rules", []),
         )
 
     @staticmethod
@@ -209,11 +212,6 @@ class CheckUp(ModelObjectType[models.CheckUp]):
     )
 
     is_personalized = graphene.Boolean(description="Is checkup personalized or not")
-
-    # products = ConnectionField(
-    #     CheckUpProductCountableConnection,
-    #     description="List of checkup products in the checkup.",
-    # )
 
     class Meta:
         model = models.CheckUp
