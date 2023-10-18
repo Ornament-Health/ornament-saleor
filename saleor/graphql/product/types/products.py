@@ -7,6 +7,7 @@ from typing import List, Optional
 import graphene
 from graphene import relay
 from promise import Promise
+import graphene_django_optimizer as gql_optimizer
 
 # @cf::ornament.saleor.product
 from saleor.ornament.geo.channel_utils import get_channel
@@ -1005,6 +1006,11 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
         description=f"External ID of this product. {ADDED_IN_310}",
         required=False,
     )
+    # @cf::ornament.saleor.graphql.product
+    checkup_product_category_ids = graphene.List(
+        graphene.NonNull(graphene.ID),
+        description="List of checkup product category ids for the product",
+    )
 
     class Meta:
         default_resolver = ChannelContextType.resolver_with_context
@@ -1626,6 +1632,18 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
                 )
 
         return [products.get(root_id) for root_id in roots_ids]
+
+    # @cf::ornament.saleor.graphql.product
+    @staticmethod
+    @gql_optimizer.resolver_hints(model_field="checkup_product_categories")
+    def resolve_checkup_product_category_ids(
+        root: ChannelContext[models.Product], *args, **kwargs
+    ):
+        checkup_product_category_ids = [
+            graphene.Node.to_global_id("CheckUpProductCategory", i.id)
+            for i in root.node.checkup_product_categories.all()
+        ]
+        return checkup_product_category_ids
 
 
 class ProductCountableConnection(CountableConnection):
