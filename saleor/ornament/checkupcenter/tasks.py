@@ -790,7 +790,14 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             continue
         cproduct, rules = checkup_products.get(sku), match["rules"]
         if not cproduct:
-            product = Product.objects.published().filter(name=sku).first()
+            channel_slug = (
+                user.city.channel.slug if user.city else settings.DEFAULT_CHANNEL_SLUG
+            )
+            product = (
+                Product.objects.published(channel_slug=channel_slug)  # FIXME
+                .filter(name=sku)
+                .first()
+            )
             if not product:
                 continue
             biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
