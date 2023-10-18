@@ -20,12 +20,10 @@ def apply_kdl_order_notification(order: Order):
     kdl_tasks.send_order_confirmation.delay(order_id=order.pk)
 
 
-def apply_kdl_vendor_address_augmentation(data: dict) -> dict:
-    data["shipping_address"]["postal_code"] = settings.DEFAULT_KDL_POSTAL_CODE
-    data["shipping_address"]["country_area"] = settings.DEFAULT_KDL_COUNTRY_AREA
-    data["billing_address"]["postal_code"] = settings.DEFAULT_KDL_POSTAL_CODE
-    data["billing_address"]["country_area"] = settings.DEFAULT_KDL_COUNTRY_AREA
-    return data
+def apply_kdl_vendor_address_augmentation(address_data: dict) -> dict:
+    address_data["postal_code"] = settings.DEFAULT_KDL_POSTAL_CODE
+    address_data["country_area"] = settings.DEFAULT_KDL_COUNTRY_AREA
+    return address_data
 
 
 def get_vendor_name(vendors: set[str]) -> Optional[str]:
@@ -72,7 +70,7 @@ def apply_vendors_notification(
 
 
 def apply_vendor_address_augmentation(
-    variants: list[ProductVariant], data: dict
+    variants: list[ProductVariant], address_data: dict
 ) -> dict:
     vendors = set([v.name for v in variants])
     vendor_name = get_vendor_name(vendors)
@@ -80,9 +78,9 @@ def apply_vendor_address_augmentation(
     if vendor_name:
         vendor_address_augmentation = vendor_address_augmentation_map.get(vendor_name)
         if vendor_address_augmentation:
-            return vendor_address_augmentation(data)
+            return vendor_address_augmentation(address_data)
 
-    return data
+    return address_data
 
 
 vendor_order_logic_map = {"KDL": apply_kdl_order_logic}

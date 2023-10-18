@@ -253,7 +253,9 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         if data.get("shipping_address") is not None:
             # @cf::ornament.saleor.checkout
             if variants:
-                data = apply_vendor_address_augmentation(variants, data)
+                data["shipping_address"] = apply_vendor_address_augmentation(
+                    variants, data["shipping_address"]
+                )
 
             return cls.validate_address(
                 data["shipping_address"],
@@ -282,7 +284,9 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         if data.get("billing_address") is not None:
             # @cf::ornament.saleor.checkout
             if variants:
-                data = apply_vendor_address_augmentation(variants, data)
+                data["billing_address"] = apply_vendor_address_augmentation(
+                    variants, data["billing_address"]
+                )
 
             return cls.validate_address(
                 data["billing_address"],
@@ -317,7 +321,11 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         )
         # @cf::ornament.saleor.checkout
         variant_ids = [line["variant_id"] for line in data.get("lines", [])]
-        variants = cls.get_nodes_or_error(variant_ids, "variant_id", ProductVariant)
+        variants = (
+            cls.get_nodes_or_error(variant_ids, "variant_id", ProductVariant)
+            if variant_ids
+            else []
+        )
         shipping_address = cls.retrieve_shipping_address(user, data, variants)
         billing_address = cls.retrieve_billing_address(user, data, variants)
 
