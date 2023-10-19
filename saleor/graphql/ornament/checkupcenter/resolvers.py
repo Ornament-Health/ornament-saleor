@@ -30,6 +30,9 @@ def resolve_checkups(info, **kwargs):
 
 
 def resolve_checkup_states(info, **kwargs):
+    if not kwargs.get("checkup_id"):
+        return []
+
     user = info.context.user
 
     model, checkup_id = from_global_id(kwargs.get("checkup_id"))

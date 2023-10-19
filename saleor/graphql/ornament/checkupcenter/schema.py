@@ -30,7 +30,7 @@ class CheckUpCenterQueries(graphene.ObjectType):
     checkup_states = graphene.List(
         types.CheckUpState,
         description="List of the checkup states related to CheckUp.",
-        checkup_id=graphene.Argument(graphene.ID, required=True),
+        checkup_id=graphene.Argument(graphene.ID, required=False),
     )
 
     @login_required
