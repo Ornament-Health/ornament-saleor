@@ -30,4 +30,5 @@ class VendorRule(AutoNowUpdateFieldsMixin, models.Model):
 
     class Meta:
         db_table = "ornament_vendor_rule"
+        # TODO fix vendor lock for 1+ vendors for the same category
         unique_together = [["user_id", "category_id", "vendor_id"]]

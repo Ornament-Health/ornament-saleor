@@ -15,6 +15,10 @@ from saleor.graphql.ornament.checkupcenter.schema import (
     CheckUpCenterQueries,
 )
 
+# @cf::ornament.search
+from saleor.graphql.ornament.search.schema import SearchProductsQueries
+
+
 from ..graphql.notifications.schema import ExternalNotificationMutations
 from .account.schema import AccountMutations, AccountQueries
 from .app.schema import AppMutations, AppQueries
@@ -80,6 +84,8 @@ class Query(
     VendorsQueries,
     # @cf::ornament.checkupcenter
     CheckUpCenterQueries,
+    # @cf::ornament.search
+    SearchProductsQueries,
 ):
     pass
 
