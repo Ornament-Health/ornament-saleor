@@ -310,6 +310,9 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
         interfaces = [graphene.relay.Node]
         description = "Represents a CheckUpState"
 
+    def resolve_status(self, _):
+        return self.status.upper() if self.status else None
+
     @staticmethod
     def actualize_checkup_state(root: models.CheckUpState):
         """
