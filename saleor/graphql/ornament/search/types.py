@@ -93,7 +93,6 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     @classmethod
     def resolve_product_type(cls, root: product_models.Product, info):
         return SearchProductType(
-            # id=graphene.Node.to_global_id("ProductType", root.product_type.pk),
             id=root.product_type.pk,
             name=root.product_type.name,
             slug=root.product_type.slug,
