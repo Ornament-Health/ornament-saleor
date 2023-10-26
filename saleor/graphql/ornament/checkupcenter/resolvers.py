@@ -1,5 +1,8 @@
 import datetime
+import logging
 
+import requests
+from http import HTTPStatus
 import graphene_django_optimizer as gql_optimizer
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -7,9 +10,12 @@ from django.utils import timezone
 from graphql_relay import from_global_id
 
 from saleor.ornament.checkupcenter import CheckUpStateStatus, models
+from saleor.ornament.utils.fsm_api import FSMApi
+
+logger = logging.getLogger(__name__)
 
 
-def resolve_checkup_categories_(info, **kwargs):
+def resolve_checkup_categories(info, **kwargs):
     qs = models.CheckUpCategory.objects.all()
     return gql_optimizer.query(qs, info)
 
@@ -59,3 +65,10 @@ def resolve_checkup_states(info, **kwargs):
     ).first()
 
     return [i for i in (full, partial, most_filled) if i]
+
+
+def resolve_fsm_variable_sku_matches(info, **kwargs):
+    if not kwargs.get("language_code"):
+        return []
+
+    return FSMApi.get_rules_transitions(kwargs["language_code"])

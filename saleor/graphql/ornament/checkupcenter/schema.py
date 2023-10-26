@@ -4,6 +4,7 @@ from saleor.graphql.core.connection import (
     create_connection_slice,
     filter_connection_queryset,
 )
+from saleor.graphql.core.enums import LanguageCodeEnum
 from saleor.graphql.core.fields import FilterConnectionField
 from saleor.graphql.utils import login_required
 
@@ -33,9 +34,19 @@ class CheckUpCenterQueries(graphene.ObjectType):
         checkup_id=graphene.Argument(graphene.ID, required=False),
     )
 
+    fsm_variable_sku_matches = graphene.List(
+        types.FsmVariableSkuMatches,
+        description="List of fsm variable sku matches.",
+        language_code=graphene.Argument(
+            LanguageCodeEnum,
+            description="A language code.",
+            required=True,
+        ),
+    )
+
     @login_required
     def resolve_checkup_categories(self, info, **kwargs):
-        qs = resolvers.resolve_checkup_categories_(info, **kwargs)
+        qs = resolvers.resolve_checkup_categories(info, **kwargs)
         qs = filter_connection_queryset(qs, kwargs)
         return create_connection_slice(
             qs, info, kwargs, types.CheckUpCategoryCountableConnection
@@ -60,6 +71,10 @@ class CheckUpCenterQueries(graphene.ObjectType):
     @login_required
     def resolve_checkup_states(self, info, **kwargs):
         return resolvers.resolve_checkup_states(info, **kwargs)
+
+    @login_required
+    def resolve_fsm_variable_sku_matches(self, info, **kwargs):
+        return resolvers.resolve_fsm_variable_sku_matches(info, **kwargs)
 
 
 class CheckUpCenterMutations(graphene.ObjectType):

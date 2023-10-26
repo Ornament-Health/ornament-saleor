@@ -64,7 +64,7 @@ class NotificationApi:
                 }
             ],
         }
-        logger.info(payload)
+
         try:
             response = requests.post(
                 settings.ORNAMENT_NOTIFICATION_API_URL,
@@ -77,6 +77,7 @@ class NotificationApi:
             slack_message = {"text": error_message}
             Slack.send_message_task.delay(slack_message)
             return False
+
         except requests.RequestException as e:
             error_message = (
                 f"NOTIFICATION API:EXCEPTION: recipients {recipients}, error: {e}"

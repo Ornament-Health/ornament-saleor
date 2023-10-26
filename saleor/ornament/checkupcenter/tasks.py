@@ -10,6 +10,7 @@ from requests.exceptions import RequestException
 
 from saleor.account.models import User
 from saleor.celeryconf import app
+from saleor.ornament.utils.fsm_api import FSMApi
 from saleor.product.models import Product
 from saleor.utils.locks import RedisBlockingCounterManager
 
@@ -507,14 +508,7 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
             )
 
         # 6.5. Emit personalized checkup SKU rematching in FSMAPI event
-        try:
-            response = requests.post(
-                f"{settings.ORNAMENT_API_INTERNAL_HOST}/internal/fsm-api/v1.0/fsm/variable-sku-match/run-processor",
-                json={"ssoId": str(user.sso_id), "pid": str(profile_uuid)},
-                timeout=(5, 15),
-            )
-        except (RequestException, Exception) as error:
-            logger.critical(f"FSMAPI error: {error}")
+        FSMApi.run_processor(str(user.sso_id), str(profile_uuid))
 
     # 7. Emit checkup calculation event
     if new:

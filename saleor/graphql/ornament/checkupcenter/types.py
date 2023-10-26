@@ -540,3 +540,9 @@ class CheckUpStateCountableConnection(CountableConnection):
     class Meta:
         doc_category = "Checkup"
         node = CheckUpState
+
+
+class FsmVariableSkuMatches(graphene.ObjectType):
+    rule_id = graphene.Int(required=True)
+    name = graphene.String(required=True)
+    description = graphene.String(required=True)
