@@ -16,6 +16,7 @@ class SearchProductChannelPrice(graphene.ObjectType):
     channel = graphene.String(description="Price channel")
     amount = graphene.String(description="Price amount")
     currency = graphene.String(description="Price currency")
+    variant_id = graphene.String(description="Variant ID")
 
 
 class SearchProductType(graphene.ObjectType):
@@ -25,7 +26,8 @@ class SearchProductType(graphene.ObjectType):
 
 
 class SearchProduct(ModelObjectType[product_models.Product]):
-    id = graphene.GlobalID(required=True)
+    product_id = graphene.String(required=True)
+    variant_id = graphene.String(required=True)
     channels = graphene.List(
         graphene.NonNull(graphene.String),
         description="List of channels where this product is listed.",
@@ -62,6 +64,14 @@ class SearchProduct(ModelObjectType[product_models.Product]):
             if atr["attribute"].slug == attribute_slug
         ]
         return attribute_values[0] if attribute_values else []
+
+    @classmethod
+    def resolve_product_id(cls, root: product_models.Product, info):
+        return graphene.Node.to_global_id("Product", root.pk)
+
+    @classmethod
+    def resolve_variant_id(cls, root: product_models.Product, info):
+        return graphene.Node.to_global_id("ProductVariant", root.variant_id)
 
     @classmethod
     def resolve_biomarkers(cls, root: product_models.Product, info):

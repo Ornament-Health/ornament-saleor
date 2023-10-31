@@ -31,6 +31,7 @@ def resolve_search_products(info):
             continue
 
         product.current_variant_prices = current_variant_prices
+        product.variant_id = current_variant.id
         products.append(product)
 
     return products
