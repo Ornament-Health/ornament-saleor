@@ -790,3 +790,4 @@ class Command(BaseCommand):
             )
             self.execute_sql_from_file(cursor, "8_kdl_kdldiscount.sql")
             self.execute_sql_from_file(cursor, "9_permission_permission.sql")
+            self.execute_sql_from_file(cursor, "10_discount_voucher.sql")

@@ -30,7 +30,12 @@ insert into channel_channel (id,"name",slug,is_active,currency_code,default_coun
 (21, 'Пермь', 'perm',true,'RUB','RU','prioritize-sorting-order',true,true,'payment_flow','charge',null,'60 days','{}','{}',false);
 
 update account_address 
-set country = 'RU'
+set company_name = 'KDL',
+street_address_1 = 'Address',
+city = 'MOSCOW',
+postal_code = '101000',
+country = 'RU',
+country_area = 'Москва'
 where id = 1;
 
 delete from warehouse_warehouse_shipping_zones where id > 0;
@@ -39,7 +44,8 @@ delete from warehouse_channelwarehouse where id > 0;
 update warehouse_warehouse 
 set id = '2e83f67b-a080-4710-9ee8-4bf3bc0e0b58',
 name = 'KDL Warehouse',
-slug = 'kdl-warehouse'
+slug = 'kdl-warehouse',
+is_private = false
 where address_id = 1;
 
 insert into warehouse_channelwarehouse (id, warehouse_id, channel_id) values
@@ -64,3 +70,85 @@ insert into warehouse_channelwarehouse (id, warehouse_id, channel_id) values
 (19, '2e83f67b-a080-4710-9ee8-4bf3bc0e0b58', 19),
 (20, '2e83f67b-a080-4710-9ee8-4bf3bc0e0b58', 20),
 (21, '2e83f67b-a080-4710-9ee8-4bf3bc0e0b58', 21);
+
+update shipping_shippingzone
+set name = 'KDL Russia',
+countries = 'RU'
+where id = 1;
+
+insert into shipping_shippingzone_channels (id, shippingzone_id, channel_id) values
+(2, 1, 2),
+(3, 1, 3),
+(4, 1, 4),
+(5, 1, 5),
+(6, 1, 6),
+(7, 1, 7),
+(8, 1, 8),
+(9, 1, 9),
+(10, 1, 10),
+(11, 1, 11),
+(12, 1, 12),
+(13, 1, 13),
+(14, 1, 14),
+(15, 1, 15),
+(16, 1, 16),
+(17, 1, 17),
+(18, 1, 18),
+(19, 1, 19),
+(20, 1, 20),
+(21, 1, 21);
+
+insert into warehouse_warehouse_shipping_zones (id, warehouse_id, shippingzone_id) values
+(1, '2e83f67b-a080-4710-9ee8-4bf3bc0e0b58', 1);
+
+update shipping_shippingmethod
+set name = 'KDL Default'
+where id = 1;
+
+update shipping_shippingmethodchannellisting
+set currency = 'RUB'
+where id = 1;
+
+insert into shipping_shippingmethodchannellisting (id, minimum_order_price_amount, currency, maximum_order_price_amount, price_amount, channel_id, shipping_method_id) values
+(2, 1, 2),
+(3, 1, 3),
+(4, 1, 4),
+(5, 1, 5),
+(6, 1, 6),
+(7, 1, 7),
+(8, 1, 8),
+(9, 1, 9),
+(10, 1, 10),
+(11, 1, 11),
+(12, 1, 12),
+(13, 1, 13),
+(14, 1, 14),
+(15, 1, 15),
+(16, 1, 16),
+(17, 1, 17),
+(18, 1, 18),
+(19, 1, 19),
+(20, 1, 20),
+(21, 1, 21);
+
+insert into shipping_shippingmethodchannellisting (id, minimum_order_price_amount, currency, maximum_order_price_amount, price_amount, channel_id, shipping_method_id) values
+(2, 0.000, 'RUB', null, 0.000, 2, 1),
+(3, 0.000, 'RUB', null, 0.000, 3, 1),
+(4, 0.000, 'RUB', null, 0.000, 4, 1),
+(5, 0.000, 'RUB', null, 0.000, 5, 1),
+(6, 0.000, 'RUB', null, 0.000, 6, 1),
+(7, 0.000, 'RUB', null, 0.000, 7, 1),
+(8, 0.000, 'RUB', null, 0.000, 8, 1),
+(9, 0.000, 'RUB', null, 0.000, 9, 1),
+(10, 0.000, 'RUB', null, 0.000, 10, 1),
+(11, 0.000, 'RUB', null, 0.000, 11, 1),
+(12, 0.000, 'RUB', null, 0.000, 12, 1),
+(13, 0.000, 'RUB', null, 0.000, 13, 1),
+(14, 0.000, 'RUB', null, 0.000, 14, 1),
+(15, 0.000, 'RUB', null, 0.000, 15, 1),
+(16, 0.000, 'RUB', null, 0.000, 16, 1),
+(17, 0.000, 'RUB', null, 0.000, 17, 1),
+(18, 0.000, 'RUB', null, 0.000, 18, 1),
+(19, 0.000, 'RUB', null, 0.000, 19, 1),
+(20, 0.000, 'RUB', null, 0.000, 20, 1),
+(21, 0.000, 'RUB', null, 0.000, 21, 1);
