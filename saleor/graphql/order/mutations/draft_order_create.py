@@ -1,14 +1,15 @@
 from collections import defaultdict
-from typing import Dict, List
 
 import graphene
 from django.core.exceptions import ValidationError
+from django.db.models import Exists, OuterRef
 
 from ....account.models import User
 from ....checkout import AddressType
 from ....core.taxes import TaxError
 from ....core.tracing import traced_atomic_transaction
 from ....core.utils.url import validate_storefront_url
+from ....discount.models import Voucher, VoucherCode
 from ....order import OrderOrigin, OrderStatus, events, models
 from ....order.error_codes import OrderErrorCode
 from ....order.search import update_order_search_vector
@@ -30,6 +31,8 @@ from ...core.descriptions import (
     ADDED_IN_36,
     ADDED_IN_310,
     ADDED_IN_314,
+    ADDED_IN_318,
+    DEPRECATED_IN_3X_FIELD,
     PREVIEW_FEATURE,
 )
 from ...core.doc_category import DOC_CATEGORY_ORDERS
@@ -46,7 +49,11 @@ from ..utils import (
     validate_product_is_published_in_channel,
     validate_variant_channel_listings,
 )
-from .utils import SHIPPING_METHOD_UPDATE_FIELDS, ShippingMethodUpdateMixin
+from .utils import (
+    SHIPPING_METHOD_UPDATE_FIELDS,
+    ShippingMethodUpdateMixin,
+    get_variant_rule_info_map,
+)
 
 
 class OrderLineInput(BaseInputObjectType):
@@ -97,7 +104,13 @@ class DraftOrderInput(BaseInputObjectType):
         description="ID of a selected shipping method.", name="shippingMethod"
     )
     voucher = graphene.ID(
-        description="ID of the voucher associated with the order.", name="voucher"
+        description="ID of the voucher associated with the order.",
+        name="voucher",
+        deprecation_reason=f"{DEPRECATED_IN_3X_FIELD} Use `voucherCode` instead.",
+    )
+    voucher_code = graphene.String(
+        description="A code of the voucher associated with the order." + ADDED_IN_318,
+        name="voucherCode",
     )
     customer_note = graphene.String(
         description="A note from a customer. Visible by customers in the order summary."
@@ -194,8 +207,12 @@ class DraftOrderCreate(
         channel = cls.clean_channel_id(info, instance, cleaned_input, channel_id)
 
         voucher = cleaned_input.get("voucher", None)
+        voucher_code = cleaned_input.get("voucher_code", None)
+        cls.clean_voucher_and_voucher_code(voucher, voucher_code)
         if voucher:
-            cls.clean_voucher(voucher, channel)
+            cls.clean_voucher(voucher, channel, cleaned_input)
+        if voucher_code:
+            cls.clean_voucher_code(voucher_code, channel, cleaned_input)
 
         if channel:
             cleaned_input["currency"] = channel.currency_code
@@ -236,7 +253,7 @@ class DraftOrderCreate(
             return instance.channel if hasattr(instance, "channel") else None
 
     @classmethod
-    def clean_voucher(cls, voucher, channel):
+    def clean_voucher(cls, voucher, channel, cleaned_input):
         if not voucher.channel_listings.filter(channel=channel).exists():
             raise ValidationError(
                 {
@@ -246,54 +263,106 @@ class DraftOrderCreate(
                     )
                 }
             )
+        first_code = voucher.codes.first()
+        if first_code:
+            cleaned_input["voucher_code"] = first_code.code
 
     @classmethod
-    def clean_lines(cls, cleaned_input, lines, channel):
-        if lines:
-            grouped_lines_data: List[OrderLineData] = []
-            lines_data_map: Dict[str, OrderLineData] = defaultdict(OrderLineData)
+    def clean_voucher_code(
+        cls, voucher_code: str, channel: Channel, cleaned_input: dict
+    ):
+        voucher = Voucher.objects.filter(
+            Exists(
+                VoucherCode.objects.filter(code=voucher_code, voucher_id=OuterRef("pk"))
+            )
+        ).first()
 
-            variant_ids = [line.get("variant_id") for line in lines]
-            variants = cls.get_nodes_or_error(variant_ids, "variants", ProductVariant)
-            validate_product_is_published_in_channel(variants, channel)
-            validate_variant_channel_listings(variants, channel)
-            quantities = [line.get("quantity") for line in lines]
-            if not all(quantity > 0 for quantity in quantities):
+        if not voucher:
+            raise ValidationError(
+                {
+                    "voucher": ValidationError(
+                        "Invalid voucher code.",
+                        code=OrderErrorCode.INVALID_VOUCHER_CODE.value,
+                    )
+                }
+            )
+        else:
+            if not voucher.channel_listings.filter(channel=channel).exists():
                 raise ValidationError(
                     {
-                        "quantity": ValidationError(
-                            "Ensure this value is greater than 0.",
-                            code=OrderErrorCode.ZERO_QUANTITY.value,
+                        "voucher": ValidationError(
+                            "Voucher not available for this order.",
+                            code=OrderErrorCode.NOT_AVAILABLE_IN_CHANNEL.value,
                         )
                     }
                 )
+            cleaned_input["voucher"] = voucher
+            cleaned_input["voucher_code"] = voucher_code
 
-            for line in lines:
-                variant_id = line.get("variant_id")
-                _, variant_db_id = graphene.Node.from_global_id(variant_id)
-                variant = list(
-                    filter(lambda x: (x.pk == int(variant_db_id)), variants)
-                )[0]
-                custom_price = line.get("price", None)
-
-                if line.get("force_new_line"):
-                    line_data = OrderLineData(
-                        variant_id=variant_db_id,
-                        variant=variant,
-                        price_override=custom_price,
+    @classmethod
+    def clean_voucher_and_voucher_code(cls, voucher, voucher_code):
+        if voucher and voucher_code:
+            raise ValidationError(
+                {
+                    "voucher": ValidationError(
+                        "You cannot use both a voucher and a voucher code for the same "
+                        "order. Please choose one.",
+                        code=OrderErrorCode.INVALID.value,
                     )
-                    grouped_lines_data.append(line_data)
-                else:
-                    line_data = lines_data_map[variant_db_id]
-                    line_data.variant_id = variant_db_id
-                    line_data.variant = variant
-                    line_data.price_override = custom_price
+                }
+            )
 
-                if (quantity := line.get("quantity")) is not None:
-                    line_data.quantity += quantity
+    @classmethod
+    def clean_lines(cls, cleaned_input, lines, channel):
+        if not lines:
+            return
+        grouped_lines_data: list[OrderLineData] = []
+        lines_data_map: dict[str, OrderLineData] = defaultdict(OrderLineData)
 
-            grouped_lines_data += list(lines_data_map.values())
-            cleaned_input["lines_data"] = grouped_lines_data
+        variant_pks = cls.get_global_ids_or_error(
+            [line.get("variant_id") for line in lines], ProductVariant, "variant_id"
+        )
+        variants_data = get_variant_rule_info_map(variant_pks, channel.id)
+        variants = [data.variant for data in variants_data.values()]
+        validate_product_is_published_in_channel(variants, channel)
+        validate_variant_channel_listings(variants, channel)
+        quantities = [line.get("quantity") for line in lines]
+        if not all(quantity > 0 for quantity in quantities):
+            raise ValidationError(
+                {
+                    "quantity": ValidationError(
+                        "Ensure this value is greater than 0.",
+                        code=OrderErrorCode.ZERO_QUANTITY.value,
+                    )
+                }
+            )
+
+        for line in lines:
+            variant_id = line.get("variant_id")
+            variant_data = variants_data[variant_id]
+            variant = variant_data.variant
+            custom_price = line.get("price", None)
+
+            if line.get("force_new_line"):
+                line_data = OrderLineData(
+                    variant_id=variant.id,
+                    variant=variant,
+                    price_override=custom_price,
+                    rules_info=variant_data.rules_info,
+                )
+                grouped_lines_data.append(line_data)
+            else:
+                line_data = lines_data_map[variant.id]
+                line_data.variant_id = variant.id
+                line_data.variant = variant
+                line_data.price_override = custom_price
+                line_data.rules_info = variant_data.rules_info
+
+            if (quantity := line.get("quantity")) is not None:
+                line_data.quantity += quantity
+
+        grouped_lines_data += list(lines_data_map.values())
+        cleaned_input["lines_data"] = grouped_lines_data
 
     @classmethod
     def clean_addresses(
@@ -406,13 +475,24 @@ class DraftOrderCreate(
         *,
         is_new_instance,
         app,
-        manager
+        manager,
     ):
         updated_fields = []
         with traced_atomic_transaction():
             shipping_channel_listing = None
             # Process addresses
             cls._save_addresses(instance, cleaned_input)
+
+            try:
+                # Process any lines to add
+                cls._save_lines(
+                    info, instance, cleaned_input.get("lines_data"), app, manager
+                )
+            except TaxError as tax_error:
+                raise ValidationError(
+                    f"Unable to calculate taxes - {str(tax_error)}",
+                    code=OrderErrorCode.TAX_ERROR.value,
+                )
 
             if "shipping_method" in cleaned_input:
                 method = cleaned_input["shipping_method"]
@@ -427,21 +507,11 @@ class DraftOrderCreate(
                         shipping_channel_listing,
                     )
                     cls.update_shipping_method(instance, method, shipping_method_data)
+                    cls._update_shipping_price(instance, shipping_channel_listing)
                 updated_fields.extend(SHIPPING_METHOD_UPDATE_FIELDS)
 
             # Save any changes create/update the draft
             cls._commit_changes(info, instance, cleaned_input, is_new_instance, app)
-
-            try:
-                # Process any lines to add
-                cls._save_lines(
-                    info, instance, cleaned_input.get("lines_data"), app, manager
-                )
-            except TaxError as tax_error:
-                raise ValidationError(
-                    f"Unable to calculate taxes - {str(tax_error)}",
-                    code=OrderErrorCode.TAX_ERROR.value,
-                )
 
             update_order_display_gross_prices(instance)
 
@@ -462,10 +532,7 @@ class DraftOrderCreate(
             )
             if cls.should_invalidate_prices(instance, cleaned_input, is_new_instance):
                 invalidate_order_prices(instance)
-                cls._update_shipping_price(instance, shipping_channel_listing)
-                updated_fields.extend(
-                    ["should_refresh_prices", "base_shipping_price_amount"]
-                )
+                updated_fields.extend(["should_refresh_prices"])
             recalculate_order_weight(instance)
             update_order_search_vector(instance, save=False)
 

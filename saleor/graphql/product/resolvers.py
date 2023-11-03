@@ -18,14 +18,6 @@ from ..utils.filters import filter_by_period
 from saleor.ornament.utils import check_channel_access
 
 
-def resolve_category_by_id(id):
-    return models.Category.objects.filter(pk=id).first()
-
-
-def resolve_category_by_slug(slug):
-    return models.Category.objects.filter(slug=slug).first()
-
-
 def resolve_categories(_info: ResolveInfo, level=None):
     qs = models.Category.objects.prefetch_related("children")
     if level is not None:
@@ -121,7 +113,7 @@ def resolve_variant(
     *,
     channel_slug,
     requestor,
-    requestor_has_access_to_all
+    requestor_has_access_to_all,
 ):
     visible_products = models.Product.objects.visible_to_user(
         requestor, channel_slug
