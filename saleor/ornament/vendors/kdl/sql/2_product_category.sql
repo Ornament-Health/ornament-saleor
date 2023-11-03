@@ -28,3 +28,8 @@ tree_id = 1,
 level = 1,
 parent_id = 1000
 where id = 1;
+
+update product_producttype 
+set name = 'Анализ',
+slug = 'analiz'
+where id = 1;
