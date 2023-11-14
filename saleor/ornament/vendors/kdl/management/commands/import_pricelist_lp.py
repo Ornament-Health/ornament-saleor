@@ -7,7 +7,9 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import DecimalValidator
 
-from saleor.product.models import ProductVariantChannelListing
+from saleor.product.models import ProductVariantChannelListing, ProductVariant
+from saleor.channel.models import Channel
+from saleor.warehouse.models import Stock
 
 
 class Command(BaseCommand):
@@ -66,12 +68,13 @@ class Command(BaseCommand):
                 f"Multiple channels provided. Please export data only for one channel (local_provider)"
             )
 
-        channel = channels.pop()
+        channel_slug = channels.pop()
+        channel = Channel.objects.filter(slug=channel_slug).first()
         kdl_skus = set(make_kdl_sku(i["sku"]) for i in data)
 
         product_variant_channel_listings_q = (
             ProductVariantChannelListing.objects.filter(
-                variant__sku__in=kdl_skus, channel__slug=channel
+                variant__sku__in=kdl_skus, channel=channel
             ).prefetch_related("channel", "variant")
         )
 
@@ -82,7 +85,7 @@ class Command(BaseCommand):
             sku = pvcl.variant.sku
 
             if sku:
-                price = prices.get(sku)
+                price = prices.pop(sku)
 
                 if price:
                     validated_price, error = price_validator(price)
@@ -94,9 +97,43 @@ class Command(BaseCommand):
                     pvcl.price_amount = validated_price
                     pvcl.discounted_price_amount = validated_price
 
+        variants = ProductVariant.objects.filter(sku__in=(prices.keys()))
+        new_product_variant_channel_listings = []
+        new_warehouse_stocks = []
+
+        for variant in variants:
+            if variant.sku:
+                price = prices.get(variant.sku)
+                new_product_variant_channel_listings.append(
+                    ProductVariantChannelListing(
+                        variant=variant,
+                        channel=channel,
+                        currency="RUB",
+                        price_amount=price,
+                        discounted_price_amount=price,
+                    )
+                )
+                new_warehouse_stocks.append(
+                    Stock(
+                        warehouse_id="2e83f67b-a080-4710-9ee8-4bf3bc0e0b58",
+                        product_variant=variant,
+                        quantity=1,
+                        quantity_allocated=0,
+                    )
+                )
+
+        # update existing product variants listings
         ProductVariantChannelListing.objects.bulk_update(
             product_variant_channel_listings_q,
             ["price_amount", "discounted_price_amount"],
         )
+
+        # create new product variants listings
+        ProductVariantChannelListing.objects.bulk_create(
+            new_product_variant_channel_listings
+        )
+
+        # create new stock for product variants listings
+        Stock.objects.bulk_create(new_warehouse_stocks)
 
         return print(errors) if errors else None

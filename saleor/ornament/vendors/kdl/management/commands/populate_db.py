@@ -14,6 +14,8 @@ from django.core.management.base import BaseCommand
 from slugify import slugify
 import requests
 
+from saleor.ornament.vendors.kdl.utils import attributes_ids
+
 ## sku_product_id_local_provider_id_price_amount.json
 # select pp.sku, pp2.id as product_id, glppv.local_provider_id from geo_local_provider_product_variant glppv
 # join geo_local_provider glp on glp.id = glppv.local_provider_id
@@ -30,18 +32,6 @@ MEDICAL_EXAMS_URL = (
 POPULATE_DB_PATH = os.path.join(
     settings.PROJECT_ROOT, "saleor", "ornament", "vendors", "kdl", "sql"
 )
-
-attributes_ids = {
-    "kdl_biomaterials": 5000,
-    "kdl_preparation": 10000,
-    "kdl_max_duration": 15000,
-    "kdl_duration_unit": 20000,
-    "sex": 25000,
-    "age_from": 30000,
-    "age_to": 35000,
-    "biomarkers": 40000,
-    "medical_exams": 50000,
-}
 
 
 @dataclass

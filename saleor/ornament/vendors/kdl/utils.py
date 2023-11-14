@@ -24,6 +24,19 @@ class KDLOrderEmail:
     subject: str
 
 
+attributes_ids = {
+    "kdl_biomaterials": 5000,
+    "kdl_preparation": 10000,
+    "kdl_max_duration": 15000,
+    "kdl_duration_unit": 20000,
+    "sex": 25000,
+    "age_from": 30000,
+    "age_to": 35000,
+    "biomarkers": 40000,
+    "medical_exams": 50000,
+}
+
+
 def add_sub_element(
     parent: etree.Element, name: str, value: str = None
 ) -> etree.SubElement:
