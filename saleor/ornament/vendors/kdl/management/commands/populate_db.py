@@ -16,8 +16,8 @@ import requests
 
 from saleor.ornament.vendors.kdl.utils import attributes_ids
 
-## sku_product_id_local_provider_id_price_amount.json
-# select pp.sku, pp2.id as product_id, glppv.local_provider_id from geo_local_provider_product_variant glppv
+# -- sku_product_id_local_provider_id_price_amount.json
+# select pp.sku, pp2.id as product_id, glppv.local_provider_id, glppv.price_amount, glppv.is_active from geo_local_provider_product_variant glppv
 # join geo_local_provider glp on glp.id = glppv.local_provider_id
 # join product_productvariant pp on glppv.product_variant_id = pp.id
 # join product_product pp2 on pp2.id = pp.product_id
@@ -577,6 +577,9 @@ class Command(BaseCommand):
                 variants = {d["product_id"]: d["id"] for d in variants}
 
             for r in rows:
+                if r["price_amount"] == 0.00 or not r["is_active"]:
+                    continue
+
                 currency = "RUB"
                 price_amount = r["price_amount"]
                 channel_id = r["local_provider_id"]
