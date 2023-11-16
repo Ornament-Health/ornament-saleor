@@ -52,8 +52,9 @@ def resolve_voucher_by_code(code, channel):
 
 # @cf::ornament.saleor.graphql.discount
 subscription_voucher_map = {
-    SubscriptionEnum.ANNUAL.value: settings.SUBSCRIPTION_VOUCHER_ANNUAL,
+    SubscriptionEnum.WEEKLY.value: settings.SUBSCRIPTION_VOUCHER_WEEKLY,
     SubscriptionEnum.MONTHLY.value: settings.SUBSCRIPTION_VOUCHER_MONTHLY,
+    SubscriptionEnum.ANNUAL.value: settings.SUBSCRIPTION_VOUCHER_ANNUAL,
     SubscriptionEnum.PROMO.value: settings.SUBSCRIPTION_VOUCHER_PROMO,
     SubscriptionEnum.THREE_MONTH.value: settings.SUBSCRIPTION_VOUCHER_THREE_MONTH,
     SubscriptionEnum.UNKNOWN.value: settings.SUBSCRIPTION_VOUCHER_UNKNOWN,

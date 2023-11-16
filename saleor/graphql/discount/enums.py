@@ -54,8 +54,9 @@ class VoucherDiscountType(BaseEnum):
 
 # @cf::ornament.saleor.graphql.discount
 class SubscriptionEnum(enum.Enum):
-    ANNUAL = "ANNUAL"
+    WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
+    ANNUAL = "ANNUAL"
     PROMO = "PROMO"
     THREE_MONTH = "THREE_MONTH"
     UNKNOWN = "UNKNOWN"
