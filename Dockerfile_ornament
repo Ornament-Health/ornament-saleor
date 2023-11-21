@@ -64,6 +64,7 @@ COPY manage.py /opt/ornament-saleor/manage.py
 COPY package-lock.json /opt/ornament-saleor/package-lock.json
 COPY package.json /opt/ornament-saleor/package.json
 COPY gunicorn_conf.py /opt/ornament-saleor/gunicorn_conf.py
+COPY import_products.csv /opt/ornament-saleor/import_products.csv
 # COPY .env /opt/ornament-saleor/.env
 
 
