@@ -786,3 +786,4 @@ class Command(BaseCommand):
             self.execute_sql_from_file(cursor, "10_discount_voucher.sql")
             self.execute_sql_from_file(cursor, "11_ornament_vendor.sql")
             self.execute_sql_from_file(cursor, "12_app_app.sql")
+            self.execute_sql_from_file(cursor, "13_checkupcenter.sql")
