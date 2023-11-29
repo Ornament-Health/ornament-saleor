@@ -54,7 +54,7 @@ RUN apt-get update \
 RUN echo 'image/webp webp' >> /etc/mime.types
 RUN echo 'image/avif avif' >> /etc/mime.types
 
-RUN mkdir -p /opt/ornament-saleor/media /opt/ornament-saleor/static \
+RUN mkdir -p /opt/ornament-saleor/media /opt/ornament-saleor/static /opt/ornament-saleor/datadir/lock \
   && chown -R saleor:saleor /opt/ornament-saleor/
 
 COPY saleor/ /opt/ornament-saleor/saleor/
