@@ -3,6 +3,7 @@ import os
 import re
 import ftplib
 import logging
+from typing import Optional
 from uuid import UUID
 from jinja2 import Template
 import requests
@@ -110,17 +111,44 @@ def place_xml_order_via_ftp(order_id: int) -> None:
     events.order_placed_to_lab_event(order=order, user=order.user, lab_name="KDL")
 
 
+def get_default_pid_by_sso_id(sso_id: str) -> Optional[str]:
+    response = requests.post(
+        f"{settings.ORNAMENT_INTERNAL_DATA_API}/internal/data-api/v1.0/user/login",
+        json={"ssoId": sso_id},
+    )
+
+    if response.status_code != 200 and response.json().get("message").get("code") in (
+        "440020",
+        "550010",
+    ):
+        logger.debug(f"User with sso_id {sso_id} doesn't have an Ornament account.")
+        return None
+
+    return response.json().get("defaultProfile", {}).get("pid")
+
+
 @app.task(autoretry_for=[Exception])
 def upload_pdf_to_imageset_api(
     order_id: UUID, user_id: int, full_path: str, sso_id: str
 ) -> None:
     error = None
     iid = None
+
+    params = {
+        "ssoId": sso_id,
+        "source": IMAGESET_API_SOURCE,
+    }
+
+    user_default_pid = get_default_pid_by_sso_id(sso_id)
+
+    if user_default_pid:
+        params["pid"] = user_default_pid
+
     with open(full_path, "rb") as f:
         files = {"file": f}
         response = requests.post(
             settings.ORNAMENT_IMAGESET_API_UPLOAD_PDF_URL,
-            params={"ssoId": sso_id, "source": IMAGESET_API_SOURCE},
+            params=params,
             files=files,
         )
     if response.status_code == 200:
