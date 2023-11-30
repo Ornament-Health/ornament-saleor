@@ -129,17 +129,17 @@ def get_default_pid_by_sso_id(sso_id: str) -> Optional[str]:
 
 @app.task(autoretry_for=[Exception])
 def upload_pdf_to_imageset_api(
-    order_id: UUID, user_id: int, full_path: str, sso_id: str
+    order_id: UUID, user_id: int, full_path: str, sso_id: UUID
 ) -> None:
     error = None
     iid = None
 
     params = {
-        "ssoId": sso_id,
+        "ssoId": str(sso_id),
         "source": IMAGESET_API_SOURCE,
     }
 
-    user_default_pid = get_default_pid_by_sso_id(sso_id)
+    user_default_pid = get_default_pid_by_sso_id(str(sso_id))
 
     if user_default_pid:
         params["pid"] = user_default_pid
