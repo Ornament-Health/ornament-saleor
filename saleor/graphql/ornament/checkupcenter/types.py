@@ -22,6 +22,7 @@ from saleor.graphql.product.dataloaders.products import ProductByIdLoader
 from saleor.graphql.product.types import Product
 from saleor.graphql.utils import get_user_or_app_from_context
 from saleor.ornament.checkupcenter import CheckUpStateStatus, models
+from saleor.ornament.geo.channel_utils import get_channel
 
 from . import enums
 
@@ -131,9 +132,13 @@ class CheckUpProduct(ModelObjectType[models.CheckUpProduct]):
 
     @staticmethod
     def resolve_product(root, info):
+        if info.context.user and info.context.user.city:
+            channel_slug = info.context.user.city.channel.slug
+        else:
+            channel_slug = get_channel()
         product = ProductByIdLoader(info.context).load(root.product_id)
         return product.then(
-            lambda product: ChannelContext(node=product, channel_slug=None)
+            lambda product: ChannelContext(node=product, channel_slug=channel_slug)
         )
 
     @staticmethod
