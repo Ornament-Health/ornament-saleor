@@ -19,7 +19,7 @@ insert into product_category (id,"name",slug,description,lft,rght,tree_id,"level
 (17, 'Иммунология', 'immunologiia', 'null', 33, 34, 1, 1, 1000, '', null, null, '', '{}', '{}', '{}'),
 (18, 'Витамины, микроэлементы', 'vitaminy-mikroelementy', 'null', 35, 36, 1, 1, 1000, '', null, null, '', '{}', '{}', '{}'),
 (19, 'Токсикология', 'toksikologiia', 'null', 37, 38, 1, 1, 1000, '', null, null, '', '{}', '{}', '{}'),
-(20, 'Генетические', 'geneticheskie', 'null', 39, 40, 1, 1, 1000, '', null, null, '', '{}', '{}', '{}');
+(20, 'Генетические', 'geneticheskie', 'null', 39, 40, 1, 1, 1000, '', null, null, '', '{}', '{}', '{}'),
 (21, 'Разное', 'raznoe', 'null', 41, 42, 1, 1, 1000, '', null, null, '', '{}', '{}', '{}');
 
 update product_category 
