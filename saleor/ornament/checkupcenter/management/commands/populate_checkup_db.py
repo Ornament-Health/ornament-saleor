@@ -210,11 +210,35 @@ class Command(BaseCommand):
         )
 
     def migrate_products(self):
-        path = os.path.join(
+        now = datetime.now()
+        tsnow = now.timestamp()
+
+        products_path = os.path.join(
             POPULATE_DB_PATH, "source_data_json", "product_product.json"
         )
+        products_translations_path = os.path.join(
+            POPULATE_DB_PATH, "source_data_json", "product_producttranslation.json"
+        )
+        products_translations = {}
 
-        with open(path, "r") as data:
+        with open(products_translations_path, "r") as data:
+            rows = json.load(data)
+            rows.sort(key=lambda x: x["name"])
+
+            for name, group in groupby(rows, lambda x: x["name"]):
+                products_translations[name] = {}
+
+                for translation in group:
+                    lang = translation["language_code"]
+                    products_translations[name][lang] = {}
+                    products_translations[name][lang]["title"] = translation[
+                        "description"
+                    ]
+                    products_translations[name][lang]["description"] = translation[
+                        "description_json"
+                    ]
+
+        with open(products_path, "r") as data:
             rows = json.load(data)
             now = datetime.now()
 
@@ -229,6 +253,44 @@ class Command(BaseCommand):
             for r in rows:
                 id = r["id"]
                 name = r["name"]
+                description = {
+                    "time": tsnow,
+                    "blocks": [
+                        {
+                            "id": self.random_string(10),
+                            "data": {
+                                "text": products_translations.get(name, {})
+                                .get("en", {})
+                                .get("title", "")
+                            },
+                            "type": "header",
+                        }
+                    ],
+                    "version": "2.24.3",
+                }
+
+                en_lab_description_json = json.loads(
+                    products_translations.get(name, {})
+                    .get("en", {})
+                    .get("description", "{}")
+                )
+                en_lab_description = (
+                    en_lab_description_json.get("details", {})
+                    .get("lab", {})
+                    .get("description")
+                )
+
+                if en_lab_description:
+                    blocks = en_lab_description.split("\n")
+                    for block in blocks:
+                        description["blocks"].append(
+                            {
+                                "id": self.random_string(10),
+                                "data": {"text": block.replace('"', "“")},
+                                "type": "paragraph",
+                            }
+                        )
+
                 lab_meta = json.loads(r["meta"])
 
                 attributes_sex += self.get_attributes_by_key(
@@ -257,11 +319,11 @@ class Command(BaseCommand):
                 seo_title = "''"
                 weight = "NULL"
                 metadata = "{}"
-                description = "{}"
                 private_metadata = r["private_meta"]
                 slug = slugify(r["name"], lowercase=True)
                 default_variant_id = "NULL"
-                description_plaintext = r["description"]
+                description_plaintext = en_lab_description
+                description_plaintext = "''"
                 rating = 0
                 search_document = "''"
                 search_vector = "NULL"
@@ -272,7 +334,12 @@ class Command(BaseCommand):
                 updated_at = now
 
                 products_sql += "\n"
-                products_sql += f"""({id}, '{name}', '{description}', {product_type_id}, {category_id}, {seo_description}, {seo_title}, {weight}, '{metadata}', '{private_metadata}', '{slug}', {default_variant_id}, '{description_plaintext}', {rating}, {search_document}, {search_vector}, {search_index_dirty}, {tax_class_id}, {external_reference}, '{created_at}', '{updated_at}'),"""
+
+                description = json.dumps(description, ensure_ascii=False).replace(
+                    "'", "\\'"
+                )
+
+                products_sql += f"""({id}, '{name}', E'{description}', {product_type_id}, {category_id}, {seo_description}, {seo_title}, {weight}, '{metadata}', '{private_metadata}', '{slug}', {default_variant_id}, '{description_plaintext}', {rating}, {search_document}, {search_vector}, {search_index_dirty}, {tax_class_id}, {external_reference}, '{created_at}', '{updated_at}'),"""
 
             products_sql = products_sql[:-1] + ";"
             age_from = None
