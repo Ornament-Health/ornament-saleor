@@ -48,6 +48,7 @@ class CheckUpCategory(ModelObjectType[models.CheckUpCategory]):
     name = graphene.String(description="Checkup category name.", required=True)
     description = graphene.String(description="Category description", required=True)
     ext_id = graphene.String(description="External id.", required=True)
+    emoji = graphene.String(description="Category emoji", required=True)
     translation = graphene.Field(
         CheckUpCategoryTranslation,
         language_code=graphene.Argument(
