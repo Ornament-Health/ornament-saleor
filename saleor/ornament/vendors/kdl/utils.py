@@ -260,7 +260,7 @@ def collect_data_for_email(order_id: UUID) -> KDLOrderEmail:
         clinic_id = kdl_discount.clinic_id
         doctor_id = kdl_discount.doctor_id
         promocode = kdl_discount.discount_title
-        kdl_email = kdl_discount.email and [kdl_discount.email] or kdl_email
+        kdl_email = kdl_discount.email or kdl_email
     elif order.voucher is None or order.voucher.scope == VoucherScope.RETAIL:
         clinic_id = settings.KDL_CLINIC_NOVOUCHER_ID
         doctor_id = settings.KDL_DOCTOR_NOVOUCHER_ID
