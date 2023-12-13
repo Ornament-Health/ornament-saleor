@@ -255,12 +255,12 @@ def collect_data_for_email(order_id: UUID) -> KDLOrderEmail:
     order = Order.objects.get(id=order_id)
     promocode = order.voucher and order.voucher.name
     kdl_discount = KDLDiscount.objects.get_for_order(order)
-    kdl_email = settings.KDL_ORDER_RECIPIENTS  # one address
+    kdl_email = [settings.KDL_ORDER_RECIPIENTS]  # one address
     if kdl_discount:
         clinic_id = kdl_discount.clinic_id
         doctor_id = kdl_discount.doctor_id
         promocode = kdl_discount.discount_title
-        kdl_email = kdl_discount.email or kdl_email
+        kdl_email = kdl_discount.email and [kdl_discount.email] or kdl_email
     elif order.voucher is None or order.voucher.scope == VoucherScope.RETAIL:
         clinic_id = settings.KDL_CLINIC_NOVOUCHER_ID
         doctor_id = settings.KDL_DOCTOR_NOVOUCHER_ID
