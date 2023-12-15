@@ -21,6 +21,9 @@ from .checkout_create import CheckoutAddressValidationRules
 from .checkout_shipping_address_update import CheckoutShippingAddressUpdate
 from .utils import get_checkout
 
+# @cf::ornament.saleor.checkout
+from saleor.ornament.vendors.utils import apply_vendor_address_augmentation
+
 
 class CheckoutBillingAddressUpdate(CheckoutShippingAddressUpdate):
     checkout = graphene.Field(Checkout, description="An updated checkout.")
@@ -79,6 +82,14 @@ class CheckoutBillingAddressUpdate(CheckoutShippingAddressUpdate):
         checkout = get_checkout(cls, info, checkout_id=checkout_id, token=token, id=id)
 
         address_validation_rules = validation_rules or {}
+
+        # @cf::ornament.saleor.checkout
+        variants = [l.variant for l in checkout.lines.all()]
+        if variants:
+            billing_address = apply_vendor_address_augmentation(
+                variants, billing_address
+            )
+
         billing_address = cls.validate_address(
             billing_address,
             address_type=AddressType.BILLING,

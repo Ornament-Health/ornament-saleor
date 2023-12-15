@@ -1,3 +1,5 @@
+import enum
+
 from ...discount import DiscountType, DiscountValueType, VoucherType
 from ..core.doc_category import DOC_CATEGORY_DISCOUNTS
 from ..core.enums import to_enum
@@ -48,3 +50,13 @@ class VoucherDiscountType(BaseEnum):
 
     class Meta:
         doc_category = DOC_CATEGORY_DISCOUNTS
+
+
+# @cf::ornament.saleor.graphql.discount
+class SubscriptionEnum(enum.Enum):
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+    ANNUAL = "ANNUAL"
+    PROMO = "PROMO"
+    THREE_MONTH = "THREE_MONTH"
+    UNKNOWN = "UNKNOWN"

@@ -8,6 +8,7 @@ import magic
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.urls import reverse
+from django.conf import settings
 from PIL import Image
 
 from . import (

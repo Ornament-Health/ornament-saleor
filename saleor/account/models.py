@@ -21,8 +21,13 @@ from ..order.models import Order
 from ..permission.enums import AccountPermissions, BasePermissionEnum, get_permissions
 from ..permission.models import Permission, PermissionsMixin, _user_has_perm
 from ..site.models import SiteSettings
-from . import CustomerEvents
+
+# @cf::ornament.saleor.account
+from . import CustomerEvents, Sex
 from .validators import validate_possible_number
+
+# @cf::ornament.saleor.account
+from saleor.utils.models import AutoNowUpdateFieldsMixin
 
 
 class PossiblePhoneNumberField(PhoneNumberField):
@@ -54,9 +59,19 @@ class AddressQueryset(models.QuerySet["Address"]):
 AddressManager = models.Manager.from_queryset(AddressQueryset)
 
 
-class Address(ModelWithMetadata):
+# @cf::ornament.saleor.account
+class Address(AutoNowUpdateFieldsMixin, ModelWithMetadata):
     first_name = models.CharField(max_length=256, blank=True)
     last_name = models.CharField(max_length=256, blank=True)
+    # @cf::ornament.saleor.account
+    date_of_birth = models.DateField(blank=True, null=True)
+    sex = models.CharField(
+        max_length=1,
+        choices=Sex.CHOICES,
+        default=Sex.UNSPECIFIED,
+        blank=True,
+        null=True,
+    )
     company_name = models.CharField(max_length=256, blank=True)
     street_address_1 = models.CharField(max_length=256, blank=True)
     street_address_2 = models.CharField(max_length=256, blank=True)
@@ -66,6 +81,10 @@ class Address(ModelWithMetadata):
     country = CountryField()
     country_area = models.CharField(max_length=128, blank=True)
     phone = PossiblePhoneNumberField(blank=True, default="", db_index=True)
+
+    # @cf::ornament.saleor.account
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+    updated = models.DateTimeField(auto_now=True, editable=False)
 
     objects = AddressManager()
 
@@ -156,8 +175,13 @@ class UserManager(BaseUserManager["User"]):
         return self.get_queryset().filter(is_staff=True)
 
 
+# @cf::ornament.saleor.account
 class User(
-    PermissionsMixin, ModelWithMetadata, AbstractBaseUser, ModelWithExternalReference
+    AutoNowUpdateFieldsMixin,
+    PermissionsMixin,
+    ModelWithMetadata,
+    AbstractBaseUser,
+    ModelWithExternalReference,
 ):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=256, blank=True)
@@ -188,6 +212,16 @@ class User(
     )
     search_document = models.TextField(blank=True, default="")
     uuid = models.UUIDField(default=uuid4, unique=True)
+
+    # @cf::ornament.saleor.account
+    sso_id = models.UUIDField(default=None, unique=True, editable=False, null=True)
+    city = models.ForeignKey(
+        "geo.City", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    city_approved = models.BooleanField(default=False)
+    vendor = models.ForeignKey(
+        "vendors.Vendor", on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     USERNAME_FIELD = "email"
 

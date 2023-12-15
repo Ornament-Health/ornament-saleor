@@ -311,6 +311,11 @@ def prepare_order_details_url(order: Order, redirect_url: str) -> str:
 
 
 def send_order_confirmation(order_info, redirect_url, manager):
+    # @cf:ornament.saleor.notifications
+    from saleor.ornament.vendors.utils import apply_vendors_notification
+
+    apply_vendors_notification(order_info.order, order_info.lines_data)
+
     """Send notification with order confirmation."""
     payload = {
         "order": get_default_order_payload(order_info.order, redirect_url),

@@ -1,7 +1,7 @@
 import graphene
 from django_countries import countries
 
-from ...account import CustomerEvents
+from ...account import CustomerEvents, Sex
 from ...checkout import AddressType
 from ...graphql.core.enums import to_enum
 from ..core.doc_category import DOC_CATEGORY_USERS
@@ -17,6 +17,9 @@ CustomerEventsEnum.doc_category = DOC_CATEGORY_USERS
 CountryCodeEnum = graphene.Enum(
     "CountryCode", [(str_to_enum(country[0]), country[0]) for country in countries]
 )
+
+# @cf::ornament.saleor.account
+SexEnum = to_enum(Sex)
 
 
 class StaffMemberStatus(BaseEnum):

@@ -2,14 +2,28 @@ import logging
 from collections import defaultdict
 from copy import deepcopy
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    DefaultDict,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+)
 from uuid import UUID
 
 from django.contrib.sites.models import Site
 from django.db import transaction
 
 from ..account.models import User
-from ..core.exceptions import AllocationError, InsufficientStock, InsufficientStockData
+from ..core.exceptions import (
+    AllocationError,
+    InsufficientStock,
+    InsufficientStockData,
+    PermissionDenied,
+)
 from ..core.tracing import traced_atomic_transaction
 from ..core.transactions import transaction_with_commit_on_errors
 from ..core.utils.events import call_event
@@ -65,6 +79,9 @@ from .utils import (
     update_order_status,
     updates_amounts_for_order,
 )
+
+# @cf::ornament.saleor.order
+from saleor.plugins.manager import get_plugins_manager
 
 if TYPE_CHECKING:
     from ..app.models import App
@@ -987,6 +1004,60 @@ def create_fulfillments(
         )
 
     return fulfillments
+
+
+# @cf::ornament.saleor.order
+def create_fulfillments_internal(order: "Order"):
+    lines_for_warehouses: DefaultDict[
+        UUID, List[OrderFulfillmentLineInfo]
+    ] = defaultdict(list)
+
+    if not order.user:
+        logger.error(
+            f"You are trying to fullfill an order for anonymous user! {order.pk}"
+        )
+        raise PermissionDenied()
+
+    site = Site.objects.get_current()
+    manager = get_plugins_manager()
+    insufficient_stocks = []
+
+    for line in order.lines.all():
+        stock = (
+            line.variant.stocks.for_channel_and_country(order.channel).first()
+            if line.variant
+            else None
+        )
+
+        if not stock:
+            error_data = InsufficientStockData(
+                variant=line.variant,
+                order_line=line,
+                available_quantity=0,
+            )
+            insufficient_stocks.append(error_data)
+            continue
+
+        warehouse_pk = stock.warehouse_id
+        lines_for_warehouses[warehouse_pk].append(
+            {"order_line": line, "quantity": line.quantity}
+        )
+
+    if insufficient_stocks:
+        raise InsufficientStock(insufficient_stocks)
+
+    create_fulfillments(
+        user=order.user,
+        app=None,
+        order=order,
+        fulfillment_lines_for_warehouses=dict(lines_for_warehouses),
+        manager=manager,
+        site_settings=site.settings,
+    )
+
+    mark_order_as_paid_with_payment(
+        order=order, request_user=order.user, app=None, manager=manager
+    )
 
 
 def _get_fulfillment_line_if_exists(

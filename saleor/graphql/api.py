@@ -3,6 +3,22 @@ from django.urls import reverse
 from django.utils.functional import SimpleLazyObject
 from graphql import GraphQLScalarType
 
+# @cf::ornament.geo
+from saleor.graphql.ornament.geo.schema import GeoQueries
+
+# @cf::ornament.vendors
+from saleor.graphql.ornament.vendors.schema import VendorsQueries
+
+# @cf::ornament.checkupcenter
+from saleor.graphql.ornament.checkupcenter.schema import (
+    CheckUpCenterMutations,
+    CheckUpCenterQueries,
+)
+
+# @cf::ornament.search
+from saleor.graphql.ornament.search.schema import SearchProductsQueries
+
+
 from ..graphql.notifications.schema import ExternalNotificationMutations
 from .account.schema import AccountMutations, AccountQueries
 from .app.schema import AppMutations, AppQueries
@@ -62,6 +78,14 @@ class Query(
     TranslationQueries,
     WarehouseQueries,
     WebhookQueries,
+    # @cf::ornament.geo
+    GeoQueries,
+    # @cf::ornament.vendors
+    VendorsQueries,
+    # @cf::ornament.checkupcenter
+    CheckUpCenterQueries,
+    # @cf::ornament.search
+    SearchProductsQueries,
 ):
     pass
 
@@ -91,6 +115,8 @@ class Mutation(
     TaxMutations,
     WarehouseMutations,
     WebhookMutations,
+    # @cf::ornament.checkupcenter
+    CheckUpCenterMutations,
 ):
     pass
 

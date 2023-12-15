@@ -17,6 +17,9 @@ from .checkout_shipping_address_update import CheckoutShippingAddressUpdate
 from .checkout_shipping_method_update import CheckoutShippingMethodUpdate
 from .order_create_from_checkout import OrderCreateFromCheckout
 
+# @cf:ornament.saleor.checkout
+from .checkout_note_update import CheckoutNoteUpdate
+
 __all__ = [
     "CheckoutAddPromoCode",
     "CheckoutBillingAddressUpdate",
@@ -36,4 +39,6 @@ __all__ = [
     "CheckoutShippingAddressUpdate",
     "CheckoutShippingMethodUpdate",
     "OrderCreateFromCheckout",
+    # @cf:ornament.saleor.checkout
+    "CheckoutNoteUpdate",
 ]

@@ -11,6 +11,12 @@ from .confirm_email_change import ConfirmEmailChange
 from .request_email_change import RequestEmailChange
 from .send_confirmation_email import SendConfirmationEmail
 
+# @cf::ornament.geo
+from .account_set_city import SetCity
+
+# @cf::ornament.vendors
+from .account_set_vendor import SetVendor
+
 __all__ = [
     "AccountAddressCreate",
     "AccountAddressDelete",
@@ -24,4 +30,8 @@ __all__ = [
     "ConfirmEmailChange",
     "RequestEmailChange",
     "SendConfirmationEmail",
+    # @cf::ornament.geo
+    "SetCity",
+    # @cf::ornament.geo
+    "SetVendor",
 ]
