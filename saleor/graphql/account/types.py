@@ -67,8 +67,18 @@ from .dataloaders import (
     RestrictedChannelAccessByUserIdLoader,
     ThumbnailByUserIdSizeAndFormatLoader,
 )
-from .enums import CountryCodeEnum, CustomerEventsEnum
+from .enums import CountryCodeEnum, CustomerEventsEnum, SexEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
+
+# @cf::ornament.saleor.account
+from saleor.graphql.core.scalars import Date
+
+# @cf::ornament.geo
+from saleor.graphql.ornament.geo.types import City
+from saleor.ornament.geo.channel_utils import get_channel
+
+# @cf::ornament.vendors
+from saleor.graphql.ornament.vendors.types import Vendor
 
 
 class AddressInput(BaseInputObjectType):
@@ -89,6 +99,9 @@ class AddressInput(BaseInputObjectType):
             "[libphonenumber](https://github.com/google/libphonenumber) library."
         )
     )
+    # @cf::ornament.saleor.account
+    sex = SexEnum(description="Sex.")
+    date_of_birth = Date(description="Date of birth.")
 
     metadata = graphene.List(
         graphene.NonNull(MetadataInput),
@@ -446,6 +459,18 @@ class User(ModelObjectType[models.User]):
             required=True,
         ),
     )
+    # @cf::ornament.geo
+    city = graphene.Field(City, description="User selected and confirmed city")
+    city_approved = graphene.Boolean(
+        description=("Determine if user's city is approved"),
+        required=True,
+    )
+    current_channel = graphene.String(
+        description="Slug of a channel that has been set to user",
+        required=True,
+    )
+    # @cf::ornament.vendors
+    vendor = graphene.Field(Vendor, description="User's global vendor")
 
     class Meta:
         description = "Represents user data."
@@ -456,6 +481,11 @@ class User(ModelObjectType[models.User]):
     @staticmethod
     def resolve_addresses(root: models.User, _info: ResolveInfo):
         return root.addresses.annotate_default(root).all()  # type: ignore[attr-defined] # mypy does not properly recognize the related manager # noqa: E501
+
+    # @cf::ornament.geo
+    @staticmethod
+    def resolve_current_channel(root: models.User, _info: ResolveInfo):
+        return root.city.channel.slug if root.city else get_channel()
 
     @staticmethod
     def resolve_checkout(root: models.User, _info: ResolveInfo):

@@ -14,6 +14,9 @@ from ..core.utils import from_global_id_or_error
 from ..utils import get_user_or_app_from_context
 from ..utils.filters import filter_by_period
 
+# @cf::ornament.saleor.product
+from saleor.ornament.utils import check_channel_access
+
 
 def resolve_category_by_id(id):
     return models.Category.objects.filter(pk=id).first()
@@ -88,6 +91,8 @@ def resolve_products(
         .visible_to_user(requestor, channel_slug)
     )
     if not has_one_of_permissions(requestor, ALL_PRODUCTS_PERMISSIONS):
+        # @cf::ornament.saleor.product
+        check_channel_access(channel_slug)
         channels = Channel.objects.filter(slug=str(channel_slug))
         product_channel_listings = models.ProductChannelListing.objects.filter(
             Exists(channels.filter(pk=OuterRef("channel_id"))),
@@ -145,15 +150,23 @@ def resolve_product_variants(
     qs = models.ProductVariant.objects.filter(product__id__in=visible_products)
 
     if not requestor_has_access_to_all:
+        # @cf::ornament.saleor.product
+        check_channel_access(channel_slug)
+
         visible_products = visible_products.annotate_visible_in_listings(
             channel_slug
         ).exclude(visible_in_listings=False)
         qs = qs.filter(product__in=visible_products).available_in_channel(channel_slug)
+
     if ids:
         db_ids = [
             from_global_id_or_error(node_id, "ProductVariant")[1] for node_id in ids
         ]
         qs = qs.filter(pk__in=db_ids)
+
+    # @cf::ornament.saleor.product
+    qs = qs.available_by_rules(requestor)
+
     return ChannelQsContext(qs=qs, channel_slug=channel_slug)
 
 

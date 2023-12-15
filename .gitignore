@@ -1,11 +1,13 @@
+.vscode
+
 *.py[cod]
 .*
+!.keep
 !.devcontainer
 !.dockerignore
 !.github
 !.gitignore
 !.pylintrc
-!.vscode
 *.log
 *.pot
 *.pyc
@@ -31,3 +33,5 @@ venv.bak/
 
 # Exported results file
 django-queries-results.html
+
+GeoLite2-City.mmdb

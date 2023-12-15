@@ -7,6 +7,10 @@ from typing import List, Optional
 import graphene
 from graphene import relay
 from promise import Promise
+import graphene_django_optimizer as gql_optimizer
+
+# @cf::ornament.saleor.product
+from saleor.ornament.geo.channel_utils import get_channel
 
 from ....attribute import models as attribute_models
 from ....core.utils import build_absolute_uri
@@ -1002,6 +1006,11 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
         description=f"External ID of this product. {ADDED_IN_310}",
         required=False,
     )
+    # @cf::ornament.saleor.graphql.product
+    checkup_product_category_ids = graphene.List(
+        graphene.NonNull(graphene.ID),
+        description="List of checkup product category ids for the product",
+    )
 
     class Meta:
         default_resolver = ChannelContextType.resolver_with_context
@@ -1369,27 +1378,76 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
     @staticmethod
     def resolve_variants(root: ChannelContext[models.Product], info):
         requestor = get_user_or_app_from_context(info.context)
+        # @cf::ornament.saleor.product
         has_required_permissions = has_one_of_permissions(
             requestor, ALL_PRODUCTS_PERMISSIONS
         )
-        if has_required_permissions and not root.channel_slug:
+        channel_slug = (
+            root.channel_slug
+            if (root.channel_slug or has_required_permissions)
+            else get_channel()
+        )
+        # @cf::ornament.saleor.product
+        if has_required_permissions and not channel_slug:
             variants = ProductVariantsByProductIdLoader(info.context).load(root.node.id)
-        elif has_required_permissions and root.channel_slug:
+            # @cf::ornament.saleor.product
+        elif has_required_permissions and channel_slug:
             variants = ProductVariantsByProductIdAndChannel(info.context).load(
-                (root.node.id, root.channel_slug)
+                # @cf::ornament.saleor.product
+                (root.node.id, channel_slug)
             )
         else:
             variants = AvailableProductVariantsByProductIdAndChannel(info.context).load(
-                (root.node.id, root.channel_slug)
+                # @cf::ornament.saleor.product
+                (root.node.id, channel_slug)
             )
+
+        # @cf::ornament.saleor.product
+        # TODO refactor to SQL filter in AvailableProductVariantsByProductIdAndChannel
+        def available_by_rules(variants, rules):
+            rules_categories = [r[0] for r in rules]
+            return [
+                variant
+                for variant in variants
+                if (variant.node.product.category.id, variant.node.name) in rules
+                or variant.node.product.category.id not in rules_categories
+            ]
+
+        def available_by_user_vendor(variants, user_vendor):
+            return [
+                variant for variant in variants if variant.node.name == user_vendor.name
+            ]
 
         def map_channel_context(variants):
             return [
-                ChannelContext(node=variant, channel_slug=root.channel_slug)
+                # @cf::ornament.saleor.product
+                ChannelContext(node=variant, channel_slug=channel_slug)
                 for variant in variants
             ]
 
-        return variants.then(map_channel_context)
+        # @cf::ornament.saleor.product
+        user_vendors_rules = None
+        user_vendor = None
+
+        variants = variants.then(map_channel_context)
+
+        if requestor and requestor.id:
+            user_vendor = requestor.vendor
+
+            if user_vendor:
+                return variants.then(lambda v: available_by_user_vendor(v, user_vendor))
+
+            user_vendors_rules = requestor.rules.all()
+            user_vendors_rules = [
+                (r.category.id, r.vendor.name) for r in user_vendors_rules
+            ]
+
+            if user_vendors_rules:
+                return variants.then(
+                    lambda v: available_by_rules(v, user_vendors_rules)
+                )
+
+        return variants
 
     @staticmethod
     def resolve_channel_listings(root: ChannelContext[models.Product], info):
@@ -1574,6 +1632,18 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
                 )
 
         return [products.get(root_id) for root_id in roots_ids]
+
+    # @cf::ornament.saleor.graphql.product
+    @staticmethod
+    @gql_optimizer.resolver_hints(model_field="checkup_product_categories")
+    def resolve_checkup_product_category_ids(
+        root: ChannelContext[models.Product], *args, **kwargs
+    ):
+        checkup_product_category_ids = [
+            graphene.Node.to_global_id("CheckUpProductCategory", i.id)
+            for i in root.node.checkup_product_categories.all()
+        ]
+        return checkup_product_category_ids
 
 
 class ProductCountableConnection(CountableConnection):

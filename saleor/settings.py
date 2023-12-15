@@ -210,6 +210,8 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
     "saleor.core.middleware.jwt_refresh_token_middleware",
+    # @cf::ornament.geo
+    "saleor.ornament.geo.middleware.GeoChannelMiddleware",
 ]
 
 INSTALLED_APPS = [
@@ -249,6 +251,13 @@ INSTALLED_APPS = [
     "saleor.app",
     "saleor.thumbnail",
     "saleor.schedulers",
+    # @cf::ornament.checkupcenter
+    "saleor.ornament.checkupcenter",
+    # @cf::ornament.vendors
+    "saleor.ornament.vendors",
+    "saleor.ornament.vendors.kdl",
+    # @cf::ornament.geo
+    "saleor.ornament.geo",
     # External apps
     "django_measurement",
     "django_prices",
@@ -719,7 +728,8 @@ BUILTIN_PLUGINS = [
 ]
 
 # Plugin discovery
-EXTERNAL_PLUGINS = []
+# @cf::ornament.auth
+EXTERNAL_PLUGINS = ["saleor.ornament.auth.OrnamentSSOAuthBackend"]
 installed_plugins = pkg_resources.iter_entry_points("saleor.plugins")
 for entry_point in installed_plugins:
     plugin_path = "{}.{}".format(entry_point.module_name, entry_point.attrs[0])
@@ -831,4 +841,108 @@ CONFIRMATION_EMAIL_LOCK_TIME = parse(
 # Time threshold to update user last_login when performing requests with OAUTH token.
 OAUTH_UPDATE_LAST_LOGIN_THRESHOLD = parse(
     os.environ.get("OAUTH_UPDATE_LAST_LOGIN_THRESHOLD", "15 minutes")
+)
+
+# @cf::ornament.env
+ORNAMENT_INTERNAL_DATA_API = os.environ.get("ORNAMENT_INTERNAL_DATA_API", None)
+ORNAMENT_API_PUBLIC_HOST = os.environ.get("ORNAMENT_API_PUBLIC_HOST", None)
+ORNAMENT_API_INTERNAL_HOST = os.environ.get("ORNAMENT_API_INTERNAL_HOST", None)
+ORNAMENT_SSO_VALIDATION_URL = os.environ.get("ORNAMENT_SSO_VALIDATION_URL", None)
+
+CHECKUP_SKU_GROUPS_DEFAULT = (
+    {"name": "CBC", "skus": ["1.0.D1.202", "1.0.D2.202"], "part": 36},
+    {"name": "URINALYSIS", "skus": ["6.1.D1.401"], "part": 28},
+    {"name": "SPECIAL", "skus": None, "part": 36},  # skus:None means all, fallback
+)
+
+CHECKUP_SKU_GROUPS = os.environ.get("CHECKUP_SKU_GROUPS", CHECKUP_SKU_GROUPS_DEFAULT)
+CHECKUP_DURATION_DAYS = os.environ.get("CHECKUP_DURATION_DAYS", 365)
+CHECKUP_MOST_FILLED_STATE_EXPIRATION_DAYS = os.environ.get(
+    "CHECKUP_MOST_FILLED_STATE_EXPIRATION_DAYS", 365
+)
+
+ORNAMENT_S3_REGION_NAME = os.environ.get("ORNAMENT_S3_REGION_NAME", None)
+ORNAMENT_S3_ENDPOINT_URL = os.environ.get("ORNAMENT_S3_ENDPOINT_URL", None)
+ORNAMENT_S3_AWS_ACCESS_KEY_ID = os.environ.get("ORNAMENT_S3_AWS_ACCESS_KEY_ID", None)
+ORNAMENT_S3_AWS_SECRET_ACCESS_KEY = os.environ.get(
+    "ORNAMENT_S3_AWS_SECRET_ACCESS_KEY", None
+)
+ORNAMENT_S3_BUCKET = os.environ.get("ORNAMENT_S3_BUCKET", None)
+
+ORNAMENT_NOTIFICATION_API_URL = os.environ.get("ORNAMENT_NOTIFICATION_API_URL", None)
+ORNAMENT_IMAGESET_API_UPLOAD_PDF_URL = os.environ.get(
+    "ORNAMENT_IMAGESET_API_UPLOAD_PDF_URL", None
+)
+ORNAMENT_SSO_VALIDATION_URL = os.environ.get("ORNAMENT_SSO_VALIDATION_URL", None)
+ORNAMENT_INTERNAL_DATA_API = os.environ.get("ORNAMENT_INTERNAL_DATA_API", None)
+ORNAMENT_API_PUBLIC_HOST = os.environ.get("ORNAMENT_API_PUBLIC_HOST", None)
+ORNAMENT_API_INTERNAL_HOST = os.environ.get("ORNAMENT_API_INTERNAL_HOST", None)
+
+GEO_LITE_DB_FILE_PATH_COMPRESSED = os.path.join(
+    PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb.gz"
+)
+GEO_LITE_DB_FILE_PATH = os.path.join(
+    PROJECT_ROOT, "saleor", "ornament", "geo", "db", "GeoLite2-City.mmdb"
+)
+
+SLACK_ENABLED = os.environ.get("SLACK_ENABLED", None)
+SLACK_ENVIRONMENT = os.environ.get("SLACK_ENVIRONMENT", None)
+SLACK_API_TOKEN = os.environ.get("SLACK_API_TOKEN", None)
+SLACK_API_CHANNEL_NAME = os.environ.get("SLACK_API_CHANNEL_NAME", None)
+SLACK_WEBHOOK = os.environ.get("SLACK_WEBHOOK", None)
+
+KDL_ORDER_RECIPIENTS = os.environ.get("KDL_ORDER_RECIPIENTS", None)
+KDL_CLINIC_ID = os.environ.get("KDL_CLINIC_ID", None)
+KDL_CLINIC_NOVOUCHER_ID = os.environ.get("KDL_CLINIC_NOVOUCHER_ID", None)
+KDL_DOCTOR_NOVOUCHER_ID = os.environ.get("KDL_DOCTOR_NOVOUCHER_ID", None)
+KDL_CLINIC_NAME = os.environ.get("KDL_CLINIC_NAME", None)
+KDL_WSDL_URL = os.environ.get("KDL_WSDL_URL", None)
+KDL_WSDL_USERNAME = os.environ.get("KDL_WSDL_USERNAME", None)
+KDL_WSDL_PASSWORD = os.environ.get("KDL_WSDL_PASSWORD", None)
+KDL_FTP_LOGIN = os.environ.get("KDL_FTP_LOGIN", None)
+KDL_FTP_HOST = os.environ.get("KDL_FTP_HOST", None)
+KDL_FTP_PASSWORD = os.environ.get("KDL_FTP_PASSWORD", None)
+KDL_LABORATORY_ID = "77MS"
+KDL_LABORATORY_NAME = "КДЛТЕСТ"
+KDL_MANDATORY_ORDER_SKU_LIST = [
+    ("Взятие биоматериала", "0.1.C1.0"),
+    ("Плановый выезд процедурной бригады к пациенту (город)", "0.1.C17"),
+]
+KDL_ORDER_EMAIL_TEMPLATE_PATH = os.path.join(
+    PROJECT_ROOT,
+    "saleor",
+    "ornament",
+    "vendors",
+    "templates",
+    "confirm_kdl_order_email.html",
+)
+DEFAULT_KDL_POSTAL_CODE = os.environ.get("DEFAULT_KDL_POSTAL_CODE", "101000")
+DEFAULT_KDL_COUNTRY_AREA = os.environ.get("DEFAULT_KDL_COUNTRY_AREA", "Москва")
+
+DATA_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "datadir"))
+LOCK_DIR = os.path.abspath(os.path.join(DATA_DIR, "lock"))
+
+KDL_PDF_STORAGE_DIR = os.path.join(MEDIA_ROOT, "kdl_pdf_results")
+os.makedirs(KDL_PDF_STORAGE_DIR, exist_ok=True)
+
+ORDER_FROM_EMAIL = os.environ.get("ORDER_FROM_EMAIL", "hello@ornament.health")
+
+SUBSCRIPTION_VOUCHER_DEFAULT = os.environ.get("SUBSCRIPTION_VOUCHER_DEFAULT", None)
+SUBSCRIPTION_VOUCHER_ANNUAL = os.environ.get(
+    "SUBSCRIPTION_VOUCHER_ANNUAL", SUBSCRIPTION_VOUCHER_DEFAULT
+)
+SUBSCRIPTION_VOUCHER_MONTHLY = os.environ.get(
+    "SUBSCRIPTION_VOUCHER_MONTHLY", SUBSCRIPTION_VOUCHER_DEFAULT
+)
+SUBSCRIPTION_VOUCHER_WEEKLY = os.environ.get(
+    "SUBSCRIPTION_VOUCHER_WEEKLY", SUBSCRIPTION_VOUCHER_DEFAULT
+)
+SUBSCRIPTION_VOUCHER_PROMO = os.environ.get(
+    "SUBSCRIPTION_VOUCHER_PROMO", SUBSCRIPTION_VOUCHER_DEFAULT
+)
+SUBSCRIPTION_VOUCHER_THREE_MONTH = os.environ.get(
+    "SUBSCRIPTION_VOUCHER_THREE_MONTH", SUBSCRIPTION_VOUCHER_DEFAULT
+)
+SUBSCRIPTION_VOUCHER_UNKNOWN = os.environ.get(
+    "SUBSCRIPTION_VOUCHER_UNKNOWN", SUBSCRIPTION_VOUCHER_DEFAULT
 )
