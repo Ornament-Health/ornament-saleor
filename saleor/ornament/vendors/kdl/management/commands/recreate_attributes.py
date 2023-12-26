@@ -44,12 +44,12 @@ class Command(BaseCommand):
     ) -> AssignedProductAttributeValue:
         product_id = attribute["product_id"]
 
-        assignedproductattribute = AssignedProductAttribute(
+        assigned_product_attribute = AssignedProductAttribute(
             product_id=product_id,
             assignment_id=attribute_id,
         )
 
-        assignedproductattribute.save()
+        assigned_product_attribute.save()
 
         sex_attribute_value = sex_attribute_values.get(attribute["value"])
 
@@ -59,7 +59,7 @@ class Command(BaseCommand):
             )
 
         return AssignedProductAttributeValue(
-            assignment_id=assignedproductattribute.pk,
+            assignment_id=assigned_product_attribute.pk,
             value_id=sex_attribute_value.pk,
             product_id=product_id,
         )
@@ -80,6 +80,7 @@ class Command(BaseCommand):
             )
             for b_id in medical_data.biomarker_ids
         ]
+
         medical_exams_attribute_values = [
             AttributeValue(
                 name=m_id,
@@ -89,15 +90,19 @@ class Command(BaseCommand):
             )
             for m_id in medical_data.medical_exams_ids
         ]
+
         inserted_biomarkers_attribute_values = AttributeValue.objects.bulk_create(
             biomarkers_attribute_values
         )
+
         inserted_medical_exams_attribute_values = AttributeValue.objects.bulk_create(
             medical_exams_attribute_values
         )
+
         biomarkers_attribute_values_ids: dict[int, int] = {
             int(b.name): b.pk for b in inserted_biomarkers_attribute_values
         }
+
         medical_exams_attribute_values_ids: dict[int, int] = {
             int(m.name): m.pk for m in inserted_medical_exams_attribute_values
         }
@@ -105,111 +110,109 @@ class Command(BaseCommand):
         with open(path, "r") as data:
             rows = json.load(data)
 
-            assigned_product_attribute_values = []
+        assigned_product_attribute_values = []
 
-            sex_attribute_values = AttributeValue.objects.filter(name__in=["M", "F"])
-            sex_attribute_values = {v.name: v for v in sex_attribute_values}
+        sex_attribute_values = AttributeValue.objects.filter(name__in=["M", "F"])
+        sex_attribute_values = {v.name: v for v in sex_attribute_values}
 
-            for r in rows:
-                id = r["id"]
-                lab_meta = json.loads(r["meta"])
+        for r in rows:
+            id = r["id"]
+            lab_meta = json.loads(r["meta"])
 
-                biomaterial = self.get_attributes_by_key(lab_meta, "biomaterials", id)
-                preparation = self.get_attributes_by_key(lab_meta, "preparation", id)
-                max_duration = self.get_attributes_by_key(lab_meta, "MaxDuration", id)
-                duration_unit = self.get_attributes_by_key(lab_meta, "DurationUnit", id)
-                age_from = self.get_attributes_by_key(
-                    lab_meta, "ageFrom", id, ornament=True
-                )
-                age_to = self.get_attributes_by_key(
-                    lab_meta, "ageTo", id, ornament=True
-                )
-                sex = self.get_attributes_by_key(lab_meta, "sex", id, ornament=True)
-                biomarkers = self.get_attributes_by_key(
-                    lab_meta, "biomarkers", id, ornament=True
-                )
-                medical_exams = self.get_attributes_by_key(
-                    lab_meta,
-                    "medical_exams",
-                    id,
-                    ornament=True,
-                )
-
-                if biomaterial:
-                    assigned_product_attribute_values.append(
-                        AttributeUtils.add_biomaterial_attribute_data(
-                            biomaterial["product_id"], biomaterial["value"]
-                        )
-                    )
-
-                if preparation:
-                    assigned_product_attribute_values.append(
-                        AttributeUtils.add_preparation_attribute_data(
-                            preparation["product_id"], preparation["value"]
-                        )
-                    )
-
-                if max_duration:
-                    assigned_product_attribute_values.append(
-                        AttributeUtils.add_numeric_attribute_data(
-                            max_duration["product_id"],
-                            max_duration["value"],
-                            AttributeUtils.attrubutes_ids["kdl-max_duration"],
-                        )
-                    )
-                if duration_unit:
-                    assigned_product_attribute_values.append(
-                        AttributeUtils.add_numeric_attribute_data(
-                            duration_unit["product_id"],
-                            duration_unit["value"],
-                            AttributeUtils.attrubutes_ids["kdl-duration_unit"],
-                        )
-                    )
-                if age_from:
-                    assigned_product_attribute_values.append(
-                        AttributeUtils.add_numeric_attribute_data(
-                            age_from["product_id"],
-                            age_from["value"],
-                            AttributeUtils.attrubutes_ids["age-from"],
-                        )
-                    )
-                if age_to:
-                    assigned_product_attribute_values.append(
-                        AttributeUtils.add_numeric_attribute_data(
-                            age_to["product_id"],
-                            age_to["value"],
-                            AttributeUtils.attrubutes_ids["age-to"],
-                        )
-                    )
-                if sex:
-                    assigned_product_attribute_values.append(
-                        self.add_sex_attribute_data(
-                            sex,
-                            AttributeUtils.attrubutes_ids["sex"],
-                            sex_attribute_values,
-                        )
-                    )
-                if biomarkers:
-                    assigned_product_attribute_values += (
-                        AttributeUtils.add_medical_attributes_data(
-                            biomarkers["product_id"],
-                            biomarkers["value"],
-                            AttributeUtils.attrubutes_ids["biomarkers"],
-                            biomarkers_attribute_values_ids,
-                        )
-                    )
-                if medical_exams:
-                    assigned_product_attribute_values += (
-                        AttributeUtils.add_medical_attributes_data(
-                            medical_exams["product_id"],
-                            medical_exams["value"],
-                            AttributeUtils.attrubutes_ids["medical_exams"],
-                            medical_exams_attribute_values_ids,
-                        )
-                    )
-
-            AssignedProductAttributeValue.objects.bulk_create(
-                assigned_product_attribute_values
+            biomaterial = self.get_attributes_by_key(lab_meta, "biomaterials", id)
+            preparation = self.get_attributes_by_key(lab_meta, "preparation", id)
+            max_duration = self.get_attributes_by_key(lab_meta, "MaxDuration", id)
+            duration_unit = self.get_attributes_by_key(lab_meta, "DurationUnit", id)
+            age_from = self.get_attributes_by_key(
+                lab_meta, "ageFrom", id, ornament=True
+            )
+            age_to = self.get_attributes_by_key(lab_meta, "ageTo", id, ornament=True)
+            sex = self.get_attributes_by_key(lab_meta, "sex", id, ornament=True)
+            biomarkers = self.get_attributes_by_key(
+                lab_meta, "biomarkers", id, ornament=True
+            )
+            medical_exams = self.get_attributes_by_key(
+                lab_meta,
+                "medical_exams",
+                id,
+                ornament=True,
             )
 
-            return
+            if biomaterial:
+                assigned_product_attribute_values.append(
+                    AttributeUtils.add_biomaterial_attribute_data(
+                        biomaterial["product_id"], biomaterial["value"]
+                    )
+                )
+
+            if preparation:
+                assigned_product_attribute_values.append(
+                    AttributeUtils.add_preparation_attribute_data(
+                        preparation["product_id"], preparation["value"]
+                    )
+                )
+
+            if max_duration:
+                assigned_product_attribute_values.append(
+                    AttributeUtils.add_numeric_attribute_data(
+                        max_duration["product_id"],
+                        max_duration["value"],
+                        AttributeUtils.attrubutes_ids["kdl-max_duration"],
+                    )
+                )
+            if duration_unit:
+                assigned_product_attribute_values.append(
+                    AttributeUtils.add_numeric_attribute_data(
+                        duration_unit["product_id"],
+                        duration_unit["value"],
+                        AttributeUtils.attrubutes_ids["kdl-duration_unit"],
+                    )
+                )
+            if age_from:
+                assigned_product_attribute_values.append(
+                    AttributeUtils.add_numeric_attribute_data(
+                        age_from["product_id"],
+                        age_from["value"],
+                        AttributeUtils.attrubutes_ids["age-from"],
+                    )
+                )
+            if age_to:
+                assigned_product_attribute_values.append(
+                    AttributeUtils.add_numeric_attribute_data(
+                        age_to["product_id"],
+                        age_to["value"],
+                        AttributeUtils.attrubutes_ids["age-to"],
+                    )
+                )
+            if sex:
+                assigned_product_attribute_values.append(
+                    self.add_sex_attribute_data(
+                        sex,
+                        AttributeUtils.attrubutes_ids["sex"],
+                        sex_attribute_values,
+                    )
+                )
+            if biomarkers:
+                assigned_product_attribute_values += (
+                    AttributeUtils.add_medical_attributes_data(
+                        biomarkers["product_id"],
+                        biomarkers["value"],
+                        AttributeUtils.attrubutes_ids["biomarkers"],
+                        biomarkers_attribute_values_ids,
+                    )
+                )
+            if medical_exams:
+                assigned_product_attribute_values += (
+                    AttributeUtils.add_medical_attributes_data(
+                        medical_exams["product_id"],
+                        medical_exams["value"],
+                        AttributeUtils.attrubutes_ids["medical_exams"],
+                        medical_exams_attribute_values_ids,
+                    )
+                )
+
+        AssignedProductAttributeValue.objects.bulk_create(
+            assigned_product_attribute_values
+        )
+
+        return

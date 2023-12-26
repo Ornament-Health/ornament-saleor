@@ -46,8 +46,8 @@ async def fetch_medical_data() -> MedicalData:
 
         biomarker_ids = [b["id"] for b in biomarkers["biomarkers"]]
         medical_exams_ids = [
-            o["examTypeObjectId"]
-            for o in chain.from_iterable(
+            exam_object["examTypeObjectId"]
+            for exam_object in chain.from_iterable(
                 [exam["objects"] for exam in medical_exams["exams"]]
             )
         ]
@@ -126,7 +126,7 @@ class AttributeUtils:
         name = biomaterial.replace("\n", ", ")
         slug = f"{product_id}_{attribute_id}"
 
-        biomaterial_attributevalue = AttributeValue(
+        biomaterial_attribute_value = AttributeValue(
             name=name,
             attribute_id=attribute_id,
             slug=slug,
@@ -134,17 +134,17 @@ class AttributeUtils:
             sort_order=attribute_id,
         )
 
-        biomaterial_assignedproductattribute = AssignedProductAttribute(
+        biomaterial_assigned_product_attribute = AssignedProductAttribute(
             product_id=product_id,
             assignment_id=attribute_id,
         )
 
-        biomaterial_attributevalue.save()
-        biomaterial_assignedproductattribute.save()
+        biomaterial_attribute_value.save()
+        biomaterial_assigned_product_attribute.save()
 
         return AssignedProductAttributeValue(
-            assignment_id=biomaterial_assignedproductattribute.pk,
-            value_id=biomaterial_attributevalue.pk,
+            assignment_id=biomaterial_assigned_product_attribute.pk,
+            value_id=biomaterial_attribute_value.pk,
             product_id=product_id,
         )
 
@@ -157,7 +157,7 @@ class AttributeUtils:
         rich_text = form_rich_text(preparation)
         slug = f"{product_id}_{attribute_id}"
 
-        preparation_attributevalue = AttributeValue(
+        preparation_attribute_value = AttributeValue(
             name=name,
             attribute_id=attribute_id,
             slug=slug,
@@ -165,44 +165,44 @@ class AttributeUtils:
             sort_order=attribute_id,
         )
 
-        preparation_assignedproductattribute = AssignedProductAttribute(
+        preparation_assigned_product_attribute = AssignedProductAttribute(
             product_id=product_id,
             assignment_id=attribute_id,
         )
 
-        preparation_attributevalue.save()
-        preparation_assignedproductattribute.save()
+        preparation_attribute_value.save()
+        preparation_assigned_product_attribute.save()
 
         return AssignedProductAttributeValue(
-            assignment_id=preparation_assignedproductattribute.pk,
-            value_id=preparation_attributevalue.pk,
+            assignment_id=preparation_assigned_product_attribute.pk,
+            value_id=preparation_attribute_value.pk,
             product_id=product_id,
         )
 
     @staticmethod
     def add_numeric_attribute_data(
-        product_id: int, attribute_value: int, attribute_id: int
+        product_id: int, attribute_data_value: int, attribute_id: int
     ) -> AssignedProductAttributeValue:
         slug = f"{product_id}_{attribute_id}"
 
-        attributevalue = AttributeValue(
-            name=attribute_value,
+        attribute_value = AttributeValue(
+            name=attribute_data_value,
             attribute_id=attribute_id,
             slug=slug,
             sort_order=attribute_id,
         )
 
-        assignedproductattribute = AssignedProductAttribute(
+        assigned_product_attribute = AssignedProductAttribute(
             product_id=product_id,
             assignment_id=attribute_id,
         )
 
-        attributevalue.save()
-        assignedproductattribute.save()
+        attribute_value.save()
+        assigned_product_attribute.save()
 
         return AssignedProductAttributeValue(
-            assignment_id=assignedproductattribute.pk,
-            value_id=attributevalue.pk,
+            assignment_id=assigned_product_attribute.pk,
+            value_id=attribute_value.pk,
             product_id=product_id,
         )
 
@@ -216,16 +216,16 @@ class AttributeUtils:
         if not medical_data_ids:
             return []
 
-        assignedproductattribute = AssignedProductAttribute(
+        assigned_product_attribute = AssignedProductAttribute(
             product_id=product_id,
             assignment_id=attribute_id,
         )
 
-        assignedproductattribute.save()
+        assigned_product_attribute.save()
 
         return [
             AssignedProductAttributeValue(
-                assignment_id=assignedproductattribute.pk,
+                assignment_id=assigned_product_attribute.pk,
                 value_id=attribute_values.get(b),
                 product_id=product_id,
             )
