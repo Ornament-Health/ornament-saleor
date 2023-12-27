@@ -495,14 +495,17 @@ class User(ModelObjectType[models.User]):
 
     # @cf::ornament.geo
     @staticmethod
-    def resolve_current_currency(root: models.User, _info: ResolveInfo):
+    def resolve_current_currency(root: models.User, _info: ResolveInfo) -> str:
         if root.city:
             return root.city.channel.currency_code
 
         channel_slug = get_channel()
         channel = channel_models.Channel.objects.filter(slug=channel_slug).first()
 
-        return channel.currency_code if channel else settings.DEFAULT_CHANNEL_CURRENCY
+        if channel:
+            return channel.currency_code
+
+        return settings.DEFAULT_CHANNEL_CURRENCY
 
     @staticmethod
     def resolve_checkout(root: models.User, _info: ResolveInfo):
