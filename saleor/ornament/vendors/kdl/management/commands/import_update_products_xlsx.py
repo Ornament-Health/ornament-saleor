@@ -178,7 +178,7 @@ class Command(BaseCommand):
                     name=d["sku"],
                     slug=slugify(d["sku"], lowercase=True, max_length=100),
                     description=form_description(d["name"], d["description"]),
-                    description_plaintext=d["description"],
+                    description_plaintext=d["description"] or "",
                     category_id=category.pk,
                     search_index_dirty=True,
                 )
@@ -324,7 +324,7 @@ class Command(BaseCommand):
                 p.description = form_description(
                     data_product["name"], data_product["description"]
                 )
-                p.description_plaintext = data_product["description"]
+                p.description_plaintext = data_product["description"] or ""
 
                 if (
                     data_product["biomaterial"]
