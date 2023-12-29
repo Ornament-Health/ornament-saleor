@@ -45,6 +45,8 @@ class Command(BaseCommand):
         "medical_exam_type_object",
         "is popular",
         "is hidden",
+        "rating",
+        "color slug",
     ]
 
     def add_arguments(self, parser):
@@ -70,6 +72,62 @@ class Command(BaseCommand):
             return [id for id in found_ids if int(id) in ids]
         except (IndexError, ValueError):
             raise CommandError(f"Can not parse medical data column: {col_data}")
+
+    def add_featured_attribute_data(
+        self,
+        product_id: int,
+        featured_attribute_values: dict[str, AttributeValue],
+    ) -> AssignedProductAttributeValue:
+        assigned_product_attribute = AssignedProductAttribute(
+            product_id=product_id,
+            assignment_id=AttributeUtils.attrubutes_ids["featured"],
+        )
+
+        assigned_product_attribute.save()
+
+        featured_slug = f"{AttributeUtils.attrubutes_ids['featured']}_true"
+
+        featured_attribute_value = featured_attribute_values.get(featured_slug)
+
+        if not featured_attribute_value:
+            raise CommandError(
+                f"""Can't find featured attribute value for slug {featured_slug}"""
+            )
+
+        return AssignedProductAttributeValue(
+            assignment_id=assigned_product_attribute.pk,
+            value_id=featured_attribute_value.pk,
+            product_id=product_id,
+        )
+
+    def add_color_attribute_data(
+        self,
+        product_id: int,
+        color_slug: str,
+        color_attribute_values: dict[str, AttributeValue],
+    ) -> AssignedProductAttributeValue:
+        assigned_product_attribute = AssignedProductAttribute(
+            product_id=product_id,
+            assignment_id=AttributeUtils.attrubutes_ids["color"],
+        )
+
+        assigned_product_attribute.save()
+
+        color_attribute_value = color_attribute_values.get(color_slug)
+
+        if not color_attribute_value:
+            raise CommandError(
+                f"""Can't find color attribute value for slug {color_slug}"""
+            )
+
+        return AssignedProductAttributeValue(
+            assignment_id=assigned_product_attribute.pk,
+            value_id=color_attribute_value.pk,
+            product_id=product_id,
+        )
+
+    def check_row_required_data(self, row: tuple) -> bool:
+        return all([row[0], row[1], row[2]])
 
     def handle(self, *args, **options):
         filename = options.get("filename")
@@ -107,8 +165,11 @@ class Command(BaseCommand):
                 ),
                 "is_popular": s[9],
                 "is_hidden": s[10],
+                "rating": s[11],
+                "color_slug": s[12],
             }
             for s in sheet.iter_rows(min_row=2, values_only=True)
+            if self.check_row_required_data(s)
         }
 
         current_products = Product.objects.values_list("name", flat=True)
@@ -130,14 +191,27 @@ class Command(BaseCommand):
             attribute_id=AttributeUtils.attrubutes_ids["kdl-biomaterials"]
         )
         biomaterial_attribute_values = {v.slug: v for v in biomaterial_attribute_values}
+
         preparation_attribute_values = AttributeValue.objects.filter(
             attribute_id=AttributeUtils.attrubutes_ids["kdl-preparation"]
         )
         preparation_attribute_values = {v.slug: v for v in preparation_attribute_values}
+
         duration_attribute_values = AttributeValue.objects.filter(
             attribute_id=AttributeUtils.attrubutes_ids["kdl-max_duration"]
         )
         duration_attribute_values = {v.slug: v for v in duration_attribute_values}
+
+        featured_attribute_values = AttributeValue.objects.filter(
+            attribute_id=AttributeUtils.attrubutes_ids["featured"]
+        )
+        featured_attribute_values = {v.slug: v for v in featured_attribute_values}
+
+        color_attribute_values = AttributeValue.objects.filter(
+            attribute_id=AttributeUtils.attrubutes_ids["color"]
+        )
+        color_attribute_values = {v.slug: v for v in color_attribute_values}
+
         biomarkers_assigned_product_attributes = (
             AssignedProductAttribute.objects.filter(
                 assignment_id=AttributeUtils.attrubutes_ids["biomarkers"]
@@ -146,6 +220,7 @@ class Command(BaseCommand):
         biomarkers_assigned_product_attributes = {
             v.product.pk: v.pk for v in biomarkers_assigned_product_attributes
         }
+
         medical_exams_assigned_product_attributes = (
             AssignedProductAttribute.objects.filter(
                 assignment_id=AttributeUtils.attrubutes_ids["medical_exams"]
@@ -153,6 +228,20 @@ class Command(BaseCommand):
         )
         medical_exams_assigned_product_attributes = {
             v.product.pk: v.pk for v in medical_exams_assigned_product_attributes
+        }
+
+        featured_assigned_product_attributes = AssignedProductAttribute.objects.filter(
+            assignment_id=AttributeUtils.attrubutes_ids["featured"]
+        )
+        featured_assigned_product_attributes = {
+            v.product.pk: v.pk for v in featured_assigned_product_attributes
+        }
+
+        color_assigned_product_attributes = AssignedProductAttribute.objects.filter(
+            assignment_id=AttributeUtils.attrubutes_ids["color"]
+        )
+        color_assigned_product_attributes = {
+            v.product.pk: v.pk for v in color_assigned_product_attributes
         }
 
         popular_collection_assignments = CollectionProduct.objects.filter(
@@ -181,6 +270,7 @@ class Command(BaseCommand):
                     description_plaintext=d["description"] or "",
                     category_id=category.pk,
                     search_index_dirty=True,
+                    rating=d["rating"],
                 )
             )
 
@@ -244,6 +334,7 @@ class Command(BaseCommand):
                             data_product["biomaterial"],
                         )
                     )
+
                 if (
                     data_product["preparation"]
                     and "N/A" not in data_product["preparation"]
@@ -254,6 +345,7 @@ class Command(BaseCommand):
                             data_product["preparation"],
                         )
                     )
+
                 if data_product["duration"] and "N/A" not in str(
                     data_product["duration"]
                 ):
@@ -272,6 +364,7 @@ class Command(BaseCommand):
                             AttributeUtils.attrubutes_ids["kdl-duration_unit"],
                         )
                     )
+
                 if data_product["biomarkers"]:
                     assigned_product_attribute_values += (
                         AttributeUtils.add_medical_attributes_data(
@@ -291,10 +384,28 @@ class Command(BaseCommand):
                             medical_exams_attribute_values_ids,
                         )
                     )
-                if data_product["is_popular"] == 1 and popular_collection:
-                    collection_products.append(
-                        CollectionProduct(
-                            collection_id=popular_collection.pk, product_id=product.pk
+
+                if data_product["is_popular"] == 1:
+                    assigned_product_attribute_values.append(
+                        self.add_featured_attribute_data(
+                            product.pk, featured_attribute_values
+                        )
+                    )
+
+                    if popular_collection:
+                        collection_products.append(
+                            CollectionProduct(
+                                collection_id=popular_collection.pk,
+                                product_id=product.pk,
+                            )
+                        )
+
+                if data_product["color_slug"]:
+                    assigned_product_attribute_values.append(
+                        self.add_color_attribute_data(
+                            product.pk,
+                            data_product["color_slug"],
+                            color_attribute_values,
                         )
                     )
 
@@ -325,6 +436,9 @@ class Command(BaseCommand):
                     data_product["name"], data_product["description"]
                 )
                 p.description_plaintext = data_product["description"] or ""
+
+                if data_product["rating"]:
+                    p.rating = float(data_product["rating"])
 
                 if (
                     data_product["biomaterial"]
@@ -370,18 +484,18 @@ class Command(BaseCommand):
                 if data_product["duration"] and "N/A" not in str(
                     data_product["duration"]
                 ):
-                    duration = data_product["duration"]
+                    duration = int(data_product["duration"])
                     slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-max_duration"]}'
                     db_attribute = duration_attribute_values.get(slug)
 
                     if db_attribute:
-                        db_attribute.name = duration
+                        db_attribute.name = str(duration)
                         attribute_values_to_update.append(db_attribute)
                     else:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
-                                int(duration),
+                                duration,
                                 AttributeUtils.attrubutes_ids["kdl-max_duration"],
                             )
                         )
@@ -451,8 +565,63 @@ class Command(BaseCommand):
                             )
                         )
 
+                if data_product["color_slug"]:
+                    db_assigned_product_attribute = (
+                        color_assigned_product_attributes.get(product_id)
+                    )
+                    if db_assigned_product_attribute:
+                        assigned_value = AssignedProductAttributeValue.objects.filter(
+                            assignment_id=db_assigned_product_attribute
+                        ).first()
+
+                        db_value_for_current_slug = color_attribute_values.get(
+                            data_product["color_slug"]
+                        )
+
+                        if assigned_value:
+                            if (
+                                db_value_for_current_slug
+                                and assigned_value.value != db_value_for_current_slug
+                            ):
+                                assigned_value.value = db_value_for_current_slug
+                                assigned_value.save()
+                        elif db_value_for_current_slug:
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    assignment_id=db_assigned_product_attribute,
+                                    value_id=db_value_for_current_slug.pk,
+                                    product_id=product_id,
+                                )
+                            )
+
+                    else:
+                        assigned_product_attribute_values_to_insert.append(
+                            self.add_color_attribute_data(
+                                product_id,
+                                data_product["color_slug"],
+                                color_attribute_values,
+                            )
+                        )
+
+                is_popular = data_product["is_popular"]
+
+                db_assigned_featured_product_attribute = (
+                    featured_assigned_product_attributes.get(product_id)
+                )
+
+                if is_popular != 1 and db_assigned_featured_product_attribute:
+                    AssignedProductAttributeValue.objects.filter(
+                        assignment_id=db_assigned_featured_product_attribute
+                    ).delete()
+                    db_assigned_featured_product_attribute.delete()
+                elif is_popular == 1 and not db_assigned_featured_product_attribute:
+                    assigned_product_attribute_values_to_insert.append(
+                        self.add_featured_attribute_data(
+                            product_id, featured_attribute_values
+                        )
+                    )
+
                 if popular_collection:
-                    is_popular = data_product["is_popular"]
                     product_popular_collection_assignment = (
                         popular_collection_assignments.get(product_id)
                     )
