@@ -168,7 +168,7 @@ class Command(BaseCommand):
         )
 
         # create new stock for product variants listings
-        Stock.objects.bulk_create(new_warehouse_stocks)
+        Stock.objects.bulk_create(new_warehouse_stocks, ignore_conflicts=True)
 
         if prices_errors:
             print(prices_errors)
