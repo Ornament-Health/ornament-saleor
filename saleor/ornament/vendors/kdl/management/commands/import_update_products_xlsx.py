@@ -439,6 +439,10 @@ class Command(BaseCommand):
 
                 if data_product["rating"]:
                     p.rating = float(data_product["rating"])
+                else:
+                    p.rating = None
+
+                p.save()
 
                 if (
                     data_product["biomaterial"]
