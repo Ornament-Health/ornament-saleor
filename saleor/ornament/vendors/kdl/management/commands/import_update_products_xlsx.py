@@ -129,6 +129,34 @@ class Command(BaseCommand):
     def check_row_required_data(self, row: tuple) -> bool:
         return all([row[0], row[1], row[2]])
 
+    def get_attribute_assignments(
+        self,
+        product: Product,
+        db_attribute_value: AttributeValue,
+        attribute_name: str,
+    ) -> tuple[bool, int]:
+        recreate = False
+        reassign_pk = 0
+
+        assigned_value = product.attributevalues.filter(
+            value_id=db_attribute_value.pk
+        ).first()
+
+        if assigned_value:
+            return recreate, reassign_pk
+
+        assigned_attribute = product.attributes.filter(
+            assignment_id=AttributeUtils.attrubutes_ids[attribute_name]
+        ).first()
+
+        if not assigned_attribute:
+            db_attribute_value.delete()
+            recreate = True
+        else:
+            reassign_pk = assigned_attribute.pk
+
+        return recreate, reassign_pk
+
     def handle(self, *args, **options):
         filename = options.get("filename")
 
@@ -201,6 +229,13 @@ class Command(BaseCommand):
             attribute_id=AttributeUtils.attrubutes_ids["kdl-max_duration"]
         )
         duration_attribute_values = {v.slug: v for v in duration_attribute_values}
+
+        duration_unit_attribute_values = AttributeValue.objects.filter(
+            attribute_id=AttributeUtils.attrubutes_ids["kdl-duration_unit"]
+        )
+        duration_unit_attribute_values = {
+            v.slug: v for v in duration_unit_attribute_values
+        }
 
         featured_attribute_values = AttributeValue.objects.filter(
             attribute_id=AttributeUtils.attrubutes_ids["featured"]
@@ -418,7 +453,10 @@ class Command(BaseCommand):
         )
 
         # UPDATE
-        products_to_update = Product.objects.filter(name__in=data_to_update.keys())
+        products_to_update = Product.objects.filter(
+            name__in=data_to_update.keys()
+        ).prefetch_related("attributevalues", "attributes")
+
         attribute_values_to_update = []
         assigned_product_attribute_values_to_insert = []
         collection_products_to_insert = []
@@ -450,12 +488,38 @@ class Command(BaseCommand):
                 ):
                     name = data_product["biomaterial"].replace("\n", ", ")
                     slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-biomaterials"]}'
-                    db_attribute = biomaterial_attribute_values.get(slug)
+                    db_attribute_value = biomaterial_attribute_values.get(slug)
 
-                    if db_attribute:
-                        db_attribute.name = name
-                        db_attribute.plain_text = name
-                        attribute_values_to_update.append(db_attribute)
+                    if db_attribute_value:
+                        (
+                            recreate,
+                            reassign_pk,
+                        ) = self.get_attribute_assignments(
+                            p,
+                            db_attribute_value,
+                            "kdl-biomaterials",
+                        )
+
+                        if recreate:
+                            assigned_product_attribute_values_to_insert.append(
+                                AttributeUtils.add_biomaterial_attribute_data(
+                                    product_id,
+                                    data_product["biomaterial"],
+                                )
+                            )
+                        elif reassign_pk:
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    assignment_id=reassign_pk,
+                                    value_id=db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
+                            )
+
+                        if not recreate:
+                            db_attribute_value.name = name
+                            db_attribute_value.plain_text = name
+                            attribute_values_to_update.append(db_attribute_value)
                     else:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_biomaterial_attribute_data(
@@ -472,12 +536,39 @@ class Command(BaseCommand):
                     name = preparation[:20] + "..."
                     rich_text = form_rich_text(preparation)
                     slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-preparation"]}'
-                    db_attribute = preparation_attribute_values.get(slug)
+                    db_attribute_value = preparation_attribute_values.get(slug)
 
-                    if db_attribute:
-                        db_attribute.name = name
-                        db_attribute.rich_text = rich_text
-                        attribute_values_to_update.append(db_attribute)
+                    if db_attribute_value:
+                        (
+                            recreate,
+                            reassign_pk,
+                        ) = self.get_attribute_assignments(
+                            p,
+                            db_attribute_value,
+                            "kdl-preparation",
+                        )
+
+                        if recreate:
+                            assigned_product_attribute_values_to_insert.append(
+                                AttributeUtils.add_preparation_attribute_data(
+                                    product_id,
+                                    preparation,
+                                )
+                            )
+                        elif reassign_pk:
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    assignment_id=reassign_pk,
+                                    value_id=db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
+                            )
+
+                        if not recreate:
+                            db_attribute_value.name = name
+                            db_attribute_value.rich_text = rich_text
+                            attribute_values_to_update.append(db_attribute_value)
+
                     else:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_preparation_attribute_data(
@@ -489,13 +580,84 @@ class Command(BaseCommand):
                     data_product["duration"]
                 ):
                     duration = int(data_product["duration"])
-                    slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-max_duration"]}'
-                    db_attribute = duration_attribute_values.get(slug)
+                    duration_slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-max_duration"]}'
+                    duration_unit_slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-duration_unit"]}'
+                    duration_db_attribute_value = duration_attribute_values.get(
+                        duration_slug
+                    )
+                    duration_unit_db_attribute_value = (
+                        duration_unit_attribute_values.get(duration_unit_slug)
+                    )
 
-                    if db_attribute:
-                        db_attribute.name = str(duration)
-                        attribute_values_to_update.append(db_attribute)
-                    else:
+                    if duration_db_attribute_value:
+                        (
+                            recreate,
+                            reassign_pk,
+                        ) = self.get_attribute_assignments(
+                            p,
+                            duration_db_attribute_value,
+                            "kdl-max_duration",
+                        )
+
+                        if recreate:
+                            assigned_product_attribute_values_to_insert.append(
+                                AttributeUtils.add_numeric_attribute_data(
+                                    product_id,
+                                    duration,
+                                    AttributeUtils.attrubutes_ids["kdl-max_duration"],
+                                )
+                            )
+                        elif reassign_pk:
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    assignment_id=reassign_pk,
+                                    value_id=duration_db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
+                            )
+
+                        if not recreate:
+                            duration_db_attribute_value.name = str(duration)
+                            attribute_values_to_update.append(
+                                duration_db_attribute_value
+                            )
+
+                    if duration_unit_db_attribute_value:
+                        (
+                            recreate,
+                            reassign_pk,
+                        ) = self.get_attribute_assignments(
+                            p,
+                            duration_unit_db_attribute_value,
+                            "kdl-duration_unit",
+                        )
+
+                        if recreate:
+                            assigned_product_attribute_values_to_insert.append(
+                                AttributeUtils.add_numeric_attribute_data(
+                                    product_id,
+                                    duration,
+                                    AttributeUtils.attrubutes_ids["kdl-duration_unit"],
+                                )
+                            )
+                        elif reassign_pk:
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    assignment_id=reassign_pk,
+                                    value_id=duration_unit_db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
+                            )
+
+                        if not recreate:
+                            duration_unit_db_attribute_value.name = "2"
+                            attribute_values_to_update.append(
+                                duration_unit_db_attribute_value
+                            )
+
+                    if not all(
+                        [duration_db_attribute_value, duration_unit_db_attribute_value]
+                    ):
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
