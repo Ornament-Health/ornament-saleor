@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("product", "0186_remove_product_charge_taxes"),
+        ("product", "0187_product_checkup_product_categories"),
     ]
 
     operations = [

@@ -33,6 +33,9 @@ from .mutations.account import (
     ConfirmEmailChange,
     RequestEmailChange,
     SendConfirmationEmail,
+    # @cf::ornament.saleor.account
+    SetCity,
+    SetVendor,
 )
 from .mutations.authentication import (
     CreateToken,
@@ -311,3 +314,6 @@ class AccountMutations(graphene.ObjectType):
     permission_group_create = PermissionGroupCreate.Field()
     permission_group_update = PermissionGroupUpdate.Field()
     permission_group_delete = PermissionGroupDelete.Field()
+
+    set_city = SetCity.Field()
+    set_vendor = SetVendor.Field()

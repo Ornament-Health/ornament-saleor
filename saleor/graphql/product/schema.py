@@ -34,7 +34,9 @@ from ..translations.mutations import (
     ProductVariantBulkTranslate,
     ProductVariantTranslate,
 )
-from ..utils import get_user_or_app_from_context
+
+# @cf::ornament.saleor.product
+from ..utils import get_user_or_app_from_context, login_required
 from .bulk_mutations import (
     CategoryBulkDelete,
     CollectionBulkDelete,
@@ -410,6 +412,8 @@ class ProductQueries(graphene.ObjectType):
 
     @staticmethod
     @traced_resolver
+    # @cf::ornament.saleor.product
+    @login_required
     def resolve_product(
         _root,
         info: ResolveInfo,
@@ -444,6 +448,8 @@ class ProductQueries(graphene.ObjectType):
 
     @staticmethod
     @traced_resolver
+    # @cf::ornament.saleor.product
+    @login_required
     def resolve_products(_root, info: ResolveInfo, *, channel=None, **kwargs):
         check_for_sorting_by_rank(info, kwargs)
         search = kwargs.get("search")
@@ -476,6 +482,8 @@ class ProductQueries(graphene.ObjectType):
 
     @staticmethod
     @traced_resolver
+    # @cf::ornament.saleor.product
+    @login_required
     def resolve_product_variant(
         _root,
         info: ResolveInfo,
@@ -509,6 +517,8 @@ class ProductQueries(graphene.ObjectType):
         return ChannelContext(node=variant, channel_slug=channel) if variant else None
 
     @staticmethod
+    # @cf::ornament.saleor.product
+    @login_required
     def resolve_product_variants(
         _root, info: ResolveInfo, *, ids=None, channel=None, **kwargs
     ):
@@ -533,6 +543,8 @@ class ProductQueries(graphene.ObjectType):
 
     @staticmethod
     @traced_resolver
+    # @cf::ornament.saleor.product
+    @login_required
     def resolve_report_product_sales(
         _root, info: ResolveInfo, *, period, channel, **kwargs
     ):

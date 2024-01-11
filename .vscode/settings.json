@@ -1,6 +1,7 @@
 {
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.formatting.provider": "none",
     "python.languageServer": "Pylance",
     "python.analysis.typeCheckingMode": "basic",
     "cSpell.words": [
@@ -9,9 +10,8 @@
         "preorders",
         "undiscounted"
     ],
+    "python.linting.enabled": true,
     "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff",
-        "editor.formatOnSave": true,
-        "editor.formatOnType": true
+        "editor.defaultFormatter": "ms-python.black-formatter"
     }
 }

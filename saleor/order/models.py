@@ -339,6 +339,17 @@ class Order(ModelWithMetadata, ModelWithExternalReference):
     should_refresh_prices = models.BooleanField(default=True)
     tax_exemption = models.BooleanField(default=False)
 
+    # @cf::ornament.saleor.order
+    city = models.ForeignKey(
+        "geo.City", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    external_lab_id = models.CharField(
+        max_length=36, blank=True, null=True, default=None, unique=True
+    )
+    external_lab_order_id = models.CharField(
+        max_length=36, blank=True, null=True, default=None, unique=True
+    )
+
     objects = OrderManager()
 
     class Meta:

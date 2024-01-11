@@ -1,6 +1,10 @@
 import datetime
 from typing import Optional, Union
 
+# @cf::ornament.saleor.product
+from functools import reduce
+from operator import or_
+
 import pytz
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg
@@ -56,7 +60,8 @@ class ProductsQueryset(models.QuerySet):
             | Q(is_published__isnull=True)
         )
 
-    def published_with_variants(self, channel_slug: str):
+    # @cf::ornament.saleor.product
+    def published_with_variants(self, channel_slug: str, requestor):
         from .models import ProductVariant, ProductVariantChannelListing
 
         if channel := (
@@ -69,6 +74,9 @@ class ProductsQueryset(models.QuerySet):
             variants = ProductVariant.objects.filter(
                 Exists(variant_channel_listings.filter(variant_id=OuterRef("pk")))
             )
+
+            # @cf::ornament.saleor.product
+            variants = variants.available_by_rules(requestor)
             return self.published(channel_slug).filter(
                 Exists(variants.filter(product_id=OuterRef("pk")))
             )
@@ -92,7 +100,8 @@ class ProductsQueryset(models.QuerySet):
             return self.all()
         if not channel_slug:
             return self.none()
-        return self.published_with_variants(channel_slug)
+        # @cf::ornament.saleor.product
+        return self.published_with_variants(channel_slug, requestor)
 
     def annotate_publication_info(self, channel_slug: str):
         return self.annotate_is_published(channel_slug).annotate_published_at(
@@ -288,6 +297,36 @@ class ProductVariantQueryset(models.QuerySet):
             "attributes__assignment__attribute",
             "variant_media__media",
         )
+
+    # @cf::ornament.saleor.product
+    def available_by_rules(self, requestor):
+        user_vendors_rules = None
+        user_vendor = None
+
+        if requestor and requestor.id:
+            user_vendor = requestor.vendor
+
+            if user_vendor:
+                return self.filter(name=user_vendor.name)
+
+            user_vendors_rules = requestor.rules.all()
+
+        if not user_vendors_rules:
+            return self
+
+        filters = []
+        for rule in user_vendors_rules:
+            filters.append(
+                (Q(product__category=rule.category.id) & Q(name=rule.vendor.name))
+            )
+
+        filters.append(
+            ~Q(product__category__in=[r.category.id for r in user_vendors_rules])
+        )
+
+        filters = reduce(or_, filters, Q())
+
+        return self.filter(filters)
 
 
 ProductVariantManager = models.Manager.from_queryset(ProductVariantQueryset)

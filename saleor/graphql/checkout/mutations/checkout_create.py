@@ -42,6 +42,7 @@ from .utils import (
     validate_variants_are_published,
     validate_variants_available_for_purchase,
 )
+from saleor.ornament.vendors.utils import apply_vendor_address_augmentation
 
 if TYPE_CHECKING:
     from ....account.models import Address
@@ -159,6 +160,7 @@ class CheckoutCreateInput(BaseInputObjectType):
             "The checkout validation rules that can be changed." + ADDED_IN_35
         ),
     )
+    note = graphene.String(description="Free form note for checkout")
 
     class Meta:
         doc_category = DOC_CATEGORY_CHECKOUT
@@ -238,11 +240,23 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         return variants, checkout_lines_data
 
     @classmethod
-    def retrieve_shipping_address(cls, user, data: dict) -> Optional["Address"]:
+    def retrieve_shipping_address(
+        # @cf::ornament.saleor.checkout
+        cls,
+        user,
+        data: dict,
+        variants: list[product_models.ProductVariant],
+    ) -> Optional["Address"]:
         address_validation_rules = data.get("validation_rules", {}).get(
             "shipping_address", {}
         )
         if data.get("shipping_address") is not None:
+            # @cf::ornament.saleor.checkout
+            if variants:
+                data["shipping_address"] = apply_vendor_address_augmentation(
+                    variants, data["shipping_address"]
+                )
+
             return cls.validate_address(
                 data["shipping_address"],
                 address_type=AddressType.SHIPPING,
@@ -257,11 +271,23 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         return None
 
     @classmethod
-    def retrieve_billing_address(cls, user, data: dict) -> Optional["Address"]:
+    def retrieve_billing_address(
+        # @cf::ornament.saleor.checkout
+        cls,
+        user,
+        data: dict,
+        variants: list[product_models.ProductVariant],
+    ) -> Optional["Address"]:
         address_validation_rules = data.get("validation_rules", {}).get(
             "billing_address", {}
         )
         if data.get("billing_address") is not None:
+            # @cf::ornament.saleor.checkout
+            if variants:
+                data["billing_address"] = apply_vendor_address_augmentation(
+                    variants, data["billing_address"]
+                )
+
             return cls.validate_address(
                 data["billing_address"],
                 address_type=AddressType.BILLING,
@@ -293,8 +319,16 @@ class CheckoutCreate(ModelMutation, I18nMixin):
             if data.get("billing_address")
             else None
         )
-        shipping_address = cls.retrieve_shipping_address(user, data)
-        billing_address = cls.retrieve_billing_address(user, data)
+        # @cf::ornament.saleor.checkout
+        variant_ids = [line["variant_id"] for line in data.get("lines", [])]
+        variants = (
+            cls.get_nodes_or_error(variant_ids, "variant_id", ProductVariant)
+            if variant_ids
+            else []
+        )
+        shipping_address = cls.retrieve_shipping_address(user, data, variants)
+        billing_address = cls.retrieve_billing_address(user, data, variants)
+
         if shipping_address:
             cls.update_metadata(shipping_address, shipping_address_metadata)
         if billing_address:

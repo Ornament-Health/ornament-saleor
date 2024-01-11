@@ -2,8 +2,12 @@ import hashlib
 import logging
 import traceback
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Iterable, Union
 from uuid import UUID
+
+# @cf::ornament.saleor.utils
+from contextlib import suppress
+from functools import wraps
 
 import graphene
 from django.conf import settings
@@ -305,3 +309,20 @@ def format_error(error, handled_exceptions):
                 lines.extend(line.rstrip().splitlines())
         result["extensions"]["exception"]["stacktrace"] = lines
     return result
+
+
+# @cf::ornament.saleor.utils
+def login_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        with suppress(IndexError):
+            info = args[1]
+            requester = get_user_or_app_from_context(info.context)
+
+            if requester and requester.is_authenticated:
+                return fn(*args, **kwargs)
+
+            return PermissionDenied()
+        return PermissionDenied()
+
+    return wrapper

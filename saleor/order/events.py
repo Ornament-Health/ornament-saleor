@@ -925,3 +925,42 @@ def order_line_variant_removed_event(
         app=app,
         parameters={"lines": _lines_per_quantity_to_line_object_list(order_lines)},
     )
+
+
+# @cf::ornament.saleor.order
+def order_placed_to_lab_event(
+    *, order: Order, user: Optional[User], lab_name: str
+) -> OrderEvent:
+    return OrderEvent.objects.create(
+        order=order,
+        type=OrderEvents.PLACED_TO_LAB,
+        user=user,
+        parameters={"lab": lab_name, "external_lab_id": order.external_lab_id},
+    )
+
+
+def order_result_downloaded_from_lab_event(
+    *, order: Order, user_id: int, lab_name: str, filename: str
+) -> OrderEvent:
+    return OrderEvent.objects.create(
+        order=order,
+        type=OrderEvents.PDF_RESULT_GOT_FROM_LAB,
+        user_id=user_id,
+        parameters={"lab": lab_name, "filename": filename},
+    )
+
+
+def order_result_imageset_upload_event(
+    *,
+    order_id: "UUID",
+    user_id: int,
+    lab_name: str,
+    error: Optional[str] = None,
+    iid: Optional[str] = None,
+) -> OrderEvent:
+    return OrderEvent.objects.create(
+        order_id=order_id,
+        type=OrderEvents.PDF_RESULT_IMAGESET_UPLOAD,
+        user_id=user_id,
+        parameters={"lab": lab_name, "error": error, "iid": iid},
+    )

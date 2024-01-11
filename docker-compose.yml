@@ -1,0 +1,72 @@
+version: "3.4"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_ornament
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    networks:
+      - saleor-backend-tier
+    stdin_open: true
+    tty: true
+    depends_on:
+      - db
+      - redis
+    volumes:
+      # shared volume between worker and api for media
+      - saleor-media:/opt/ornament-saleor/media
+    env_file:
+      - .env
+
+  db:
+    image: library/postgres:13-alpine
+    ports:
+      - 5432:5432
+    restart: unless-stopped
+    networks:
+      - saleor-backend-tier
+    volumes:
+      - saleor-db:/var/lib/postgresql/data
+      - ./replica_user.sql:/docker-entrypoint-initdb.d/replica_user.sql
+    env_file:
+      - .env.db
+
+  redis:
+    image: library/redis:7.0-alpine
+    ports:
+      - 6379:6379
+    restart: unless-stopped
+    networks:
+      - saleor-backend-tier
+    volumes:
+      - saleor-redis:/data
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./Dockerfile_ornament
+    command: celery -A saleor --app=saleor.celeryconf:app worker --loglevel=info -B
+    restart: unless-stopped
+    networks:
+      - saleor-backend-tier
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    volumes:
+      # shared volume between worker and api for media
+      - saleor-media:/opt/ornament-saleor/media
+
+volumes:
+  saleor-db:
+    driver: local
+  saleor-redis:
+    driver: local
+  saleor-media:
+
+networks:
+  saleor-backend-tier:
+    driver: bridge

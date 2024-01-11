@@ -1,0 +1,84 @@
+FROM python:3.9 as intermediate
+LABEL maintainer="Dmitry Gurinenko <dmitry.gurinenko@ornament.health>"
+RUN apt-get -y update \
+  && apt-get install -y gettext \
+  # Cleanup apt cache
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+RUN pip install -U pip \
+    && pip install poetry==1.2.2
+COPY pyproject.toml .
+COPY poetry.lock .
+RUN poetry export \
+        --format requirements.txt \
+        --output requirements.txt \
+        --without-hashes \
+        --with-credentials \
+        && mkdir /wheels \
+        && pip wheel -r requirements.txt --wheel-dir /wheels \
+        && rm requirements.txt
+
+
+FROM python:3.9-slim as app
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_INDEX=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+WORKDIR /opt/ornament-saleor/
+COPY --from=intermediate /wheels /wheels
+RUN pip install /wheels/* && rm -rf /wheels && pip uninstall --yes pip
+
+RUN groupadd -r saleor && useradd -r -g saleor saleor
+
+RUN apt-get update \
+  && apt-get install -y \
+  libcairo2 \
+  libgdk-pixbuf2.0-0 \
+  liblcms2-2 \
+  libopenjp2-7 \
+  libpango-1.0-0 \
+  libpangocairo-1.0-0 \
+  libssl3 \
+  libtiff6 \
+  libwebp7 \
+  libxml2 \
+  libpq5 \
+  shared-mime-info \
+  mime-support \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN echo 'image/webp webp' >> /etc/mime.types
+RUN echo 'image/avif avif' >> /etc/mime.types
+
+RUN mkdir -p /opt/ornament-saleor/media /opt/ornament-saleor/static \
+  && chown -R saleor:saleor /opt/ornament-saleor/
+
+COPY saleor/ /opt/ornament-saleor/saleor/
+COPY scripts/ /opt/ornament-saleor/scripts/
+COPY templates/ /opt/ornament-saleor/templates/
+COPY manage.py /opt/ornament-saleor/manage.py
+COPY package-lock.json /opt/ornament-saleor/package-lock.json
+COPY package.json /opt/ornament-saleor/package.json
+COPY gunicorn_conf.py /opt/ornament-saleor/gunicorn_conf.py
+COPY import_products.csv /opt/ornament-saleor/import_products.csv
+# COPY .env /opt/ornament-saleor/.env
+
+
+ARG STATIC_URL
+ENV STATIC_URL ${STATIC_URL:-/static/}
+RUN SECRET_KEY=dummy STATIC_URL=${STATIC_URL} python3 manage.py collectstatic --no-input
+
+EXPOSE 8000
+ENV PYTHONUNBUFFERED 1
+
+ARG COMMIT_ID
+ARG PROJECT_VERSION
+ENV PROJECT_VERSION="${PROJECT_VERSION}"
+
+RUN find / | grep -E "(__pycache__$)" | xargs rm -rf
+
+CMD python manage.py migrate && gunicorn "saleor.asgi:application" -c gunicorn_conf.py

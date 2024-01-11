@@ -88,6 +88,9 @@ from .utils import (
     get_voucher_for_checkout_info,
 )
 
+# @cf::ornament.saleor.checkout
+from saleor.ornament.vendors.utils import apply_vendors_logic
+
 if TYPE_CHECKING:
     from ..app.models import App
     from ..discount.models import Voucher, VoucherCode
@@ -1104,6 +1107,9 @@ def _post_create_order_actions(
         )
     )
 
+    # @cf::ornament.saleor.checkout
+    transaction.on_commit(lambda: apply_vendors_logic(order, order_lines_info))
+
 
 def _create_order_from_checkout(
     checkout_info: CheckoutInfo,
@@ -1196,6 +1202,8 @@ def _create_order_from_checkout(
             checkout_lines_info,
         ),
         **_process_user_data_for_order(checkout_info, manager),
+        # @cf::ornament.saleor.checkout
+        city=user.city if user else None,
     )
 
     # checkout discount

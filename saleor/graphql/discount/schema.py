@@ -1,5 +1,6 @@
 import graphene
 
+
 from ...permission.enums import DiscountPermissions
 from ..core import ResolveInfo
 from ..core.connection import create_connection_slice, filter_connection_queryset
@@ -60,6 +61,12 @@ from .types import (
     VoucherCountableConnection,
 )
 from .types.promotions import PromotionCountableConnection
+
+# @cf::ornament.saleor.graphql.discount
+from saleor.graphql.discount.enums import SubscriptionEnum
+
+# @cf::ornament.saleor.graphql.discount
+SubscriptionEnumType = graphene.Enum.from_enum(SubscriptionEnum)
 
 
 class VoucherFilterInput(FilterInputObjectType):
@@ -164,6 +171,25 @@ class DiscountQueries(graphene.ObjectType):
         permissions=[DiscountPermissions.MANAGE_DISCOUNTS],
         doc_category=DOC_CATEGORY_DISCOUNTS,
     )
+    
+    # @cf::ornament.saleor.graphql.discount
+    voucher_by_code = graphene.Field(
+        Voucher,
+        code=graphene.Argument(graphene.String, required=True),
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned."
+        ),
+        description="Lookup a voucher by Code.",
+    )
+    # @cf::ornament.saleor.graphql.discount
+    voucher_by_subscription_code = graphene.Field(
+        Voucher,
+        subscription_code=SubscriptionEnumType(description="App subscription code"),
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned."
+        ),
+        description="Lookup a voucher by app subscription code.",
+    )
 
     @staticmethod
     def resolve_sale(_root, info, *, id, channel=None):
@@ -199,6 +225,18 @@ class DiscountQueries(graphene.ObjectType):
         qs = resolve_promotions(info)
         qs = filter_connection_queryset(qs, kwargs)
         return create_connection_slice(qs, info, kwargs, PromotionCountableConnection)
+   
+   # @cf::ornament.saleor.graphql.discount
+    @staticmethod
+    def resolve_voucher_by_code(_root, info: ResolveInfo, *, code, channel=None):
+        return resolve_voucher_by_code(code, channel)
+
+    # @cf::ornament.saleor.graphql.discount
+    @staticmethod
+    def resolve_voucher_by_subscription_code(
+        _root, info: ResolveInfo, *, subscription_code: str, channel=None
+    ):
+        return resolve_voucher_by_subscription_code(subscription_code, channel)
 
 
 class DiscountMutations(graphene.ObjectType):

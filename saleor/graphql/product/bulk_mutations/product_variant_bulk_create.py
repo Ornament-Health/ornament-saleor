@@ -7,6 +7,9 @@ from django.core.exceptions import ValidationError
 from django.db.models import F
 from graphene.utils.str_converters import to_camel_case
 
+# @cf::ornament.saleor.product
+from saleor.ornament.vendors.models import Vendor
+
 from ....attribute import AttributeType
 from ....core.tracing import traced_atomic_transaction
 from ....permission.enums import ProductPermissions
@@ -683,6 +686,26 @@ class ProductVariantBulkCreate(BaseMutation):
             )
             if errors is not None:
                 errors["sku"].append(
+                    ValidationError(message, code, params={"index": index})
+                )
+            base_fields_errors_count += 1
+
+        # @cf::ornament.saleor.product
+        name = cleaned_input.get("name")
+        is_vendor_available = (
+            True if name is None else Vendor.objects.filter(name=name).exists()
+        )
+
+        if not is_vendor_available:
+            message = f"Vendor {name} is not available."
+            code = ProductVariantBulkErrorCode.INVALID.value
+            index_error_map[index].append(
+                ProductVariantBulkError(
+                    field="name", path="name", message=message, code=code
+                )
+            )
+            if errors is not None:
+                errors["name"].append(
                     ValidationError(message, code, params={"index": index})
                 )
             base_fields_errors_count += 1

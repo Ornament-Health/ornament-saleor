@@ -39,6 +39,9 @@ from .utils import (
     update_checkout_shipping_method_if_invalid,
 )
 
+# @cf::ornament.saleor.checkout
+from saleor.ornament.vendors.utils import apply_vendor_address_augmentation
+
 if TYPE_CHECKING:
     from ....checkout.fetch import DeliveryMethodBase
 
@@ -154,6 +157,14 @@ class CheckoutShippingAddressUpdate(AddressMetadataMixin, BaseMutation, I18nMixi
                 }
             )
         address_validation_rules = validation_rules or {}
+
+        # @cf::ornament.saleor.checkout
+        variants = [l.variant for l in lines]
+        if variants:
+            shipping_address = apply_vendor_address_augmentation(
+                variants, shipping_address
+            )
+
         shipping_address_instance = cls.validate_address(
             shipping_address,
             address_type=AddressType.SHIPPING,

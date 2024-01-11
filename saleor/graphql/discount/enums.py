@@ -1,3 +1,4 @@
+import enum
 import graphene
 
 from ...discount import (
@@ -74,3 +75,13 @@ class VoucherDiscountType(BaseEnum):
 
     class Meta:
         doc_category = DOC_CATEGORY_DISCOUNTS
+
+
+# @cf::ornament.saleor.graphql.discount
+class SubscriptionEnum(enum.Enum):
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+    ANNUAL = "ANNUAL"
+    PROMO = "PROMO"
+    THREE_MONTH = "THREE_MONTH"
+    UNKNOWN = "UNKNOWN"

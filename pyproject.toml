@@ -66,7 +66,7 @@ documentation = "https://docs.saleor.io/"
   posuto = "^2023.2.0"
   prices = "^1.0"
   promise = "^2.3"
-  psycopg2 = "^2.8.3"
+  psycopg2-binary = "2.8.6"
   pybars3 = "^0.9.7"
   pyjwt = "2.5.0" # Version 2.6.0 changed iat validation which causes tests to fail: https://github.com/saleor/saleor/issues/11047
   python-dateutil = "^2.8.2"
@@ -87,6 +87,15 @@ documentation = "https://docs.saleor.io/"
   urllib3 = "^1.26.18"
   uvicorn = {extras = ["standard"], version = "^0.23.1"}
   weasyprint = ">=53.0" # libpango >=1.44 is required
+  django-cors-headers = "^4.2.0"
+  graphene-django = "2.16.0"
+  graphene-django-optimizer = "0.6.2"
+  slack-sdk = "^3.21.3"
+  zeep = "^4.2.1"
+  ftpparser = "^0.0.3"
+  geoip2 = "^4.7.0"
+  jinja2 = "^3.1.2"
+  python-slugify = "^8.0.1"
 
     [tool.poetry.dependencies.celery]
     version = ">=4.4.5,<6.0.0"

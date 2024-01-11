@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("channel", "0012_channel_delete_expired_orders_after"),
         ("order", "0170_auto_20230529_1314"),
-        ("discount", "0044_auto_20230421_1018"),
+        ("discount", "0045_voucher_scope"),
     ]
 
     operations = [

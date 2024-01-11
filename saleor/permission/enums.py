@@ -84,6 +84,12 @@ class SitePermissions(BasePermissionEnum):
     MANAGE_TRANSLATIONS = "site.manage_translations"
 
 
+# @cf::ornament.saleor.permissions
+class InternalAPIPermissions(BasePermissionEnum):
+    MANAGE_USERS_VENDORS = "account.manage_users_vendors"
+    MANAGE_CHECKUPS = "checkupcenter.manage_checkups"
+
+
 PERMISSIONS_ENUMS = [
     AccountPermissions,
     AppPermission,
@@ -101,6 +107,8 @@ PERMISSIONS_ENUMS = [
     ProductTypePermissions,
     ShippingPermissions,
     SitePermissions,
+    # @cf::ornament.saleor.permissions
+    InternalAPIPermissions,
 ]
 
 

@@ -33,6 +33,8 @@ from .mutations import (
     CheckoutShippingAddressUpdate,
     CheckoutShippingMethodUpdate,
     OrderCreateFromCheckout,
+    # @cf:ornament.saleor.checkout
+    CheckoutNoteUpdate,
 )
 from .resolvers import resolve_checkout, resolve_checkout_lines, resolve_checkouts
 from .sorters import CheckoutSortingInput
@@ -135,3 +137,6 @@ class CheckoutMutations(graphene.ObjectType):
     checkout_language_code_update = CheckoutLanguageCodeUpdate.Field()
 
     order_create_from_checkout = OrderCreateFromCheckout.Field()
+
+    # @cf:ornament.saleor.checkout
+    checkout_note_update = CheckoutNoteUpdate.Field()
