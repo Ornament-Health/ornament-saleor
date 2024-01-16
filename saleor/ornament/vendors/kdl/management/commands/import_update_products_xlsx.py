@@ -787,7 +787,9 @@ class Command(BaseCommand):
                     AssignedProductAttributeValue.objects.filter(
                         assignment_id=db_assigned_featured_product_attribute
                     ).delete()
-                    db_assigned_featured_product_attribute.delete()
+                    AssignedProductAttribute.objects.filter(
+                        id=db_assigned_featured_product_attribute
+                    ).delete()
                 elif is_popular == 1 and not db_assigned_featured_product_attribute:
                     assigned_product_attribute_values_to_insert.append(
                         self.add_featured_attribute_data(
