@@ -27,6 +27,7 @@ from saleor.product.models import (
     CollectionProduct,
     Category,
     Collection,
+    ProductVariantChannelListing,
 )
 from saleor.channel.models import Channel
 
@@ -453,6 +454,13 @@ class Command(BaseCommand):
         )
 
         # UPDATE
+        data_to_delist = [
+            f"KDL-{k}" for k, v in data_to_update.items() if v["is_hidden"] == 1
+        ]
+        data_to_update = {
+            k: v for k, v in data_to_update.items() if v["is_hidden"] != 1
+        }
+
         products_to_update = Product.objects.filter(
             name__in=data_to_update.keys()
         ).prefetch_related("attributevalues", "attributes")
@@ -801,6 +809,10 @@ class Command(BaseCommand):
                                 product_id=product_id,
                             )
                         )
+
+        ProductVariantChannelListing.objects.filter(
+            variant__sku__in=data_to_delist
+        ).delete()
 
         Product.objects.bulk_update(
             products_to_update,
