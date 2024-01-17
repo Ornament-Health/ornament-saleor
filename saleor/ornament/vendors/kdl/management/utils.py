@@ -14,6 +14,7 @@ from saleor.attribute.models.product import (
     AssignedProductAttributeValue,
 )
 
+# TODO::ornament move to settings
 thesaurus_api_url_1_0 = "https://api.ornament.health/thesaurus-api/public/v1.0"
 thesaurus_api_url_1_1 = "https://api.ornament.health/thesaurus-api/public/v1.1"
 
@@ -57,6 +58,7 @@ async def fetch_medical_data() -> MedicalData:
         )
 
 
+# TODO::ornament move to common vendors utils
 def random_string(size) -> str:
     letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
     return "".join(secrets.choice(letters) for _ in range(size))
@@ -79,6 +81,7 @@ def form_rich_text(text: str) -> dict:
     return {
         "time": get_current_timestamp(),
         "blocks": [form_description_block(text, "paragraph")],
+        # TODO::ornament move to settings
         "version": "2.24.3",
     }
 
@@ -87,6 +90,7 @@ def form_description(name: str, description: str) -> dict:
     description_dict = {
         "time": get_current_timestamp(),
         "blocks": [form_description_block(name, "header")],
+        # TODO::ornament move to settings
         "version": "2.24.3",
     }
 
