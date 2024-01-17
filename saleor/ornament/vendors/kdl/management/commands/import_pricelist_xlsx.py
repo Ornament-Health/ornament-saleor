@@ -83,16 +83,23 @@ class Command(BaseCommand):
 
         prices = {}
         prices_errors = []
+        product_variant_channel_listings_to_delete = set()
 
         for value in sheet_1.iter_rows(min_row=header1_row + 1, values_only=True):
             price = value[7]
+            sku = self.make_kdl_sku(str(value[0]))
             if price:
-                prices[self.make_kdl_sku(str(value[0]))] = price
+                prices[sku] = price
+            else:
+                product_variant_channel_listings_to_delete.add(sku)
 
         for value in sheet_2.iter_rows(min_row=header2_row + 1, values_only=True):
             price = value[8]
+            sku = self.make_kdl_sku(str(value[0]))
             if price:
-                prices[self.make_kdl_sku(str(value[0]))] = price
+                prices[sku] = price
+            else:
+                product_variant_channel_listings_to_delete.add(sku)
 
         product_variant_channel_listings_q = (
             ProductVariantChannelListing.objects.filter(
@@ -156,6 +163,11 @@ class Command(BaseCommand):
                     )
                 )
 
+        # delete listings with empty prices
+        ProductVariantChannelListing.objects.filter(
+            variant__sku__in=product_variant_channel_listings_to_delete, channel=channel
+        ).delete()
+
         # update existing product variants listings
         ProductVariantChannelListing.objects.bulk_update(
             product_variant_channel_listings_q,
@@ -168,7 +180,7 @@ class Command(BaseCommand):
         )
 
         # create new stock for product variants listings
-        Stock.objects.bulk_create(new_warehouse_stocks)
+        Stock.objects.bulk_create(new_warehouse_stocks, ignore_conflicts=True)
 
         if prices_errors:
             print(prices_errors)
