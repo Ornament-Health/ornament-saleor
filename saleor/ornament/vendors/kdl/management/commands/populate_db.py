@@ -181,6 +181,7 @@ class Command(BaseCommand):
                         "type": "paragraph",
                     }
                 ],
+                # TODO::ornament move to settings
                 "version": "2.24.3",
             }
             slug = f'{attr["product_id"]}_{attr["id"]}'
@@ -325,6 +326,7 @@ class Command(BaseCommand):
                             "type": "header",
                         }
                     ],
+                    # TODO::ornament move to settings
                     "version": "2.24.3",
                 }
                 lab_meta = json.loads(r["meta"])
