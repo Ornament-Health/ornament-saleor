@@ -48,6 +48,10 @@ class Channel(ModelWithMetadata):
 
     use_legacy_error_flow_for_checkout = models.BooleanField(default=True)
 
+    # @cf::ornament.saleor.channel
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+
     class Meta(ModelWithMetadata.Meta):
         ordering = ("slug",)
         app_label = "channel"

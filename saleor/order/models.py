@@ -533,6 +533,8 @@ class OrderLine(ModelWithMetadata):
     id = models.UUIDField(primary_key=True, editable=False, unique=True, default=uuid4)
     old_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # @cf::ornament.saleor.order
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
     order = models.ForeignKey(
         Order,
         related_name="lines",
@@ -746,6 +748,8 @@ class Fulfillment(ModelWithMetadata):
     )
     tracking_number = models.CharField(max_length=255, default="", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # @cf::ornament.saleor.order
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
 
     shipping_refund_amount = models.DecimalField(
         max_digits=settings.DEFAULT_MAX_DIGITS,
@@ -846,6 +850,9 @@ class OrderEvent(models.Model):
         related_name="related_events",
         db_index=False,
     )
+    # @cf::ornament.saleor.order
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
 
     class Meta:
         ordering = ("date",)
