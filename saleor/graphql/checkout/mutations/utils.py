@@ -195,7 +195,8 @@ def check_lines_quantity(
 def get_not_available_variants_for_purchase(
     variants_id: set, channel_id: int
 ) -> tuple[set[int], set[str]]:
-    today = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    today = datetime.datetime.now()
     is_available_for_purchase = Q(
         available_for_purchase_at__lte=today,
         product__variants__id__in=variants_id,

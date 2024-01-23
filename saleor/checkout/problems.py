@@ -121,7 +121,8 @@ def get_not_available_lines(
     ],
 ):
     lines_not_available = []
-    now = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    now = datetime.datetime.now()
     for line in lines:
         if line_is_not_available(line, now, product_channel_listings_map):
             lines_not_available.append(line)

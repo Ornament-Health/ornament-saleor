@@ -36,7 +36,8 @@ class ProductsQueryset(models.QuerySet):
     def published(self, channel_slug: str):
         from .models import ProductChannelListing
 
-        today = datetime.datetime.now(pytz.UTC)
+        # @cf::ornament:CORE-2283
+        today = datetime.datetime.now()
         if channel := (
             Channel.objects.using(settings.DATABASE_CONNECTION_REPLICA_NAME)
             .filter(slug=str(channel_slug), is_active=True)
@@ -53,7 +54,8 @@ class ProductsQueryset(models.QuerySet):
         return self.none()
 
     def not_published(self, channel_slug: str):
-        today = datetime.datetime.now(pytz.UTC)
+        # @cf::ornament:CORE-2283
+        today = datetime.datetime.now()
         return self.annotate_publication_info(channel_slug).filter(
             Q(published_at__gt=today) & Q(is_published=True)
             | Q(is_published=False)
@@ -348,7 +350,8 @@ ProductVariantChannelListingManager = models.Manager.from_queryset(
 
 class CollectionsQueryset(models.QuerySet):
     def published(self, channel_slug: str):
-        today = datetime.datetime.now(pytz.UTC)
+        # @cf::ornament:CORE-2283
+        today = datetime.datetime.now()
         return self.filter(
             Q(channel_listings__published_at__lte=today)
             | Q(channel_listings__published_at__isnull=True),

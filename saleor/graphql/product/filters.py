@@ -495,7 +495,8 @@ def _filter_products_is_published(qs, _, value, channel_slug):
 
 def _filter_products_is_available(qs, _, value, channel_slug):
     channel = Channel.objects.filter(slug=channel_slug).values("pk")
-    now = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    now = datetime.datetime.now()
     if value:
         product_channel_listings = ProductChannelListing.objects.filter(
             Exists(channel.filter(pk=OuterRef("channel_id"))),
@@ -814,7 +815,8 @@ def where_filter_products_is_available(qs, _, value, channel_slug):
     if value is None:
         return qs.none()
     channel = Channel.objects.filter(slug=channel_slug).values("pk")
-    now = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    now = datetime.datetime.now()
     if value:
         product_channel_listings = ProductChannelListing.objects.filter(
             Exists(channel.filter(pk=OuterRef("channel_id"))),
