@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
@@ -235,7 +236,7 @@ def _fetch_checkout_prices_if_expired(
     """
     checkout = checkout_info.checkout
 
-    if not force_update and checkout.price_expiration > timezone.now():
+    if not force_update and checkout.price_expiration > datetime.now():
         return checkout_info, lines
 
     tax_configuration = checkout_info.tax_configuration
