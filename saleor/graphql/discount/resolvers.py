@@ -78,6 +78,7 @@ def resolve_promotions(info) -> QuerySet:
         get_database_connection_name(info.context)
     ).all()
 
+
 # @cf::ornament.saleor.graphql.discount
 def resolve_voucher_by_code(code, channel):
     voucher = models.Voucher.objects.filter(code=code).first()
