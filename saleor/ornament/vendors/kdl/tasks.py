@@ -10,11 +10,10 @@ import requests
 
 from ftplib import FTP
 from lxml import etree
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from zeep import Client, Settings as WSDL_Settings
 from django.conf import settings
-from django.utils import timezone
 
 from saleor.celeryconf import app
 from saleor.order import events, models
@@ -188,7 +187,8 @@ def check_for_new_results() -> None:
     ) as ftp:
         try:
             paths = (XML_OUTPUT_DIR, PDF_OUTPUT_DIR, XML_IGNORE_DIR, PDF_IGNORE_DIR)
-            ignore_timeout = timezone.now() - timedelta(seconds=FTP_IGNORE_TIMEOUT)
+            # @cf::ornament:CORE-2283
+            ignore_timeout = datetime.now() - timedelta(seconds=FTP_IGNORE_TIMEOUT)
 
             # try to detect time shift in minutes
             time_shift_munites = detect_ftp_timezone_shift(ftp)

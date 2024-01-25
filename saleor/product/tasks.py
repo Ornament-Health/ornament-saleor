@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from collections.abc import Iterable
 from typing import Optional
@@ -7,7 +8,6 @@ from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Exists, OuterRef, Q
-from django.utils import timezone
 
 from ..attribute.models import Attribute
 from ..celeryconf import app
@@ -164,7 +164,9 @@ def deactivate_preorder_for_variants_task():
 
 def _get_preorder_variants_to_clean():
     return ProductVariant.objects.filter(
-        is_preorder=True, preorder_end_date__lt=timezone.now()
+        # @cf::ornament:CORE-2283
+        is_preorder=True,
+        preorder_end_date__lt=datetime.now(),
     )
 
 

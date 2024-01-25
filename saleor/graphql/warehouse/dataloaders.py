@@ -1,3 +1,4 @@
+from datetime import datetime
 import sys
 from collections import defaultdict
 from collections.abc import Iterable
@@ -13,7 +14,6 @@ from django.contrib.sites.models import Site
 from django.db.models import Exists, OuterRef, Q, QuerySet
 from django.db.models.aggregates import Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 from django_stubs_ext import WithAnnotations
 
 from ...channel.models import Channel
@@ -532,7 +532,8 @@ class PreorderQuantityReservedByVariantChannelListingIdLoader(DataLoader[int, in
                     Sum("preorder_reservations__quantity_reserved"),
                     0,
                 ),
-                where=Q(preorder_reservations__reserved_until__gt=timezone.now()),
+                # @cf::ornament:CORE-2283
+                where=Q(preorder_reservations__reserved_until__gt=datetime.now()),
             )
             .order_by("pk")
             .values("id", "quantity_reserved")

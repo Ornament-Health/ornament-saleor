@@ -1,10 +1,10 @@
 from collections.abc import Iterable
+from datetime import datetime
 from decimal import Decimal
 from functools import wraps
 from typing import TYPE_CHECKING, Optional, cast
 
 from django.db.models import QuerySet, Sum
-from django.utils import timezone
 from prices import Money, TaxedMoney
 
 from ..account.models import User
@@ -431,7 +431,8 @@ def add_gift_cards_to_order(
 
             set_gift_card_user(gift_card, used_by_user, used_by_email)
 
-            gift_card.last_used_on = timezone.now()
+            # @cf::ornament:CORE-2283
+            gift_card.last_used_on = datetime.now()
             gift_cards_to_update.append(gift_card)
 
     order.gift_cards.add(*order_gift_cards)

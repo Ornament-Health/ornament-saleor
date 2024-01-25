@@ -1,8 +1,8 @@
+from datetime import datetime
 from typing import Optional, cast
 
 import graphene
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 
 from .....app.models import App
 from .....checkout.actions import transaction_amounts_for_checkout_updated
@@ -196,7 +196,8 @@ class TransactionEventReport(ModelMutation):
             "type": type,
             "amount_value": amount,
             "currency": transaction.currency,
-            "created_at": time or timezone.now(),
+            # @cf::ornament:CORE-2283
+            "created_at": time or datetime.now(),
             "external_url": external_url or "",
             "message": message or "",
             "transaction": transaction,

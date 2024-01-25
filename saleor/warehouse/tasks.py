@@ -1,7 +1,7 @@
+from datetime import datetime
 from celery.utils.log import get_task_logger
 from django.db.models import F, Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 from ..celeryconf import app
 from .models import Allocation, PreorderReservation, Reservation, Stock
@@ -19,10 +19,12 @@ def delete_empty_allocations_task():
 @app.task
 def delete_expired_reservations_task():
     stock_reservations, _ = Reservation.objects.filter(
-        reserved_until__lt=timezone.now()
+        # @cf::ornament:CORE-2283
+        reserved_until__lt=datetime.now()
     ).delete()
     preorder_reservations, _ = PreorderReservation.objects.filter(
-        reserved_until__lt=timezone.now()
+        # @cf::ornament:CORE-2283
+        reserved_until__lt=datetime.now()
     ).delete()
 
     if stock_reservations or preorder_reservations:

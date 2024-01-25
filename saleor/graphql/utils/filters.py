@@ -1,7 +1,7 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
-from django.utils import timezone
 
 from ..core.enums import ReportingPeriod
 
@@ -12,7 +12,8 @@ Number = Union[float, int, Decimal]
 
 
 def reporting_period_to_date(period):
-    now = timezone.now()
+    # @cf::ornament:CORE-2283
+    now = datetime.now()
     if period == ReportingPeriod.TODAY:
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == ReportingPeriod.THIS_MONTH:

@@ -479,10 +479,12 @@ def _update_user_details(
     else:
         if (
             not user.last_login
-            or (timezone.now() - user.last_login).seconds
+            # @cf::ornament:CORE-2283
+            or (datetime.now() - user.last_login).seconds
             > settings.OAUTH_UPDATE_LAST_LOGIN_THRESHOLD
         ):
-            user.last_login = timezone.now()
+            # @cf::ornament:CORE-2283
+            user.last_login = datetime.now()
             fields_to_save.add("last_login")
 
     if user.first_name != user_first_name:

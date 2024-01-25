@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -7,7 +8,6 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.validators import validate_email
-from django.utils import timezone
 
 from saleor.account.models import User
 from saleor.core.exceptions import PermissionDenied
@@ -70,7 +70,8 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         sso_id, email = self._get_user_info_from_sso_api(token)
 
-        fake_email = f"{sso_id}@orna.me-{int(timezone.now().timestamp())}"
+        # @cf::ornament:CORE-2283
+        fake_email = f"{sso_id}@orna.me-{int(datetime.now().timestamp())}"
         user, created = User.objects.get_or_create(
             sso_id=sso_id, defaults={User.USERNAME_FIELD: fake_email}
         )
@@ -91,7 +92,8 @@ class OrnamentSSOAuthBackend(BasePlugin):
                 # create a new user with the same email and new sso_id.
                 other_user.email = (
                     f"{other_user.email}-{other_user.sso_id or 'no-sso-id'}-"
-                    f"{int(timezone.now().timestamp())}"
+                    # @cf::ornament:CORE-2283
+                    f"{int(datetime.now().timestamp())}"
                 )
                 other_user.save()
             user.email = email

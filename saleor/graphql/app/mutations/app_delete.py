@@ -1,6 +1,6 @@
+from datetime import datetime
 import graphene
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 
 from ....app import models
 from ....app.error_codes import AppErrorCode
@@ -60,7 +60,8 @@ class AppDelete(ModelMutation):
         instance = cls.get_instance(info, **data)
         cls.clean_instance(info, instance)
 
-        instance.removed_at = timezone.now()
+        # @cf::ornament:CORE-2283
+        instance.removed_at = datetime.now()
         instance.is_active = False
         instance.save(update_fields=["removed_at", "is_active"])
 

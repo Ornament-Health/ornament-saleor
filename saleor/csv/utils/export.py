@@ -4,7 +4,6 @@ from tempfile import NamedTemporaryFile
 from typing import IO, TYPE_CHECKING, Any, Optional, Union
 
 import petl as etl
-from django.utils import timezone
 
 from ...discount.models import VoucherCode
 from ...giftcard.models import GiftCard
@@ -124,7 +123,11 @@ def export_voucher_codes(
 def get_filename(model_name: str, file_type: str) -> str:
     hash = uuid.uuid4()
     return "{}_data_{}_{}.{}".format(
-        model_name, timezone.now().strftime("%d_%m_%Y_%H_%M_%S"), hash, file_type
+        # @cf::ornament:CORE-2283
+        model_name,
+        datetime.now().strftime("%d_%m_%Y_%H_%M_%S"),
+        hash,
+        file_type,
     )
 
 
