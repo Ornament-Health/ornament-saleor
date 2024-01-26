@@ -34,7 +34,10 @@ def order_event_post_save_handler(sender, instance: OrderEvent, created, **kwarg
                         "text": {
                             "type": "mrkdwn",
                             "text": (
-                                f"Order #*{instance.order.id}*. Cобытие в заказе:\n"
+                                f"Order #*{instance.order.number}*\n"
+                                f"Order id: *{instance.order.id}*\n"
+                                f"Order channel: *{instance.order.channel.name}*\n"
+                                f"Cобытие в заказе:\n"
                                 f"*{order_event_text}"
                                 f"{' by ' + str(instance.user.email) if instance.user and instance.user.email else ''}*"
                             ),
@@ -47,6 +50,7 @@ def order_event_post_save_handler(sender, instance: OrderEvent, created, **kwarg
                                 "type": "mrkdwn",
                                 "text": (
                                     f"Server *{settings.SLACK_ENVIRONMENT}*, "
+                                    f"Region *{settings.SLACK_REGION}*, "
                                     f"{instance.date.strftime('%d.%m.%Y %H:%I:%S')}"
                                 ),
                             }
