@@ -1,7 +1,7 @@
 from collections.abc import Iterable
+from datetime import datetime
 from typing import Union
 
-from django.utils import timezone
 
 from ..celeryconf import app
 from ..checkout.models import Checkout
@@ -20,8 +20,10 @@ def drop_invalid_shipping_methods_relations_for_given_channels(
         shipping_method_id__in=shipping_method_ids, channel_id__in=channel_ids
     ).update(
         shipping_method=None,
-        price_expiration=timezone.now(),
-        last_change=timezone.now(),
+        # @cf::ornament:CORE-2283
+        price_expiration=datetime.now(),
+        # @cf::ornament:CORE-2283
+        last_change=datetime.now(),
     )
     Order.objects.filter(
         status__in=ORDER_EDITABLE_STATUS,

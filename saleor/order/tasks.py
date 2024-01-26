@@ -1,8 +1,7 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.db.models import Exists, F, Func, OuterRef, Subquery, Value
-from django.utils import timezone
 
 from ..celeryconf import app
 from ..channel.models import Channel
@@ -121,14 +120,16 @@ def _expire_orders(manager, now):
 
 @app.task
 def expire_orders_task():
-    now = timezone.now()
+    # @cf::ornament:CORE-2283
+    now = datetime.now()
     manager = get_plugins_manager(allow_replica=False)
     _expire_orders(manager, now)
 
 
 @app.task
 def delete_expired_orders_task():
-    now = timezone.now()
+    # @cf::ornament:CORE-2283
+    now = datetime.now()
 
     channel_qs = Channel.objects.filter(
         delete_expired_orders_after__gt=timedelta(),

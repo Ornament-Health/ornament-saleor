@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Iterable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 from uuid import UUID
@@ -10,7 +10,6 @@ from django.contrib.sites.models import Site
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.forms.models import model_to_dict
-from django.utils import timezone
 from prices import Money, TaxedMoney
 
 from ..account.error_codes import AccountErrorCode
@@ -1610,7 +1609,8 @@ def _reserve_stocks_without_availability_check(
             reservations.append(
                 Reservation(
                     quantity_reserved=line.line.quantity,
-                    reserved_until=timezone.now()
+                    # @cf::ornament:CORE-2283
+                    reserved_until=datetime.now()
                     + timedelta(seconds=settings.RESERVE_DURATION),
                     stock=variants_stocks_map[line.variant.id],
                     checkout_line=line.line,

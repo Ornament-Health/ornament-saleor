@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Optional
 
 from django.db.models import F, Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 from ..core.exceptions import InsufficientStock, InsufficientStockData
 from ..core.tracing import traced_atomic_transaction
@@ -46,7 +45,8 @@ def reserve_stocks_and_preorders(
         else:
             stock_lines.append(line)
 
-    reserved_until = timezone.now() + timedelta(minutes=length_in_minutes)
+    # @cf::ornament:CORE-2283
+    reserved_until = datetime.now() + timedelta(minutes=length_in_minutes)
 
     if stock_lines:
         reserve_stocks(

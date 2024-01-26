@@ -12,7 +12,6 @@ from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
 from django.db.models import Q
-from django.utils import timezone
 
 from ..account.models import User
 from ..app.models import App
@@ -898,7 +897,8 @@ def parse_transaction_event_data(
                 logger.warning(invalid_msg, "time", event_time_data)
                 error_field_msg.append(invalid_msg % ("time", event_time_data))
     else:
-        parsed_event_data["time"] = timezone.now()
+        # @cf::ornament:CORE-2283
+        parsed_event_data["time"] = datetime.now()
 
     parsed_event_data["external_url"] = event_data.get("externalUrl", "")
     parsed_event_data["message"] = event_data.get("message", "")
@@ -1109,7 +1109,8 @@ def _create_event_from_response(
         app_identifier = app.identifier
     event = TransactionEvent(
         psp_reference=response.psp_reference,
-        created_at=response.time or timezone.now(),
+        # @cf::ornament:CORE-2283
+        created_at=response.time or datetime.now(),
         type=response.type,
         amount_value=response.amount,
         external_url=response.external_url,
@@ -1390,7 +1391,8 @@ def _prepare_manual_event(
         app_identifier=app.identifier if app else None,
         app=app,
         user=user,
-        created_at=timezone.now(),
+        # @cf::ornament:CORE-2283
+        created_at=datetime.now(),
         message="Manual adjustment of the transaction.",
     )
 

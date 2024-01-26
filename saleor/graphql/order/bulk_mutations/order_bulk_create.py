@@ -12,7 +12,6 @@ import graphene
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db.models import Q
-from django.utils import timezone
 from graphql import GraphQLError
 from prices import Money
 
@@ -749,14 +748,16 @@ class OrderBulkCreate(BaseMutation, I18nMixin):
         Some systems might have incorrect time that is in the future compared to Saleor.
         At the same time, we don't want to create orders that are too far in the future.
         """
-        current_time = timezone.now()
+        # @cf::ornament:CORE-2283
+        current_time = datetime.now()
         future_time = current_time + timedelta(minutes=MINUTES_DIFF)
-        if not date.tzinfo:
-            raise ValidationError(
-                message="Input 'date' must be timezone-aware. "
-                "Expected format: 'YYYY-MM-DD HH:MM:SS TZ'.",
-                code=OrderBulkCreateErrorCode.INVALID.value,
-            )
+        # @cf::ornament:CORE-2283
+        # if not date.tzinfo:
+        #     raise ValidationError(
+        #         message="Input 'date' must be timezone-aware. "
+        #         "Expected format: 'YYYY-MM-DD HH:MM:SS TZ'.",
+        #         code=OrderBulkCreateErrorCode.INVALID.value,
+        #     )
         return date < future_time
 
     @classmethod
@@ -1314,7 +1315,8 @@ class OrderBulkCreate(BaseMutation, I18nMixin):
                     code=OrderBulkCreateErrorCode.FUTURE_DATE,
                 )
             )
-            date = timezone.now()
+            # @cf::ornament:CORE-2283
+            date = datetime.now()
 
         user, app = None, None
         user_key_map = {
@@ -1353,7 +1355,8 @@ class OrderBulkCreate(BaseMutation, I18nMixin):
             )
 
         event = OrderEvent(
-            date=date or timezone.now(),
+            # @cf::ornament:CORE-2283
+            date=date or datetime.now(),
             type=OrderEvents.NOTE_ADDED,
             order=order_data.order,
             parameters={"message": note_input["message"]},
@@ -1486,7 +1489,8 @@ class OrderBulkCreate(BaseMutation, I18nMixin):
                             amount_value=amount,
                             currency=order.currency,
                             include_in_calculations=True,
-                            created_at=timezone.now(),
+                            # @cf::ornament:CORE-2283
+                            created_at=datetime.now(),
                             message="Manual adjustment of the transaction.",
                         )
                     )

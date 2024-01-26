@@ -1,6 +1,6 @@
+from datetime import datetime
 from celery.utils.log import get_task_logger
 from django.conf import settings
-from django.utils import timezone
 
 from ..celeryconf import app
 from .events import gift_cards_deactivated_event
@@ -13,7 +13,8 @@ GIFT_CARD_BATCH_SIZE = 300
 
 @app.task
 def deactivate_expired_cards_task():
-    today = timezone.now().date()
+    # @cf::ornament:CORE-2283
+    today = datetime.now().date()
     gift_cards = GiftCard.objects.filter(expiry_date__lt=today, is_active=True)
     if not gift_cards:
         return

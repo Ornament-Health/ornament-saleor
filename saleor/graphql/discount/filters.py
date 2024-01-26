@@ -1,8 +1,8 @@
+from datetime import datetime
 import decimal
 
 import django_filters
 from django.db.models import Exists, OuterRef, Q, Sum
-from django.utils import timezone
 
 from ...discount import DiscountValueType
 from ...discount.models import (
@@ -47,7 +47,8 @@ def filter_status(
     if not value:
         return qs
     query_objects = qs.none()
-    now = timezone.now()
+    # @cf::ornament:CORE-2283
+    now = datetime.now()
     if DiscountStatusEnum.ACTIVE in value:
         query_objects |= qs.active(now)
     if DiscountStatusEnum.EXPIRED in value:

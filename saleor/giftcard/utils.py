@@ -1,13 +1,12 @@
 from collections import defaultdict
 from collections.abc import Iterable
-from datetime import date
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.db.models.expressions import Exists, OuterRef
-from django.utils import timezone
 
 from ..checkout.models import Checkout
 from ..core.exceptions import GiftCardNotApplicable
@@ -212,7 +211,8 @@ def gift_cards_create(
 
 def calculate_expiry_date(settings):
     """Calculate expiry date based on gift card settings."""
-    today = timezone.now().date()
+    # @cf::ornament:CORE-2283
+    today = datetime.now().date()
     expiry_date = None
     if settings.gift_card_expiry_type == GiftCardSettingsExpiryType.EXPIRY_PERIOD:
         expiry_period_type = settings.gift_card_expiry_period_type
@@ -269,7 +269,8 @@ def assign_user_gift_cards(user):
 
 def is_gift_card_expired(gift_card: GiftCard):
     """Return True when gift card expiry date pass."""
-    today = timezone.now().date()
+    # @cf::ornament:CORE-2283
+    today = datetime.now().date()
     return bool(gift_card.expiry_date) and gift_card.expiry_date < today  # type: ignore
 
 

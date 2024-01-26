@@ -1,10 +1,10 @@
+from datetime import datetime
 from urllib.parse import urlencode
 
 import graphene
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 
 from .....account.error_codes import AccountErrorCode
 from .....account.notifications import send_password_reset_notification
@@ -95,7 +95,8 @@ class RequestPasswordReset(BaseMutation):
             )
 
         if password_reset_time := user.last_password_reset_request:
-            delta = timezone.now() - password_reset_time
+            # @cf::ornament:CORE-2283
+            delta = datetime.now() - password_reset_time
             if delta.total_seconds() < settings.RESET_PASSWORD_LOCK_TIME:
                 raise ValidationError(
                     {
@@ -151,7 +152,8 @@ class RequestPasswordReset(BaseMutation):
                 prepare_url(params, redirect_url),
             )
 
-        user.last_password_reset_request = timezone.now()
+        # @cf::ornament:CORE-2283
+        user.last_password_reset_request = datetime.now()
         user.save(update_fields=["last_password_reset_request"])
 
         return RequestPasswordReset()

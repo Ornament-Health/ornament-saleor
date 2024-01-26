@@ -1,7 +1,7 @@
+from datetime import datetime
 import graphene
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 from ...permission.enums import OrderPermissions, ProductPermissions
 from ...warehouse import models
@@ -238,11 +238,14 @@ class Stock(ModelObjectType[models.Stock]):
             quantity_reserved=Coalesce(
                 Sum(
                     "quantity_reserved",
-                    filter=Q(reserved_until__gt=timezone.now()),
+                    # @cf::ornament:CORE-2283
+                    filter=Q(reserved_until__gt=datetime.now()),
                 ),
                 0,
             )
-        )["quantity_reserved"]
+        )[
+            "quantity_reserved"
+        ]
 
     @staticmethod
     def resolve_warehouse(root, info: ResolveInfo):

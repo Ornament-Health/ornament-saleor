@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from collections.abc import Iterable
 from decimal import Decimal
@@ -5,7 +6,6 @@ from typing import TYPE_CHECKING, Optional
 
 import requests
 from django.conf import settings
-from django.utils import timezone
 from posuto import Posuto
 from requests.auth import HTTPBasicAuth
 
@@ -268,7 +268,8 @@ def register(
     if goods is None:
         goods = get_goods(config, payment_information)
 
-    order_date = timezone.now().strftime("%Y-%m-%d")
+    # @cf::ornament:CORE-2283
+    order_date = datetime.now().strftime("%Y-%m-%d")
 
     billing = payment_information.billing
     shipping = payment_information.shipping

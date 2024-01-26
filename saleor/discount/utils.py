@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from functools import partial
 from typing import (
@@ -14,7 +15,6 @@ from uuid import UUID
 import graphene
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, QuerySet
-from django.utils import timezone
 from prices import Money, TaxedMoney, fixed_discount, percentage_discount
 
 from ..channel.models import Channel
@@ -137,7 +137,9 @@ def get_voucher_code_instance(
     """Return a voucher code instance if it's valid or raise an error."""
     if (
         Voucher.objects.active_in_channel(
-            date=timezone.now(), channel_slug=channel_slug
+            # @cf::ornament:CORE-2283
+            date=datetime.now(),
+            channel_slug=channel_slug,
         )
         .filter(
             Exists(

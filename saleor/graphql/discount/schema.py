@@ -50,6 +50,8 @@ from .resolvers import (
     resolve_sale,
     resolve_sales,
     resolve_voucher,
+    resolve_voucher_by_code,
+    resolve_voucher_by_subscription_code,
     resolve_vouchers,
 )
 from .sorters import PromotionSortingInput, SaleSortingInput, VoucherSortingInput
@@ -171,7 +173,7 @@ class DiscountQueries(graphene.ObjectType):
         permissions=[DiscountPermissions.MANAGE_DISCOUNTS],
         doc_category=DOC_CATEGORY_DISCOUNTS,
     )
-    
+
     # @cf::ornament.saleor.graphql.discount
     voucher_by_code = graphene.Field(
         Voucher,
@@ -225,8 +227,8 @@ class DiscountQueries(graphene.ObjectType):
         qs = resolve_promotions(info)
         qs = filter_connection_queryset(qs, kwargs)
         return create_connection_slice(qs, info, kwargs, PromotionCountableConnection)
-   
-   # @cf::ornament.saleor.graphql.discount
+
+    # @cf::ornament.saleor.graphql.discount
     @staticmethod
     def resolve_voucher_by_code(_root, info: ResolveInfo, *, code, channel=None):
         return resolve_voucher_by_code(code, channel)
