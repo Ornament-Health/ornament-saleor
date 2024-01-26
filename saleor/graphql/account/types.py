@@ -4,10 +4,12 @@ from typing import List, Optional, cast
 
 import graphene
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from graphene import relay
 from promise import Promise
 
 from ...account import models
+from ...channel import models as channel_models
 from ...checkout.utils import get_user_checkout
 from ...core.exceptions import PermissionDenied
 from ...graphql.meta.inputs import MetadataInput
@@ -469,6 +471,10 @@ class User(ModelObjectType[models.User]):
         description="Slug of a channel that has been set to user",
         required=True,
     )
+    current_currency = graphene.String(
+        description="Currency code of a channel that has been set to user",
+        required=True,
+    )
     # @cf::ornament.vendors
     vendor = graphene.Field(Vendor, description="User's global vendor")
 
@@ -486,6 +492,20 @@ class User(ModelObjectType[models.User]):
     @staticmethod
     def resolve_current_channel(root: models.User, _info: ResolveInfo):
         return root.city.channel.slug if root.city else get_channel()
+
+    # @cf::ornament.geo
+    @staticmethod
+    def resolve_current_currency(root: models.User, _info: ResolveInfo) -> str:
+        if root.city:
+            return root.city.channel.currency_code
+
+        channel_slug = get_channel()
+        channel = channel_models.Channel.objects.filter(slug=channel_slug).first()
+
+        if channel:
+            return channel.currency_code
+
+        return settings.DEFAULT_CHANNEL_CURRENCY
 
     @staticmethod
     def resolve_checkout(root: models.User, _info: ResolveInfo):
