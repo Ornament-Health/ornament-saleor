@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import uuid
 from collections import defaultdict
@@ -13,7 +14,6 @@ from typing import (
 
 import graphene
 from django.db.models import F, QuerySet, Sum
-from django.utils import timezone
 from graphene.utils.str_converters import to_camel_case
 
 from .. import __version__
@@ -127,7 +127,8 @@ def generate_requestor(requestor: Optional["RequestorOrLazyObject"] = None):
 
 def generate_meta(*, requestor_data: dict[str, Any], camel_case=False, **kwargs):
     meta_result = {
-        "issued_at": timezone.now().isoformat(),
+        # @cf::ornament:CORE-2283
+        "issued_at": datetime.now().isoformat(),
         "version": __version__,
         "issuing_principal": requestor_data,
     }

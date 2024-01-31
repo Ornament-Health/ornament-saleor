@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Callable, Optional
 from asgiref.local import Local
 from django.conf import settings
 from django.core.cache import cache
-from django.utils import timezone
 from graphql import GraphQLDocument
 from pytimeparse import parse
 
@@ -84,7 +83,8 @@ def get_webhooks(timeout=CACHE_TIMEOUT) -> list[WebhookData]:
 
 def task_next_retry_date(retry_error: "Retry") -> Optional[datetime]:
     if isinstance(retry_error.when, (int, float)):
-        return timezone.now() + timedelta(seconds=retry_error.when)
+        # @cf::ornament:CORE-2283
+        return datetime.now() + timedelta(seconds=retry_error.when)
     if isinstance(retry_error.when, datetime):
         return retry_error.when
     return None

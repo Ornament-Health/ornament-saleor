@@ -2,11 +2,11 @@ import json
 import uuid
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Optional
+from datetime import datetime
 
 import graphene
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpRequest, HttpResponse
-from django.utils import timezone
 from graphene.utils.str_converters import to_camel_case as str_to_camel_case
 from graphql import get_operation_ast
 
@@ -39,8 +39,6 @@ from .payload_schema import (
 from .sensitive_data import SENSITIVE_GQL_FIELDS
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from ...core.models import EventDeliveryAttempt
     from .utils import GraphQLOperationResponse
 
@@ -163,7 +161,8 @@ def generate_api_call_payload(
             id=str(uuid.uuid4()),
             method=request.method or "",
             url=build_absolute_uri(request.get_full_path()),
-            time=getattr(request, "request_time", timezone.now()).timestamp(),
+            # @cf::ornament:CORE-2283
+            time=getattr(request, "request_time", datetime.now()).timestamp(),
             headers=serialize_headers(dict(request.headers)),
             content_length=int(request.headers.get("Content-Length") or 0),
         ),

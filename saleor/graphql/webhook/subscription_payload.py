@@ -1,8 +1,8 @@
+from datetime import datetime
 from typing import Any, Optional
 
 from celery.utils.log import get_task_logger
 from django.conf import settings
-from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 from graphql import get_default_backend, parse
 from graphql.error import GraphQLError
@@ -30,7 +30,8 @@ def initialize_request(
     return: HttpRequest
     """
 
-    request_time = timezone.now()
+    # @cf::ornament:CORE-2283
+    request_time = datetime.now()
     request = SaleorContext()
     request.path = "/graphql/"
     request.path_info = "/graphql/"

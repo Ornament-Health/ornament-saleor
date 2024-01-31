@@ -1,9 +1,9 @@
 from collections.abc import Iterable
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
 from django.conf import settings
-from django.utils import timezone
 from prices import Money, TaxedMoney
 
 from ..checkout import base_calculations
@@ -235,7 +235,7 @@ def _fetch_checkout_prices_if_expired(
     """
     checkout = checkout_info.checkout
 
-    if not force_update and checkout.price_expiration > timezone.now():
+    if not force_update and checkout.price_expiration > datetime.now():
         return checkout_info, lines
 
     tax_configuration = checkout_info.tax_configuration
@@ -284,7 +284,8 @@ def _fetch_checkout_prices_if_expired(
             # Calculate net prices without taxes.
             _get_checkout_base_prices(checkout, checkout_info, lines)
 
-    checkout.price_expiration = timezone.now() + settings.CHECKOUT_PRICES_TTL
+    # @cf::ornament:CORE-2283
+    checkout.price_expiration = datetime.now() + settings.CHECKOUT_PRICES_TTL
     checkout.save(
         update_fields=[
             "voucher_code",

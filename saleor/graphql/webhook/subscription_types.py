@@ -1,5 +1,5 @@
+from datetime import datetime
 import graphene
-from django.utils import timezone
 from graphene import AbstractType, Union
 from rx import Observable
 
@@ -139,7 +139,8 @@ class Event(graphene.Interface):
 
     @staticmethod
     def resolve_issued_at(_root, _info: ResolveInfo):
-        return timezone.now()
+        # @cf::ornament:CORE-2283
+        return datetime.now()
 
     @staticmethod
     def resolve_version(_root, _info: ResolveInfo):

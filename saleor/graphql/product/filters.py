@@ -10,7 +10,6 @@ from django.db.models import Exists, FloatField, OuterRef, Q, Subquery, Sum
 from django.db.models.expressions import ExpressionWrapper
 from django.db.models.fields import IntegerField
 from django.db.models.functions import Cast, Coalesce
-from django.utils import timezone
 
 from ...attribute import AttributeInputType
 from ...attribute.models import (
@@ -370,7 +369,8 @@ def filter_products_by_stock_availability(qs, stock_availability, channel_slug):
         .filter(
             quantity_reserved__gt=0,
             stock_id=OuterRef("pk"),
-            reserved_until__gt=timezone.now(),
+            # @cf::ornament:CORE-2283
+            reserved_until__gt=datetime.datetime.now(),
         )
         .values_list(Sum("quantity_reserved"))
     )
@@ -453,7 +453,9 @@ def filter_has_preordered_variants(qs, _, value):
     variants = (
         ProductVariant.objects.filter(is_preorder=True)
         .filter(
-            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gt=timezone.now())
+            # @cf::ornament:CORE-2283
+            Q(preorder_end_date__isnull=True)
+            | Q(preorder_end_date__gt=datetime.datetime.now())
         )
         .values("product_id")
     )
@@ -495,7 +497,8 @@ def _filter_products_is_published(qs, _, value, channel_slug):
 
 def _filter_products_is_available(qs, _, value, channel_slug):
     channel = Channel.objects.filter(slug=channel_slug).values("pk")
-    now = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    now = datetime.datetime.now()
     if value:
         product_channel_listings = ProductChannelListing.objects.filter(
             Exists(channel.filter(pk=OuterRef("channel_id"))),
@@ -628,11 +631,13 @@ def filter_sku_list(qs, _, value):
 def filter_is_preorder(qs, _, value):
     if value:
         return qs.filter(is_preorder=True).filter(
-            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gte=timezone.now())
+            # @cf::ornament:CORE-2283
+            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gte=datetime.datetime.now())
         )
     return qs.filter(
         Q(is_preorder=False)
-        | (Q(is_preorder=True)) & Q(preorder_end_date__lt=timezone.now())
+        # @cf::ornament:CORE-2283
+        | (Q(is_preorder=True)) & Q(preorder_end_date__lt=datetime.datetime.now())
     )
 
 
@@ -814,7 +819,8 @@ def where_filter_products_is_available(qs, _, value, channel_slug):
     if value is None:
         return qs.none()
     channel = Channel.objects.filter(slug=channel_slug).values("pk")
-    now = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    now = datetime.datetime.now()
     if value:
         product_channel_listings = ProductChannelListing.objects.filter(
             Exists(channel.filter(pk=OuterRef("channel_id"))),
@@ -971,7 +977,8 @@ def where_filter_has_preordered_variants(qs, _, value):
     variants = (
         ProductVariant.objects.filter(is_preorder=True)
         .filter(
-            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gt=timezone.now())
+            # @cf::ornament:CORE-2283
+            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gt=datetime.datetime.now())
         )
         .values("product_id")
     )

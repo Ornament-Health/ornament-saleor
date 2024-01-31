@@ -330,7 +330,8 @@ class ProductChannelListing(PublishableModel):
     def is_available_for_purchase(self):
         return (
             self.available_for_purchase_at is not None
-            and datetime.datetime.now(pytz.UTC) >= self.available_for_purchase_at
+            # @cf::ornament:CORE-2283
+            and datetime.datetime.now() >= self.available_for_purchase_at
         )
 
 

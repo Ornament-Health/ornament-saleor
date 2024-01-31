@@ -117,7 +117,8 @@ class BaseChannelListingMutation(BaseMutation):
             )
             is_published = add_channel.get("is_published")
             if is_published and not publication_date:
-                add_channel["published_at"] = datetime.datetime.now(pytz.UTC)
+                # @cf::ornament:CORE-2283
+                add_channel["published_at"] = datetime.datetime.now()
             elif "publication_date" in add_channel or "published_at" in add_channel:
                 add_channel["published_at"] = publication_date
         if invalid_channels:

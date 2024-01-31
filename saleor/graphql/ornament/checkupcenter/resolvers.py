@@ -1,12 +1,9 @@
 import datetime
 import logging
 
-import requests
-from http import HTTPStatus
 import graphene_django_optimizer as gql_optimizer
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 from graphql_relay import from_global_id
 
 from saleor.ornament.checkupcenter import CheckUpStateStatus, models
@@ -53,7 +50,8 @@ def resolve_checkup_states(info, **kwargs):
         checkup__user=user, checkup=checkup
     ).order_by("-date_from")
 
-    date_most_filled_state_expiration = timezone.now() - datetime.timedelta(
+    # @cf::ornament:CORE-2283
+    date_most_filled_state_expiration = datetime.datetime.now() - datetime.timedelta(
         days=settings.CHECKUP_MOST_FILLED_STATE_EXPIRATION_DAYS
     )
 

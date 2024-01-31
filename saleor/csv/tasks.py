@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, Union
 
 import celery
@@ -6,7 +7,6 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from django.db.models.expressions import Exists, OuterRef
-from django.utils import timezone
 
 from ..celeryconf import app
 from ..core import JobStatus
@@ -94,7 +94,8 @@ def export_voucher_codes_task(
 
 @app.task
 def delete_old_export_files():
-    now = timezone.now()
+    # @cf::ornament:CORE-2283
+    now = datetime.now()
 
     events = ExportEvent.objects.filter(
         date__lte=now - settings.EXPORT_FILES_TIMEDELTA,
