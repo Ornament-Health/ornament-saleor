@@ -542,7 +542,9 @@ class Command(BaseCommand):
                     product_id, "kdl-duration_unit", duration_unit_attribute_values
                 )
 
-                if data_product["duration"]:
+                if data_product["duration"] and "N/A" not in str(
+                    data_product["duration"]
+                ):
                     insert_duration = False
                     insert_duration_unit = False
 
