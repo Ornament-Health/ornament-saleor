@@ -2,6 +2,7 @@ from datetime import datetime
 import os
 import re
 from itertools import chain
+from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError
 from slugify import slugify
@@ -10,12 +11,10 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import exceptions as openpyxl_exceptions
 
 from saleor.attribute.models.base import AttributeValue
-from saleor.attribute.models.product import (
-    AssignedProductAttribute,
-    AssignedProductAttributeValue,
-)
+from saleor.attribute.models.product import AssignedProductAttributeValue
 from saleor.ornament.vendors.kdl.management.utils import (
     AttributeUtils,
+    KdlDurationUnitEnum,
     fetch_medical_data,
     form_description,
     form_rich_text,
@@ -79,13 +78,6 @@ class Command(BaseCommand):
         product_id: int,
         featured_attribute_values: dict[str, AttributeValue],
     ) -> AssignedProductAttributeValue:
-        assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=AttributeUtils.attrubutes_ids["featured"],
-        )
-
-        assigned_product_attribute.save()
-
         featured_slug = f"{AttributeUtils.attrubutes_ids['featured']}_true"
 
         featured_attribute_value = featured_attribute_values.get(featured_slug)
@@ -96,7 +88,6 @@ class Command(BaseCommand):
             )
 
         return AssignedProductAttributeValue(
-            assignment_id=assigned_product_attribute.pk,
             value_id=featured_attribute_value.pk,
             product_id=product_id,
         )
@@ -107,13 +98,6 @@ class Command(BaseCommand):
         color_slug: str,
         color_attribute_values: dict[str, AttributeValue],
     ) -> AssignedProductAttributeValue:
-        assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=AttributeUtils.attrubutes_ids["color"],
-        )
-
-        assigned_product_attribute.save()
-
         color_attribute_value = color_attribute_values.get(color_slug)
 
         if not color_attribute_value:
@@ -122,7 +106,6 @@ class Command(BaseCommand):
             )
 
         return AssignedProductAttributeValue(
-            assignment_id=assigned_product_attribute.pk,
             value_id=color_attribute_value.pk,
             product_id=product_id,
         )
@@ -130,33 +113,25 @@ class Command(BaseCommand):
     def check_row_required_data(self, row: tuple) -> bool:
         return all([row[0], row[1], row[2]])
 
-    def get_attribute_assignments(
+    def get_attribute_value(
+        self,
+        product_id: int,
+        attribute_name: str,
+        known_values: dict[str, AttributeValue],
+    ) -> Optional[AttributeValue]:
+        slug = f"{product_id}_{AttributeUtils.attrubutes_ids[attribute_name]}"
+        return known_values.get(slug)
+
+    def should_recreate_attribute_assignment(
         self,
         product: Product,
         db_attribute_value: AttributeValue,
-        attribute_name: str,
-    ) -> tuple[bool, int]:
-        recreate = False
-        reassign_pk = 0
-
+    ) -> bool:
         assigned_value = product.attributevalues.filter(
             value_id=db_attribute_value.pk
         ).first()
 
-        if assigned_value:
-            return recreate, reassign_pk
-
-        assigned_attribute = product.attributes.filter(
-            assignment_id=AttributeUtils.attrubutes_ids[attribute_name]
-        ).first()
-
-        if not assigned_attribute:
-            db_attribute_value.delete()
-            recreate = True
-        else:
-            reassign_pk = assigned_attribute.pk
-
-        return recreate, reassign_pk
+        return not assigned_value
 
     def handle(self, *args, **options):
         filename = options.get("filename")
@@ -247,38 +222,6 @@ class Command(BaseCommand):
             attribute_id=AttributeUtils.attrubutes_ids["color"]
         )
         color_attribute_values = {v.slug: v for v in color_attribute_values}
-
-        biomarkers_assigned_product_attributes = (
-            AssignedProductAttribute.objects.filter(
-                assignment_id=AttributeUtils.attrubutes_ids["biomarkers"]
-            )
-        )
-        biomarkers_assigned_product_attributes = {
-            v.product.pk: v.pk for v in biomarkers_assigned_product_attributes
-        }
-
-        medical_exams_assigned_product_attributes = (
-            AssignedProductAttribute.objects.filter(
-                assignment_id=AttributeUtils.attrubutes_ids["medical_exams"]
-            )
-        )
-        medical_exams_assigned_product_attributes = {
-            v.product.pk: v.pk for v in medical_exams_assigned_product_attributes
-        }
-
-        featured_assigned_product_attributes = AssignedProductAttribute.objects.filter(
-            assignment_id=AttributeUtils.attrubutes_ids["featured"]
-        )
-        featured_assigned_product_attributes = {
-            v.product.pk: v.pk for v in featured_assigned_product_attributes
-        }
-
-        color_assigned_product_attributes = AssignedProductAttribute.objects.filter(
-            assignment_id=AttributeUtils.attrubutes_ids["color"]
-        )
-        color_assigned_product_attributes = {
-            v.product.pk: v.pk for v in color_assigned_product_attributes
-        }
 
         popular_collection_assignments = CollectionProduct.objects.filter(
             collection=popular_collection
@@ -396,7 +339,7 @@ class Command(BaseCommand):
                         AttributeUtils.add_numeric_attribute_data(
                             product.pk,
                             # 2 - legacy: duration unit DAYS
-                            2,
+                            KdlDurationUnitEnum.DAY.value,
                             AttributeUtils.attrubutes_ids["kdl-duration_unit"],
                         )
                     )
@@ -406,7 +349,6 @@ class Command(BaseCommand):
                         AttributeUtils.add_medical_attributes_data(
                             product.pk,
                             [int(b) for b in data_product["biomarkers"]],
-                            AttributeUtils.attrubutes_ids["biomarkers"],
                             biomarkers_attribute_values_ids,
                         )
                     )
@@ -416,7 +358,6 @@ class Command(BaseCommand):
                         AttributeUtils.add_medical_attributes_data(
                             product.pk,
                             [int(m) for m in data_product["medical_exams"]],
-                            AttributeUtils.attrubutes_ids["medical_exams"],
                             medical_exams_attribute_values_ids,
                         )
                     )
@@ -463,10 +404,16 @@ class Command(BaseCommand):
 
         products_to_update = Product.objects.filter(
             name__in=data_to_update.keys()
-        ).prefetch_related("attributevalues", "attributes")
+        ).prefetch_related("attributevalues")
 
-        attribute_values_to_update = []
-        assigned_product_attribute_values_to_insert = []
+        attribute_values_to_update: list[AttributeValue] = []
+        assigned_product_attribute_values_to_insert: list[
+            AssignedProductAttributeValue
+        ] = []
+        attribute_values_to_delete: list[AttributeValue] = []
+        assigned_product_attribute_values_to_delete: list[
+            AssignedProductAttributeValue
+        ] = []
         collection_products_to_insert = []
 
         for p in products_to_update:
@@ -490,182 +437,138 @@ class Command(BaseCommand):
 
                 p.save()
 
+                # BIOMATERIAL
+
+                biomaterial_db_attribute_value = self.get_attribute_value(
+                    product_id, "kdl-biomaterials", biomaterial_attribute_values
+                )
+
                 if (
                     data_product["biomaterial"]
                     and "N/A" not in data_product["biomaterial"]
                 ):
-                    name = data_product["biomaterial"].replace("\n", ", ")
-                    slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-biomaterials"]}'
-                    db_attribute_value = biomaterial_attribute_values.get(slug)
+                    insert = False
 
-                    if db_attribute_value:
-                        (
-                            recreate,
-                            reassign_pk,
-                        ) = self.get_attribute_assignments(
+                    name = data_product["biomaterial"].replace("\n", ", ")
+
+                    if biomaterial_db_attribute_value:
+                        recreate = self.should_recreate_attribute_assignment(
                             p,
-                            db_attribute_value,
-                            "kdl-biomaterials",
+                            biomaterial_db_attribute_value,
                         )
 
                         if recreate:
-                            assigned_product_attribute_values_to_insert.append(
-                                AttributeUtils.add_biomaterial_attribute_data(
-                                    product_id,
-                                    data_product["biomaterial"],
-                                )
+                            attribute_values_to_delete.append(
+                                biomaterial_db_attribute_value
                             )
-                        elif reassign_pk:
-                            assigned_product_attribute_values_to_insert.append(
-                                AssignedProductAttributeValue(
-                                    assignment_id=reassign_pk,
-                                    value_id=db_attribute_value.pk,
-                                    product_id=product_id,
-                                )
+                            insert = True
+                        else:
+                            biomaterial_db_attribute_value.name = name
+                            biomaterial_db_attribute_value.plain_text = name
+                            attribute_values_to_update.append(
+                                biomaterial_db_attribute_value
                             )
-
-                        if not recreate:
-                            db_attribute_value.name = name
-                            db_attribute_value.plain_text = name
-                            attribute_values_to_update.append(db_attribute_value)
                     else:
+                        insert = True
+
+                    if insert:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_biomaterial_attribute_data(
                                 product_id,
                                 data_product["biomaterial"],
                             )
                         )
+                else:
+                    if biomaterial_db_attribute_value:
+                        attribute_values_to_delete.append(
+                            biomaterial_db_attribute_value
+                        )
+
+                # PREPARATION
+
+                preparation_db_attribute_value = self.get_attribute_value(
+                    product_id, "kdl-preparation", preparation_attribute_values
+                )
 
                 if (
                     data_product["preparation"]
                     and "N/A" not in data_product["preparation"]
                 ):
+                    insert = False
+
                     preparation = data_product["preparation"]
                     name = preparation[:20] + "..."
                     rich_text = form_rich_text(preparation)
-                    slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-preparation"]}'
-                    db_attribute_value = preparation_attribute_values.get(slug)
 
-                    if db_attribute_value:
-                        (
-                            recreate,
-                            reassign_pk,
-                        ) = self.get_attribute_assignments(
+                    if preparation_db_attribute_value:
+                        recreate = self.should_recreate_attribute_assignment(
                             p,
-                            db_attribute_value,
-                            "kdl-preparation",
+                            preparation_db_attribute_value,
                         )
 
                         if recreate:
-                            assigned_product_attribute_values_to_insert.append(
-                                AttributeUtils.add_preparation_attribute_data(
-                                    product_id,
-                                    preparation,
-                                )
+                            attribute_values_to_delete.append(
+                                preparation_db_attribute_value
                             )
-                        elif reassign_pk:
-                            assigned_product_attribute_values_to_insert.append(
-                                AssignedProductAttributeValue(
-                                    assignment_id=reassign_pk,
-                                    value_id=db_attribute_value.pk,
-                                    product_id=product_id,
-                                )
+                            insert = True
+                        else:
+                            preparation_db_attribute_value.name = name
+                            preparation_db_attribute_value.rich_text = rich_text
+                            attribute_values_to_update.append(
+                                preparation_db_attribute_value
                             )
-
-                        if not recreate:
-                            db_attribute_value.name = name
-                            db_attribute_value.rich_text = rich_text
-                            attribute_values_to_update.append(db_attribute_value)
-
                     else:
+                        insert = True
+
+                    if insert:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_preparation_attribute_data(
-                                product_id, preparation
+                                product_id,
+                                preparation,
                             )
                         )
+                else:
+                    if preparation_db_attribute_value:
+                        attribute_values_to_delete.append(
+                            preparation_db_attribute_value
+                        )
 
-                if data_product["duration"] and "N/A" not in str(
-                    data_product["duration"]
-                ):
+                # DURATION AND DURATION UNIT
+
+                duration_db_attribute_value = self.get_attribute_value(
+                    product_id, "kdl-max_duration", duration_attribute_values
+                )
+                duration_unit_db_attribute_value = self.get_attribute_value(
+                    product_id, "kdl-duration_unit", duration_unit_attribute_values
+                )
+
+                if data_product["duration"]:
+                    insert_duration = False
+                    insert_duration_unit = False
+
                     duration = int(data_product["duration"])
-                    duration_slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-max_duration"]}'
-                    duration_unit_slug = f'{product_id}_{AttributeUtils.attrubutes_ids["kdl-duration_unit"]}'
-                    duration_db_attribute_value = duration_attribute_values.get(
-                        duration_slug
-                    )
-                    duration_unit_db_attribute_value = (
-                        duration_unit_attribute_values.get(duration_unit_slug)
-                    )
 
+                    # DURATION
                     if duration_db_attribute_value:
-                        (
-                            recreate,
-                            reassign_pk,
-                        ) = self.get_attribute_assignments(
+                        recreate = self.should_recreate_attribute_assignment(
                             p,
                             duration_db_attribute_value,
-                            "kdl-max_duration",
                         )
 
                         if recreate:
-                            assigned_product_attribute_values_to_insert.append(
-                                AttributeUtils.add_numeric_attribute_data(
-                                    product_id,
-                                    duration,
-                                    AttributeUtils.attrubutes_ids["kdl-max_duration"],
-                                )
+                            attribute_values_to_delete.append(
+                                duration_db_attribute_value
                             )
-                        elif reassign_pk:
-                            assigned_product_attribute_values_to_insert.append(
-                                AssignedProductAttributeValue(
-                                    assignment_id=reassign_pk,
-                                    value_id=duration_db_attribute_value.pk,
-                                    product_id=product_id,
-                                )
-                            )
-
-                        if not recreate:
+                            insert_duration = True
+                        else:
                             duration_db_attribute_value.name = str(duration)
                             attribute_values_to_update.append(
                                 duration_db_attribute_value
                             )
+                    else:
+                        insert_duration = True
 
-                    if duration_unit_db_attribute_value:
-                        (
-                            recreate,
-                            reassign_pk,
-                        ) = self.get_attribute_assignments(
-                            p,
-                            duration_unit_db_attribute_value,
-                            "kdl-duration_unit",
-                        )
-
-                        if recreate:
-                            assigned_product_attribute_values_to_insert.append(
-                                AttributeUtils.add_numeric_attribute_data(
-                                    product_id,
-                                    duration,
-                                    AttributeUtils.attrubutes_ids["kdl-duration_unit"],
-                                )
-                            )
-                        elif reassign_pk:
-                            assigned_product_attribute_values_to_insert.append(
-                                AssignedProductAttributeValue(
-                                    assignment_id=reassign_pk,
-                                    value_id=duration_unit_db_attribute_value.pk,
-                                    product_id=product_id,
-                                )
-                            )
-
-                        if not recreate:
-                            duration_unit_db_attribute_value.name = "2"
-                            attribute_values_to_update.append(
-                                duration_unit_db_attribute_value
-                            )
-
-                    if not all(
-                        [duration_db_attribute_value, duration_unit_db_attribute_value]
-                    ):
+                    if insert_duration:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
@@ -673,124 +576,185 @@ class Command(BaseCommand):
                                 AttributeUtils.attrubutes_ids["kdl-max_duration"],
                             )
                         )
+
+                    # DURATION UNIT
+                    if duration_unit_db_attribute_value:
+                        recreate = self.should_recreate_attribute_assignment(
+                            p,
+                            duration_unit_db_attribute_value,
+                        )
+
+                        if recreate:
+                            attribute_values_to_delete.append(
+                                duration_unit_db_attribute_value
+                            )
+                            insert_duration_unit = True
+                        else:
+                            duration_unit_db_attribute_value.name = str(
+                                KdlDurationUnitEnum.DAY.value
+                            )
+                            attribute_values_to_update.append(
+                                duration_unit_db_attribute_value
+                            )
+                    else:
+                        insert_duration_unit = True
+
+                    if insert_duration_unit:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
-                                2,
+                                KdlDurationUnitEnum.DAY.value,
                                 AttributeUtils.attrubutes_ids["kdl-duration_unit"],
                             )
                         )
+                else:
+                    if duration_db_attribute_value:
+                        attribute_values_to_delete.append(duration_db_attribute_value)
+                    if duration_unit_db_attribute_value:
+                        attribute_values_to_delete.append(
+                            duration_unit_db_attribute_value
+                        )
+
+                # BIOMARKERS
 
                 if data_product["biomarkers"]:
                     biomarkers = [int(b) for b in data_product["biomarkers"]]
-                    db_assigned_product_attribute = (
-                        biomarkers_assigned_product_attributes.get(product_id)
+
+                    biomarkers_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                                "biomarkers"
+                            ],
+                            product_id=product_id,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        biomarkers_assigned_product_attribute_values
                     )
 
-                    if db_assigned_product_attribute:
-                        AssignedProductAttributeValue.objects.filter(
-                            assignment_id=db_assigned_product_attribute
-                        ).delete()
-
-                        assigned_product_attribute_values_to_insert += [
-                            AssignedProductAttributeValue(
-                                assignment_id=db_assigned_product_attribute,
-                                value_id=biomarkers_attribute_values_ids.get(m),
-                                product_id=product_id,
-                            )
-                            for m in set(biomarkers)
-                        ]
-                    else:
-                        assigned_product_attribute_values_to_insert += (
-                            AttributeUtils.add_medical_attributes_data(
-                                product_id,
-                                biomarkers,
-                                AttributeUtils.attrubutes_ids["biomarkers"],
-                                biomarkers_attribute_values_ids,
-                            )
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product_id,
+                            biomarkers,
+                            biomarkers_attribute_values_ids,
                         )
+                    )
+                else:
+                    biomarkers_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                                "biomarkers"
+                            ],
+                            product_id=product_id,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        biomarkers_assigned_product_attribute_values
+                    )
+
+                # MEDICAL EXAMS
 
                 if data_product["medical_exams"]:
                     medical_exams = [int(m) for m in data_product["medical_exams"]]
-                    db_assigned_product_attribute = (
-                        medical_exams_assigned_product_attributes.get(product_id)
+
+                    medical_exams_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                                "medical_exams"
+                            ],
+                            product_id=product_id,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        medical_exams_assigned_product_attribute_values
                     )
 
-                    if db_assigned_product_attribute:
-                        AssignedProductAttributeValue.objects.filter(
-                            assignment_id=db_assigned_product_attribute
-                        ).delete()
-
-                        assigned_product_attribute_values_to_insert += [
-                            AssignedProductAttributeValue(
-                                assignment_id=db_assigned_product_attribute,
-                                value_id=medical_exams_attribute_values_ids.get(m),
-                                product_id=product_id,
-                            )
-                            for m in set(medical_exams)
-                        ]
-                    else:
-                        assigned_product_attribute_values_to_insert += (
-                            AttributeUtils.add_medical_attributes_data(
-                                product_id,
-                                medical_exams,
-                                AttributeUtils.attrubutes_ids["medical_exams"],
-                                medical_exams_attribute_values_ids,
-                            )
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product_id,
+                            medical_exams,
+                            medical_exams_attribute_values_ids,
                         )
+                    )
+                else:
+                    medical_exams_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                                "medical_exams"
+                            ],
+                            product_id=product_id,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        medical_exams_assigned_product_attribute_values
+                    )
+
+                # COLOR
+
+                color_attribute_assigned_value = (
+                    AssignedProductAttributeValue.objects.filter(
+                        value__attribute_id=AttributeUtils.attrubutes_ids["color"],
+                        product_id=product_id,
+                    ).first()
+                )
 
                 if data_product["color_slug"]:
-                    db_assigned_product_attribute = (
-                        color_assigned_product_attributes.get(product_id)
+                    color_attribute_value_for_current_slug = color_attribute_values.get(
+                        data_product["color_slug"]
                     )
-                    if db_assigned_product_attribute:
-                        assigned_value = AssignedProductAttributeValue.objects.filter(
-                            assignment_id=db_assigned_product_attribute
-                        ).first()
 
-                        db_value_for_current_slug = color_attribute_values.get(
-                            data_product["color_slug"]
-                        )
-
-                        if assigned_value:
-                            if (
-                                db_value_for_current_slug
-                                and assigned_value.value != db_value_for_current_slug
-                            ):
-                                assigned_value.value = db_value_for_current_slug
-                                assigned_value.save()
-                        elif db_value_for_current_slug:
-                            assigned_product_attribute_values_to_insert.append(
-                                AssignedProductAttributeValue(
-                                    assignment_id=db_assigned_product_attribute,
-                                    value_id=db_value_for_current_slug.pk,
-                                    product_id=product_id,
-                                )
+                    if color_attribute_assigned_value:
+                        if (
+                            color_attribute_value_for_current_slug
+                            and color_attribute_assigned_value.value
+                            != color_attribute_value_for_current_slug
+                        ):
+                            color_attribute_assigned_value.value = (
+                                color_attribute_value_for_current_slug
                             )
-
-                    else:
+                            color_attribute_assigned_value.save()
+                    elif color_attribute_value_for_current_slug:
                         assigned_product_attribute_values_to_insert.append(
-                            self.add_color_attribute_data(
-                                product_id,
-                                data_product["color_slug"],
-                                color_attribute_values,
+                            AssignedProductAttributeValue(
+                                value_id=color_attribute_value_for_current_slug.pk,
+                                product_id=product_id,
                             )
                         )
+                else:
+                    if color_attribute_assigned_value:
+                        color_attribute_assigned_value.delete()
+
+                # POPULAR (FEARTURED CATEGORY & POPULAR COLLECTION)
+
+                featured_attribute_assigned_value = (
+                    AssignedProductAttributeValue.objects.filter(
+                        value__attribute_id=AttributeUtils.attrubutes_ids["featured"],
+                        product_id=product_id,
+                    ).first()
+                )
 
                 is_popular = data_product["is_popular"]
 
-                db_assigned_featured_product_attribute = (
-                    featured_assigned_product_attributes.get(product_id)
+                featured_true_slug = f"{AttributeUtils.attrubutes_ids['featured']}_true"
+                featured_false_slug = (
+                    f"{AttributeUtils.attrubutes_ids['featured']}_false"
                 )
 
-                if is_popular != 1 and db_assigned_featured_product_attribute:
-                    AssignedProductAttributeValue.objects.filter(
-                        assignment_id=db_assigned_featured_product_attribute
-                    ).delete()
-                    AssignedProductAttribute.objects.filter(
-                        id=db_assigned_featured_product_attribute
-                    ).delete()
-                elif is_popular == 1 and not db_assigned_featured_product_attribute:
+                featured_insert = False
+
+                if featured_attribute_assigned_value:
+                    compare_slug = (
+                        featured_true_slug if is_popular == 1 else featured_false_slug
+                    )
+                    if featured_attribute_assigned_value.value.slug != compare_slug:
+                        featured_insert = is_popular == 1
+                        assigned_product_attribute_values_to_delete.append(
+                            featured_attribute_assigned_value
+                        )
+                else:
+                    featured_insert = is_popular == 1
+
+                if featured_insert:
                     assigned_product_attribute_values_to_insert.append(
                         self.add_featured_attribute_data(
                             product_id, featured_attribute_values
@@ -814,6 +778,14 @@ class Command(BaseCommand):
 
         ProductVariantChannelListing.objects.filter(
             variant__sku__in=data_to_delist
+        ).delete()
+
+        AttributeValue.objects.filter(
+            id__in=[av.pk for av in attribute_values_to_delete]
+        ).delete()
+
+        AssignedProductAttributeValue.objects.filter(
+            id__in=[apav.pk for apav in assigned_product_attribute_values_to_delete]
         ).delete()
 
         Product.objects.bulk_update(
