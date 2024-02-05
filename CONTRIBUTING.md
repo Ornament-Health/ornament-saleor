@@ -6,16 +6,12 @@ We welcome all contributions to Saleor, including issues, new features, docs, di
 
 ## Issues
 
-Use [Github Issues](https://github.com/mirumee/saleor/issues) to report a bug or a problem that you found in Saleor. Use the "Bug report" issue template to provide information that will help us confirm the bug, such as steps to reproduce, expected behavior, Saleor version, and any additional context. When our team confirms a bug, it will be added to the internal backlog and picked up as soon as possible. When willing to fix a bug, let us know in the issue comment, and we will try to assist you on the way.
+Use [Github Issues](https://github.com/saleor/saleor/issues) to report a bug or a problem that you found in Saleor. Use the "Bug report" issue template to provide information that will help us confirm the bug, such as steps to reproduce, expected behavior, Saleor version, and any additional context. When our team confirms a bug, it will be added to the internal backlog and picked up as soon as possible. When willing to fix a bug, let us know in the issue comment, and we will try to assist you on the way.
 
 ## New features
-When willing to propose or add a new feature, we encourage you first to open a [discussion](https://github.com/mirumee/saleor/discussions) or an [issue](https://github.com/mirumee/saleor/issues) (using "Feature request" template) to discuss it with the core team. This process helps us decide if a feature is suitable for Saleor or design it before any implementation starts.
+When willing to propose or add a new feature, we encourage you first to open a [discussion](https://github.com/saleor/saleor/discussions) or an [issue](https://github.com/saleor/saleor/issues) (using "Feature request" template) to discuss it with the core team. This process helps us decide if a feature is suitable for Saleor or design it before any implementation starts.
 
 Before merging, any new pull requests submitted to Saleor have to be reviewed and approved by the core team. We review pull requests daily, but if a pull request requires more time or feedback from the team, it will be marked as "queued for review".
-
-## Translations
-
-All translations are contributed by the community. To aid with translation, visit our [Transifex project](https://www.transifex.com/mirumee/saleor-1/).
 
 ## Managing dependencies
 
@@ -29,22 +25,10 @@ We recommend using at least version `1.0.0b` as it contains many fixes and featu
 
 *Tip:* We recommend that you use this workflow and keep `pyproject.toml` as well as `poetry.lock` under version control to make sure all computers and environments run exactly the same code.
 
-### Other tools
-
-For compatibility, Saleor also provides `requirements.txt` and `requirements_dev.txt`.
-
-These files should be updated by running `poetry export --without-hashes -f requirements.txt -o requirements.txt` and `poetry export --without-hashes -f requirements.txt -o requirements_dev.txt --with dev`, respectively.
-
 ## Coding style
 
 Saleor uses various tools to maintain a common coding style and help with development.
-To install all the development tools, run the following commands:
-
-```shell
-python -m pip install -r requirements_dev.txt
-```
-
-or use `poetry`:
+To install all the development tools, use [Poetry](https://python-poetry.org):
 
 ```shell
 poetry install
@@ -66,21 +50,13 @@ Module names should make their purpose obvious. Avoid generic file names such as
 
 ### Linters
 
-Use [black](https://github.com/python/black/) to make sure your code is correctly formatted.
-
-Use [isort](https://github.com/timothycrosley/isort) to maintain consistent imports.
-
-Use [pylint](https://www.pylint.org/) with the `pylint-django` plugin to catch errors in your code.
-
-Use [pycodestyle](http://pycodestyle.pycqa.org/en/latest/) to make sure your code adheres to PEP 8.
-
-Use [pydocstyle](http://pydocstyle.pycqa.org/en/latest/) to check that your docstrings are properly formatted.
+Use [ruff](https://github.com/astral-sh/ruff) to check and format your code.
 
 ## EditorConfig
 
 [EditorConfig](http://editorconfig.org/) is a standard configuration file that aims to ensure consistent style across multiple programming environments.
 
-Saleor’s repository contains [an `.editorconfig` file](https://github.com/mirumee/saleor/blob/master/.editorconfig) describing our formatting requirements.
+Saleor’s repository contains [an `.editorconfig` file](https://github.com/saleor/saleor/blob/master/.editorconfig) describing our formatting requirements.
 
 Most editors and IDEs support this file either directly or via plugins. See the [list of supported editors and IDEs](http://editorconfig.org/#download) for detailed instructions.
 

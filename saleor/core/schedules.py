@@ -11,8 +11,8 @@ from ..schedulers.customschedule import CustomSchedule
 schedstate = namedtuple("schedstate", ("is_due", "next"))
 
 
-class sale_webhook_schedule(CustomSchedule):
-    """Schedule for sale webhook periodic task.
+class promotion_webhook_schedule(CustomSchedule):
+    """Schedule for promotion webhook periodic task.
 
     The lowercase with an underscore is used for the name as all celery schedules
     are written this way. According to PEP it's allowed behavior:
@@ -36,8 +36,10 @@ class sale_webhook_schedule(CustomSchedule):
             schedule=self,
             nowfun=nowfun,
             app=app,
-            import_path="saleor.core.schedules.initiated_sale_webhook_schedule",
+            import_path="saleor.core.schedules.promotion_webhook_schedule",
         )
+        # Seconds left to next batch processing
+        self.NEXT_BATCH_RUN_TIME = 5
 
     def remaining_estimate(self, last_run_at):
         """Estimate of next run time.
@@ -57,8 +59,12 @@ class sale_webhook_schedule(CustomSchedule):
             Next time to run is in seconds.
 
         """
-        from ..discount.models import Sale
-        from ..discount.tasks import get_sales_to_notify_about
+        from ..discount.models import Promotion
+        from ..discount.tasks import (
+            PROMOTION_TOGGLE_BATCH_SIZE,
+            get_ending_promotions,
+            get_starting_promotions,
+        )
 
         now = datetime.now(pytz.UTC)
 
@@ -67,27 +73,34 @@ class sale_webhook_schedule(CustomSchedule):
         rem_delta = self.remaining_estimate(last_run_at)
         remaining = max(rem_delta.total_seconds(), 0)
 
+        staring_promotions = get_starting_promotions()
+        ending_promotions = get_ending_promotions()
+
+        # if task needs to be handled in batches, schedule next run with const value
+        if len(staring_promotions | ending_promotions) > PROMOTION_TOGGLE_BATCH_SIZE:
+            self.next_run = timedelta(seconds=self.NEXT_BATCH_RUN_TIME)
+            is_due = remaining == 0
+            return schedstate(is_due, self.NEXT_BATCH_RUN_TIME)
+
         # is_due is True when there is at least one sale to notify about
         # and the remaining time from previous call is 0
-        is_due = remaining == 0 and get_sales_to_notify_about().exists()
+        is_due = remaining == 0 and (
+            staring_promotions.exists() or ending_promotions.exists()
+        )
 
-        upcoming_start_dates = Sale.objects.filter(
+        upcoming_start_dates = Promotion.objects.filter(
             (
-                (
-                    Q(notification_sent_datetime__isnull=True)
-                    | Q(notification_sent_datetime__lt=F("start_date"))
-                )
-                & Q(start_date__gt=now)
+                Q(last_notification_scheduled_at__isnull=True)
+                | Q(last_notification_scheduled_at__lt=F("start_date"))
             )
+            & Q(start_date__gt=now)
         ).order_by("start_date")
-        upcoming_end_dates = Sale.objects.filter(
+        upcoming_end_dates = Promotion.objects.filter(
             (
-                (
-                    Q(notification_sent_datetime__isnull=True)
-                    | Q(notification_sent_datetime__lt=F("end_date"))
-                )
-                & Q(end_date__gt=now)
+                Q(last_notification_scheduled_at__isnull=True)
+                | Q(last_notification_scheduled_at__lt=F("end_date"))
             )
+            & Q(end_date__gt=now)
         ).order_by("end_date")
 
         nearest_start_date = upcoming_start_dates.first()
@@ -111,4 +124,4 @@ class sale_webhook_schedule(CustomSchedule):
         return schedstate(is_due, self.next_run.total_seconds())
 
 
-initiated_sale_webhook_schedule = sale_webhook_schedule()
+initiated_promotion_webhook_schedule = promotion_webhook_schedule()

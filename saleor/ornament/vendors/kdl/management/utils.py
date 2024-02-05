@@ -1,3 +1,4 @@
+import enum
 from itertools import chain
 from dataclasses import dataclass
 from datetime import datetime
@@ -9,10 +10,7 @@ import aiohttp
 from asgiref.sync import async_to_sync
 from saleor.attribute.models.base import AttributeValue
 
-from saleor.attribute.models.product import (
-    AssignedProductAttribute,
-    AssignedProductAttributeValue,
-)
+from saleor.attribute.models.product import AssignedProductAttributeValue
 
 # TODO::ornament move to settings
 thesaurus_api_url_1_0 = "https://api.ornament.health/thesaurus-api/public/v1.0"
@@ -105,6 +103,11 @@ def form_description(name: str, description: str) -> dict:
     return description_dict
 
 
+class KdlDurationUnitEnum(enum.Enum):
+    HOUR = 1
+    DAY = 2
+
+
 class AttributeUtils:
     attrubutes_ids = {
         "color": 1,
@@ -138,16 +141,9 @@ class AttributeUtils:
             sort_order=attribute_id,
         )
 
-        biomaterial_assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=attribute_id,
-        )
-
         biomaterial_attribute_value.save()
-        biomaterial_assigned_product_attribute.save()
 
         return AssignedProductAttributeValue(
-            assignment_id=biomaterial_assigned_product_attribute.pk,
             value_id=biomaterial_attribute_value.pk,
             product_id=product_id,
         )
@@ -169,16 +165,9 @@ class AttributeUtils:
             sort_order=attribute_id,
         )
 
-        preparation_assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=attribute_id,
-        )
-
         preparation_attribute_value.save()
-        preparation_assigned_product_attribute.save()
 
         return AssignedProductAttributeValue(
-            assignment_id=preparation_assigned_product_attribute.pk,
             value_id=preparation_attribute_value.pk,
             product_id=product_id,
         )
@@ -196,16 +185,9 @@ class AttributeUtils:
             sort_order=attribute_id,
         )
 
-        assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=attribute_id,
-        )
-
         attribute_value.save()
-        assigned_product_attribute.save()
 
         return AssignedProductAttributeValue(
-            assignment_id=assigned_product_attribute.pk,
             value_id=attribute_value.pk,
             product_id=product_id,
         )
@@ -214,22 +196,13 @@ class AttributeUtils:
     def add_medical_attributes_data(
         product_id: int,
         medical_data_ids: list[int],
-        attribute_id: int,
         attribute_values: dict[int, int],
     ) -> list[AssignedProductAttributeValue]:
         if not medical_data_ids:
             return []
 
-        assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=attribute_id,
-        )
-
-        assigned_product_attribute.save()
-
         return [
             AssignedProductAttributeValue(
-                assignment_id=assigned_product_attribute.pk,
                 value_id=attribute_values.get(b),
                 product_id=product_id,
             )

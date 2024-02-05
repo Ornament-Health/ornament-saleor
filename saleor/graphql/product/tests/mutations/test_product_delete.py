@@ -1,11 +1,10 @@
 from functools import partial
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import graphene
 import pytest
 from django.utils.functional import SimpleLazyObject
 from freezegun import freeze_time
-from mock import ANY
 from prices import Money, TaxedMoney
 
 from .....attribute.models import AttributeValue
@@ -142,6 +141,7 @@ def test_delete_product_trigger_webhook(
         product,
         SimpleLazyObject(lambda: staff_api_client.user),
         legacy_data_generator=ANY,
+        allow_replica=False,
     )
     assert isinstance(
         mocked_webhook_trigger.call_args.kwargs["legacy_data_generator"], partial
@@ -231,7 +231,7 @@ def test_delete_product_variant_in_draft_order(
     not_draft_order_lines_pks = []
     for variant in product.variants.all():
         variant_channel_listing = variant.channel_listings.get(channel=channel_USD)
-        net = variant.get_price(product, [], channel_USD, variant_channel_listing, None)
+        net = variant.get_price(variant_channel_listing)
         gross = Money(amount=net.amount, currency=net.currency)
         unit_price = TaxedMoney(net=net, gross=gross)
         quantity = 3

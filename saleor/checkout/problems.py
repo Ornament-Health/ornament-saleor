@@ -1,7 +1,8 @@
 import datetime
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Optional, Tuple, Union
+from typing import Optional, Union
 
 import pytz
 
@@ -50,7 +51,7 @@ def get_insufficient_stock_lines(
         Iterable[Stock],
     ],
     country_code: str,
-) -> list[Tuple["CheckoutLineInfo", int]]:
+) -> list[tuple["CheckoutLineInfo", int]]:
     """Return checkout lines with insufficient stock."""
     variant_to_quantity_map: dict[int, int] = defaultdict(int)
     variant_to_available_quantity_map: dict[int, int] = defaultdict(int)
@@ -120,7 +121,8 @@ def get_not_available_lines(
     ],
 ):
     lines_not_available = []
-    now = datetime.datetime.now(pytz.UTC)
+    # @cf::ornament:CORE-2283
+    now = datetime.datetime.now()
     for line in lines:
         if line_is_not_available(line, now, product_channel_listings_map):
             lines_not_available.append(line)
@@ -183,7 +185,7 @@ def get_checkout_lines_problems(
 def get_checkout_problems(
     checkout_lines_problem: dict[
         CHECKOUT_LINE_PK_TYPE, list[CHECKOUT_LINE_PROBLEM_TYPE]
-    ]
+    ],
 ):
     """Return a list of all problems with the checkout.
 
