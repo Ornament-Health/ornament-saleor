@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Optional
 import graphene
 from promise import Promise
 
+from saleor.ornament.vendors.models import Vendor
+
 from ...checkout import calculations, models, problems
 from ...checkout.base_calculations import (
     calculate_undiscounted_base_line_total_price,
@@ -782,6 +784,14 @@ class Checkout(ModelObjectType[models.Checkout]):
         ),
     )
 
+    # @cf::ornament.saleor.checkout
+    transaction_flow = graphene.Boolean(
+        description=(
+            "Determines whether transaction flow is enabled for all vendors in checkout"
+        ),
+        required=True,
+    )
+
     class Meta:
         description = "Checkout object."
         model = models.Checkout
@@ -1267,6 +1277,17 @@ class Checkout(ModelObjectType[models.Checkout]):
         channel = ChannelByIdLoader(info.context).load(root.channel_id)
 
         return Promise.all([voucher, channel]).then(wrap_voucher_with_channel_context)
+
+    # @cf::ornament.saleor.checkout
+    @staticmethod
+    def resolve_transaction_flow(root: models.Checkout, info):
+        vendor_names = set([l.variant.name for l in root.lines.all()])
+        transaction_flow = all(
+            Vendor.objects.filter(name__in=vendor_names).values_list(
+                "transaction_flow", flat=True
+            )
+        )
+        return transaction_flow
 
 
 class CheckoutCountableConnection(CountableConnection):
