@@ -12,7 +12,10 @@ from .mutations import (
     PaymentCapture,
     PaymentCheckBalance,
     PaymentGatewayInitialize,
+    PaymentGatewayInitializeTokenization,
     PaymentInitialize,
+    PaymentMethodInitializeTokenization,
+    PaymentMethodProcessTokenization,
     PaymentRefund,
     PaymentVoid,
     StoredPaymentMethodRequestDelete,
@@ -62,9 +65,9 @@ class PaymentQueries(graphene.ObjectType):
     )
 
     @staticmethod
-    def resolve_payment(_root, _info: ResolveInfo, **data):
+    def resolve_payment(_root, info: ResolveInfo, **data):
         _, id = from_global_id_or_error(data["id"], Payment)
-        return resolve_payment_by_id(id)
+        return resolve_payment_by_id(info, id)
 
     @staticmethod
     def resolve_payments(_root, info: ResolveInfo, **kwargs):
@@ -77,7 +80,7 @@ class PaymentQueries(graphene.ObjectType):
         _, id = from_global_id_or_error(kwargs["id"], TransactionItem)
         if not id:
             return None
-        return resolve_transaction(id)
+        return resolve_transaction(info, id)
 
 
 class PaymentMutations(graphene.ObjectType):
@@ -100,3 +103,8 @@ class PaymentMutations(graphene.ObjectType):
     transaction_process = TransactionProcess.Field()
 
     stored_payment_method_request_delete = StoredPaymentMethodRequestDelete.Field()
+    payment_gateway_initialize_tokenization = (
+        PaymentGatewayInitializeTokenization.Field()
+    )
+    payment_method_initialize_tokenization = PaymentMethodInitializeTokenization.Field()
+    payment_method_process_tokenization = PaymentMethodProcessTokenization.Field()

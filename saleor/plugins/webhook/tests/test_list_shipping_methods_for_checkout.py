@@ -6,13 +6,34 @@ from django.utils import timezone
 
 from ....webhook.event_types import WebhookEventSyncType
 from ....webhook.payloads import generate_checkout_payload
+from ....webhook.transport.shipping import (
+    get_cache_data_for_shipping_list_methods_for_checkout,
+)
+from ....webhook.transport.utils import generate_cache_key_for_webhook
 from ..plugin import CACHE_TIME_SHIPPING_LIST_METHODS_FOR_CHECKOUT
-from ..shipping import get_cache_data_for_shipping_list_methods_for_checkout
-from ..utils import generate_cache_key_for_webhook
 
 
-@mock.patch("saleor.plugins.webhook.tasks.cache.set")
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
+def test_get_shipping_methods_for_checkout_webhook_response_none(
+    mocked_webhook,
+    webhook_plugin,
+    checkout_ready_to_complete,
+    shipping_app,
+):
+    # given
+    checkout = checkout_ready_to_complete
+    plugin = webhook_plugin()
+    mocked_webhook.return_value = None
+
+    # when
+    response = plugin.get_shipping_methods_for_checkout(checkout, None)
+
+    # then
+    assert not response
+
+
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.set")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_get_shipping_methods_for_checkout_set_cache(
     mocked_webhook,
     mocked_cache_set,
@@ -39,8 +60,8 @@ def test_get_shipping_methods_for_checkout_set_cache(
     assert mocked_cache_set.called
 
 
-@mock.patch("saleor.plugins.webhook.tasks.cache.set")
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.set")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_get_shipping_methods_no_webhook_response_does_not_set_cache(
     mocked_webhook,
     mocked_cache_set,
@@ -60,8 +81,8 @@ def test_get_shipping_methods_no_webhook_response_does_not_set_cache(
     assert not mocked_cache_set.called
 
 
-@mock.patch("saleor.plugins.webhook.tasks.cache.get")
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.get")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_get_shipping_methods_for_checkout_use_cache(
     mocked_webhook,
     mocked_cache_get,
@@ -88,8 +109,8 @@ def test_get_shipping_methods_for_checkout_use_cache(
     assert mocked_cache_get.called
 
 
-@mock.patch("saleor.plugins.webhook.tasks.cache.get")
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.get")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_get_shipping_methods_for_checkout_use_cache_for_empty_list(
     mocked_webhook,
     mocked_cache_get,
@@ -109,9 +130,9 @@ def test_get_shipping_methods_for_checkout_use_cache_for_empty_list(
     assert mocked_cache_get.called
 
 
-@mock.patch("saleor.plugins.webhook.tasks.cache.set")
-@mock.patch("saleor.plugins.webhook.tasks.cache.get")
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.set")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.get")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_checkout_change_invalidates_cache_key(
     mocked_webhook,
     mocked_cache_get,
@@ -166,9 +187,9 @@ def test_checkout_change_invalidates_cache_key(
     )
 
 
-@mock.patch("saleor.plugins.webhook.tasks.cache.set")
-@mock.patch("saleor.plugins.webhook.tasks.cache.get")
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.set")
+@mock.patch("saleor.webhook.transport.synchronous.transport.cache.get")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_ignore_selected_fields_on_generating_cache_key(
     mocked_webhook,
     mocked_cache_get,

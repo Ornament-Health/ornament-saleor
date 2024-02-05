@@ -81,4 +81,4 @@ ENV PROJECT_VERSION="${PROJECT_VERSION}"
 
 RUN find / | grep -E "(__pycache__$)" | xargs rm -rf
 
-CMD gunicorn "saleor.asgi:application" -c gunicorn_conf.py
+CMD python manage.py migrate && gunicorn "saleor.asgi:application" -c gunicorn_conf.py

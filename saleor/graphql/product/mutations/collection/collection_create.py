@@ -8,6 +8,7 @@ from .....core.utils.date_time import convert_to_utc_date_time
 from .....permission.enums import ProductPermissions
 from .....product import models
 from .....product.error_codes import CollectionErrorCode
+from .....product.tasks import collection_product_updated_task
 from ....channel import ChannelContext
 from ....core import ResolveInfo
 from ....core.descriptions import ADDED_IN_38, DEPRECATED_IN_3X_INPUT, RICH_CONTENT
@@ -27,6 +28,10 @@ from ....core.validators.file import clean_image_file
 from ....meta.inputs import MetadataInput
 from ....plugins.dataloaders import get_plugin_manager_promise
 from ...types import Collection
+
+# Batch size of 25k ids, assuming their pks are at least 7 digits each
+# after json serialization, weights 225kB of payload.
+PRODUCTS_BATCH_SIZE = 25000
 
 
 class CollectionInput(BaseInputObjectType):
@@ -105,20 +110,27 @@ class CollectionCreate(ModelMutation):
         is_published = cleaned_input.get("is_published")
         publication_date = cleaned_input.get("publication_date")
         if is_published and not publication_date:
-            cleaned_input["published_at"] = datetime.datetime.now(pytz.UTC)
+            # @cf::ornament:CORE-2283
+            cleaned_input["published_at"] = datetime.datetime.now()
         elif publication_date:
             cleaned_input["published_at"] = convert_to_utc_date_time(publication_date)
         clean_seo_fields(cleaned_input)
         return cleaned_input
+
+    @staticmethod
+    def batch_product_ids(ids):
+        _length = len(ids)
+        for i in range(0, _length, PRODUCTS_BATCH_SIZE):
+            yield ids[i : i + PRODUCTS_BATCH_SIZE]
 
     @classmethod
     def post_save_action(cls, info: ResolveInfo, instance, cleaned_input):
         manager = get_plugin_manager_promise(info.context).get()
         cls.call_event(manager.collection_created, instance)
 
-        products = instance.products.prefetched_for_webhook(single_object=False)
-        for product in products:
-            cls.call_event(manager.product_updated, product)
+        product_ids = list(instance.products.values_list("id", flat=True))
+        for ids_batch in cls.batch_product_ids(product_ids):
+            collection_product_updated_task.delay(ids_batch)
 
     @classmethod
     def perform_mutation(cls, _root, info: ResolveInfo, /, **kwargs):

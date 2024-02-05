@@ -554,6 +554,39 @@ VOUCHER_DELETED = (
 """
 )
 
+
+VOUCHER_CODES_CREATED = (
+    fragments.VOUCHER_CODE_DETAILS
+    + """
+    subscription{
+      event{
+        ...on VoucherCodesCreated{
+          voucherCodes{
+            ...VoucherCodeDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
+VOUCHER_CODES_DELETED = (
+    fragments.VOUCHER_CODE_DETAILS
+    + """
+    subscription{
+      event{
+        ...on VoucherCodesDeleted{
+          voucherCodes{
+            ...VoucherCodeDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
 VOUCHER_METADATA_UPDATED = (
     fragments.VOUCHER_DETAILS
     + """
@@ -562,6 +595,22 @@ VOUCHER_METADATA_UPDATED = (
         ...on VoucherMetadataUpdated{
           voucher{
             ...VoucherDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
+VOUCHER_CODE_EXPORT_COMPLETED = (
+    fragments.VOUCHER_CODE_EXPORT_DETAILS
+    + """
+    subscription{
+      event{
+        ...on VoucherCodeExportCompleted{
+          export{
+            ...VoucherCodeExportDetails
           }
         }
       }
@@ -1308,6 +1357,131 @@ SALE_TOGGLE = (
 """
 )
 
+
+PROMOTION_CREATED = (
+    fragments.PROMOTION_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionCreated{
+          promotion{
+            ...PromotionDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+PROMOTION_UPDATED = (
+    fragments.PROMOTION_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionUpdated{
+          promotion{
+            ...PromotionDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+PROMOTION_DELETED = (
+    fragments.PROMOTION_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionDeleted{
+          promotion{
+            ...PromotionDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
+PROMOTION_STARTED = (
+    fragments.PROMOTION_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionStarted{
+          promotion{
+            ...PromotionDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
+PROMOTION_ENDED = (
+    fragments.PROMOTION_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionEnded{
+          promotion{
+            ...PromotionDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
+PROMOTION_RULE_CREATED = (
+    fragments.PROMOTION_RULE_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionRuleCreated{
+          promotionRule{
+            ...PromotionRuleDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+PROMOTION_RULE_UPDATED = (
+    fragments.PROMOTION_RULE_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionRuleUpdated{
+          promotionRule{
+            ...PromotionRuleDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+PROMOTION_RULE_DELETED = (
+    fragments.PROMOTION_RULE_DETAILS
+    + """
+    subscription{
+      event{
+        ...on PromotionRuleDeleted{
+          promotionRule{
+            ...PromotionRuleDetails
+          }
+        }
+      }
+    }
+"""
+)
+
+
 INVOICE_REQUESTED = (
     fragments.INVOICE_DETAILS
     + fragments.INVOICE_ORDER_DETAILS
@@ -1837,6 +2011,7 @@ subscription {
         }
         ... on SaleTranslation {
           id
+          __typename
         }
         ... on VoucherTranslation {
           id
@@ -1845,6 +2020,13 @@ subscription {
           id
         }
         ... on AttributeValueTranslation {
+          id
+        }
+        ... on PromotionTranslation {
+          id
+          __typename
+        }
+        ... on PromotionRuleTranslation {
           id
         }
       }
@@ -1881,6 +2063,7 @@ subscription {
         }
         ... on SaleTranslation {
           id
+          __typename
         }
         ... on VoucherTranslation {
           id
@@ -1889,6 +2072,13 @@ subscription {
           id
         }
         ... on AttributeValueTranslation {
+          id
+        }
+        ... on PromotionTranslation {
+          id
+          __typename
+        }
+        ... on PromotionRuleTranslation {
           id
         }
       }
@@ -2493,6 +2683,25 @@ ORDER_CALCULATE_TAXES = """
                 }
               }
             }
+          }
+        }
+      }
+    }
+"""
+
+CHECKOUT_SHIPPING_LIST_AND_FILTER = """
+    subscription {
+      event {
+        ... on CheckoutFilterShippingMethods {
+          __typename
+          checkout {
+            id
+          }
+        }
+        ... on ShippingListMethodsForCheckout {
+          __typename
+          checkout {
+            id
           }
         }
       }

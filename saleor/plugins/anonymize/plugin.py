@@ -1,6 +1,6 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from django.utils import timezone
 from django.utils.crypto import get_random_string
 from faker import Faker
 
@@ -59,7 +59,8 @@ class AnonymizePlugin(BasePlugin):
     def customer_created(self, customer: "User", previous_value: Any) -> Any:
         customer.first_name = faker.first_name()
         customer.last_name = faker.last_name()
-        timestamp = str(timezone.now())
+        # @cf::ornament:CORE-2283
+        timestamp = str(datetime.now())
         email = (
             f"{hash(timestamp + get_random_string(length=5))}@anonymous-demo-email.com"
         )

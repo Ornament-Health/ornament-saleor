@@ -38,7 +38,7 @@ MUTATION_UPDATE_SHIPPING_METHOD = """
 
 
 # TODO: Deprecated
-@pytest.mark.parametrize("is_valid_shipping_method", (True, False))
+@pytest.mark.parametrize("is_valid_shipping_method", [True, False])
 @patch(
     "saleor.graphql.checkout.mutations.checkout_shipping_method_update."
     "clean_delivery_method"
@@ -70,7 +70,7 @@ def test_checkout_shipping_method_update(
     data = get_graphql_content(response)["data"]["checkoutShippingMethodUpdate"]
     checkout.refresh_from_db()
 
-    manager = get_plugins_manager()
+    manager = get_plugins_manager(allow_replica=False)
     lines, _ = fetch_checkout_lines(checkout)
     checkout_info = fetch_checkout_info(checkout, lines, manager)
     checkout_info.delivery_method_info = get_delivery_method_info(
@@ -103,7 +103,7 @@ def test_checkout_shipping_method_update(
         assert checkout.last_change == previous_last_change
 
 
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_checkout_shipping_method_update_external_shipping_method(
     mock_send_request,
     staff_api_client,
@@ -147,7 +147,7 @@ def test_checkout_shipping_method_update_external_shipping_method(
     assert PRIVATE_META_APP_SHIPPING_ID in checkout.metadata_storage.private_metadata
 
 
-@mock.patch("saleor.plugins.webhook.tasks.send_webhook_request_sync")
+@mock.patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
 def test_checkout_shipping_method_update_external_shipping_method_with_tax_plugin(
     mock_send_request,
     staff_api_client,

@@ -1,10 +1,11 @@
 from io import BytesIO
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
+from requests_hardened import HTTPSession
 
 from ....product.error_codes import ProductErrorCode
 from ..validators.file import (
@@ -64,7 +65,8 @@ def test_validate_image_url_valid_image_response(monkeypatch):
     valid_image_response_mock = Mock()
     valid_image_response_mock.headers = {"content-type": "image/jpeg"}
     monkeypatch.setattr(
-        "saleor.graphql.core.validators.file.requests.head",
+        HTTPSession,
+        "request",
         Mock(return_value=valid_image_response_mock),
     )
     field = "image"
@@ -85,7 +87,8 @@ def test_validate_image_url_invalid_mimetype_response(monkeypatch):
     invalid_response_mock = Mock()
     invalid_response_mock.headers = {"content-type": "application/json"}
     monkeypatch.setattr(
-        "saleor.graphql.core.validators.file.requests.head",
+        HTTPSession,
+        "request",
         Mock(return_value=invalid_response_mock),
     )
     field = "image"
@@ -108,7 +111,8 @@ def test_validate_image_url_response_without_content_headers(monkeypatch):
     invalid_response_mock = Mock()
     invalid_response_mock.headers = {}
     monkeypatch.setattr(
-        "saleor.graphql.core.validators.file.requests.head",
+        HTTPSession,
+        "request",
         Mock(return_value=invalid_response_mock),
     )
     field = "image"
@@ -133,10 +137,9 @@ def test_clean_image_file():
     image.save(img_data, format="JPEG")
     field = "image"
 
-    # when
     img = SimpleUploadedFile("product.jpg", img_data.getvalue(), "image/jpeg")
 
-    # then
+    # when & then
     clean_image_file({field: img}, field, ProductErrorCode)
 
 
@@ -263,4 +266,25 @@ def test_clean_image_file_exif_validation_raising_error(monkeypatch):
         clean_image_file({field: img}, field, ProductErrorCode)
 
     # then
+    assert error_msg in exc.value.args[0][field].message
+
+
+@patch("saleor.thumbnail.utils.magic.from_buffer")
+def test_clean_image_file_invalid_image_mime_type(from_buffer_mock):
+    # given
+    img_data = BytesIO()
+    image = Image.new("RGB", size=(1, 1))
+    image.save(img_data, format="WEBP")
+    field = "image"
+
+    invalid_mime_type = "application/x-empty"
+    from_buffer_mock.return_value = invalid_mime_type
+    img = SimpleUploadedFile("product.webp", img_data.getvalue(), "image/webp")
+
+    # when
+    with pytest.raises(ValidationError) as exc:
+        clean_image_file({field: img}, field, ProductErrorCode)
+
+    # then
+    error_msg = f"Unsupported image MIME type: {invalid_mime_type}"
     assert error_msg in exc.value.args[0][field].message
