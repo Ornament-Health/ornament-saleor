@@ -218,9 +218,9 @@ def detect_ftp_timezone_shift(ftp: FTP) -> int:
     ftptime = (
         timezone.make_aware(datetime.fromtimestamp(ftptime[2])).astimezone(timezone.utc)
         if ftptime
-        else timezone.now().astimezone(timezone.utc)
+        else timezone.now()
     )
-    nowtime = timezone.now().astimezone(timezone.utc)
+    nowtime = timezone.now()
 
     # accuracy is half of an hour
     return round((nowtime - ftptime).total_seconds() / 60 / 30) * 30
