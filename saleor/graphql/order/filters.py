@@ -1,9 +1,9 @@
+from datetime import datetime
 from uuid import UUID
 
 import django_filters
 import graphene
 from django.db.models import Exists, OuterRef, Q
-from django.utils import timezone
 from graphql.error import GraphQLError
 
 from ...giftcard import GiftCardEvents
@@ -126,7 +126,7 @@ def filter_is_preorder(qs, _, values):
             Q(is_preorder=True)
             & (
                 Q(preorder_end_date__isnull=True)
-                | Q(preorder_end_date__gte=timezone.now())
+                | Q(preorder_end_date__gte=datetime.now())
             )
         ).values("id")
         lines = OrderLine.objects.filter(

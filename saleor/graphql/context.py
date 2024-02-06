@@ -1,8 +1,8 @@
+from datetime import datetime
 from typing import Optional, cast
 
 from django.contrib.auth import authenticate
 from django.http import HttpRequest
-from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 
 from ..account.models import User
@@ -18,7 +18,8 @@ def get_context_value(request: HttpRequest) -> SaleorContext:
     request = cast(SaleorContext, request)
     request.dataloaders = {}
     request.allow_replica = getattr(request, "allow_replica", True)
-    request.request_time = timezone.now()
+    # @cf::ornament:CORE-2283
+    request.request_time = datetime.now()
     set_app_on_context(request)
     set_auth_on_context(request)
     set_decoded_auth_token(request)

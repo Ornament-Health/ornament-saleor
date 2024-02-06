@@ -19,7 +19,8 @@ class SortableModel(models.Model):
     def get_ordering_queryset(self):
         raise NotImplementedError("Unknown ordering queryset")
 
-    def get_max_sort_order(self, qs):
+    @staticmethod
+    def get_max_sort_order(qs):
         existing_max = qs.aggregate(Max("sort_order"))
         existing_max = existing_max.get("sort_order__max")
         return existing_max
@@ -46,7 +47,8 @@ T = TypeVar("T", bound="PublishableModel")
 
 class PublishedQuerySet(models.QuerySet[T]):
     def published(self):
-        today = datetime.datetime.now(pytz.UTC)
+        # @cf::ornament:CORE-2283
+        today = datetime.datetime.now()
         return self.filter(
             Q(published_at__lte=today) | Q(published_at__isnull=True),
             is_published=True,
@@ -69,7 +71,8 @@ class PublishableModel(models.Model):
     def is_visible(self):
         return self.is_published and (
             self.published_at is None
-            or self.published_at <= datetime.datetime.now(pytz.UTC)
+            # @cf::ornament:CORE-2283
+            or self.published_at <= datetime.datetime.now()
         )
 
 

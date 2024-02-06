@@ -1,7 +1,7 @@
+from datetime import datetime
 import graphene
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 from ...permission.enums import OrderPermissions, ProductPermissions
 from ...warehouse import models
@@ -10,6 +10,7 @@ from ..account.dataloaders import AddressByIdLoader
 from ..channel import ChannelContext
 from ..core import ResolveInfo
 from ..core.connection import CountableConnection, create_connection_slice
+from ..core.context import get_database_connection_name
 from ..core.descriptions import (
     ADDED_IN_31,
     ADDED_IN_310,
@@ -126,7 +127,9 @@ class Warehouse(ModelObjectType[models.Warehouse]):
     def resolve_shipping_zones(root, info: ResolveInfo, *_args, **kwargs):
         from ..shipping.types import ShippingZoneCountableConnection
 
-        instances = root.shipping_zones.all()
+        instances = root.shipping_zones.using(
+            get_database_connection_name(info.context)
+        ).all()
         slice = create_connection_slice(
             instances, info, kwargs, ShippingZoneCountableConnection
         )
@@ -216,26 +219,33 @@ class Stock(ModelObjectType[models.Stock]):
         return root.quantity
 
     @staticmethod
-    def resolve_quantity_allocated(root, _info: ResolveInfo):
-        return root.allocations.aggregate(
-            quantity_allocated=Coalesce(Sum("quantity_allocated"), 0)
-        )["quantity_allocated"]
+    def resolve_quantity_allocated(root, info: ResolveInfo):
+        return root.allocations.using(
+            get_database_connection_name(info.context)
+        ).aggregate(quantity_allocated=Coalesce(Sum("quantity_allocated"), 0))[
+            "quantity_allocated"
+        ]
 
     @staticmethod
     @load_site_callback
-    def resolve_quantity_reserved(root, _info: ResolveInfo, site):
+    def resolve_quantity_reserved(root, info: ResolveInfo, site):
         if not is_reservation_enabled(site.settings):
             return 0
 
-        return root.reservations.aggregate(
+        return root.reservations.using(
+            get_database_connection_name(info.context)
+        ).aggregate(
             quantity_reserved=Coalesce(
                 Sum(
                     "quantity_reserved",
-                    filter=Q(reserved_until__gt=timezone.now()),
+                    # @cf::ornament:CORE-2283
+                    filter=Q(reserved_until__gt=datetime.now()),
                 ),
                 0,
             )
-        )["quantity_reserved"]
+        )[
+            "quantity_reserved"
+        ]
 
     @staticmethod
     def resolve_warehouse(root, info: ResolveInfo):

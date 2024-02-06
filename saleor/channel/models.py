@@ -44,7 +44,13 @@ class Channel(ModelWithMetadata):
         default=timedelta(days=60),
     )
 
+    include_draft_order_in_voucher_usage = models.BooleanField(default=False)
+
     use_legacy_error_flow_for_checkout = models.BooleanField(default=True)
+
+    # @cf::ornament.saleor.channel
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
 
     class Meta(ModelWithMetadata.Meta):
         ordering = ("slug",)

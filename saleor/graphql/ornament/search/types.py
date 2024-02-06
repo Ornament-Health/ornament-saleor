@@ -14,6 +14,7 @@ from saleor.graphql.core.connection import CountableConnection
 
 class SearchProductChannelPrice(graphene.ObjectType):
     channel = graphene.String(description="Price channel")
+    vendor = graphene.String(description="Price vendor")
     amount = graphene.String(description="Price amount")
     currency = graphene.String(description="Price currency")
     variant_id = graphene.String(description="Variant ID")
@@ -31,6 +32,11 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     channels = graphene.List(
         graphene.NonNull(graphene.String),
         description="List of channels where this product is listed.",
+        required=True,
+    )
+    vendors = graphene.List(
+        graphene.NonNull(graphene.String),
+        description="List of product vendors.",
         required=True,
     )
     name = graphene.String(required=True, description="Product name.")
@@ -96,8 +102,9 @@ class SearchProduct(ModelObjectType[product_models.Product]):
                 channel=p["channel__slug"],
                 amount=float(p["price_amount"]),
                 currency=p["currency"],
+                vendor=p["vendor"],
             )
-            for p in root.current_variant_prices
+            for p in root.variants_prices
         ]
 
     @classmethod

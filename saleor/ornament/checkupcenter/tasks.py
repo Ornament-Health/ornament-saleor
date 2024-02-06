@@ -5,7 +5,6 @@ from typing import Optional
 
 import requests
 from django.conf import settings
-from django.utils import timezone
 from requests.exceptions import RequestException
 
 from saleor.account.models import User
@@ -30,7 +29,8 @@ def get_int_product_attribute_values_by_slug(product: Product, attribute_slug: s
         map(
             lambda x: int(x),
             product.attributevalues.filter(
-                assignment__assignment__attribute__slug=attribute_slug
+                # assignment__assignment__attribute__slug=attribute_slug
+                value__attribute__slug=attribute_slug
             ).values_list("value__name", flat=True),
         )
     )
@@ -91,9 +91,8 @@ def get_user_medical_history_from_dataapi(pid, history=None):
             (
                 i["etoid"],
                 i["bid"],
-                datetime.datetime.utcfromtimestamp(i["date"]).replace(
-                    tzinfo=timezone.utc
-                ),
+                # @cf::ornament:CORE-2283
+                datetime.datetime.utcfromtimestamp(i["date"]),
                 i["seid"] or i["sid"],
             )
             for i in history["items"]
@@ -263,7 +262,8 @@ def calculate_checkup_states_from_history(scheme: dict, history: dict):
 
     data = history
     delta_checkup_days = datetime.timedelta(days=settings.CHECKUP_DURATION_DAYS)
-    date_most_filled_state_expiration = timezone.now() - datetime.timedelta(
+    # @cf::ornament:CORE-2283
+    date_most_filled_state_expiration = datetime.datetime.now() - datetime.timedelta(
         days=settings.CHECKUP_MOST_FILLED_STATE_EXPIRATION_DAYS
     )
     state = {
@@ -424,7 +424,8 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
             is_calculatable=template.is_calculatable,
             is_base=template.is_base,
             is_personalized=False,
-            matched_at=timezone.now(),
+            # @cf::ornament:CORE-2283
+            matched_at=datetime.datetime.now(),
         )
         for product in template.products.all():
             biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
@@ -488,7 +489,8 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
             is_calculatable=base.template.is_calculatable,
             is_base=base.template.is_base,
             is_personalized=True,
-            matched_at=timezone.now(),
+            # @cf::ornament:CORE-2283
+            matched_at=datetime.datetime.now(),
         )
         for product in base.template.products.all():
             biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
@@ -646,7 +648,8 @@ def handle_checkup_calculation_event_task(user_id, profile_uuid, history=None):
                 )
 
             # 4.5
-            checkup.calculated_at = timezone.now()
+            # @cf::ornament:CORE-2283
+            checkup.calculated_at = datetime.datetime.now()
             checkup.save()
 
             # 4.6
@@ -721,7 +724,8 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             is_calculatable=base.template.is_calculatable,
             is_base=base.template.is_base,
             is_personalized=True,
-            matched_at=timezone.now(),
+            # @cf::ornament:CORE-2283
+            matched_at=datetime.datetime.now(),
         )
         for product in base.template.products.all():
             biomarkers = get_int_product_attribute_values_by_slug(product, "biomarkers")
@@ -842,7 +846,8 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
         is_changed = True
 
     # Update personalized_at datetime field in checkup.
-    checkup.personalized_at = timezone.now()
+    # @cf::ornament:CORE-2283
+    checkup.personalized_at = datetime.datetime.now()
     checkup.save()
 
     # 6.

@@ -112,6 +112,11 @@ def test_sort_page_attribute_values(
         assert db_type == "AttributeValue"
         assert int(value_pk) == expected_pk
 
+    apa_values = page.attributevalues.filter(
+        value__attribute_id=page_type_page_reference_attribute.id
+    )
+    assert len(apa_values) == 3
+
 
 def test_sort_page_attribute_values_invalid_attribute_id(
     staff_api_client,
@@ -171,7 +176,7 @@ def test_sort_page_attribute_values_invalid_value_id(
     permission_manage_pages,
     page,
     page_type_page_reference_attribute,
-    size_page_attribute,
+    color_attribute,
 ):
     staff_api_client.user.user_permissions.add(permission_manage_pages)
 
@@ -207,7 +212,7 @@ def test_sort_page_attribute_values_invalid_value_id(
     )
 
     invalid_value_id = graphene.Node.to_global_id(
-        "AttributeValue", size_page_attribute.values.first().pk
+        "AttributeValue", color_attribute.values.first().pk
     )
 
     variables = {

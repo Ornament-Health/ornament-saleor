@@ -47,7 +47,8 @@ def add_sub_element(
 
 
 def make_order_xml_tree(order: Order) -> etree.Element:
-    now = timezone.now().replace(microsecond=0)
+    # @cf::ornament:CORE-2283
+    now = datetime.now().replace(microsecond=0)
     root_element = etree.Element("root")
 
     header_element = add_sub_element(root_element, "Header")
@@ -114,7 +115,8 @@ def make_preorder_data(order: Order) -> dict:
     if not order.shipping_address or not len(order.lines.all()):
         return None
 
-    now = timezone.now().replace(microsecond=0)
+    # @cf::ornament:CORE-2283
+    now = datetime.now().replace(microsecond=0)
     full_name = (
         f"{order.shipping_address.first_name} {order.shipping_address.last_name}"
     )
@@ -216,9 +218,9 @@ def detect_ftp_timezone_shift(ftp: FTP) -> int:
     ftptime = (
         timezone.make_aware(datetime.fromtimestamp(ftptime[2])).astimezone(timezone.utc)
         if ftptime
-        else timezone.now()
+        else timezone.now().astimezone(timezone.utc)
     )
-    nowtime = timezone.now()
+    nowtime = timezone.now().astimezone(timezone.utc)
 
     # accuracy is half of an hour
     return round((nowtime - ftptime).total_seconds() / 60 / 30) * 30
