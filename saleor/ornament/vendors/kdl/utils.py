@@ -229,7 +229,7 @@ def detect_ftp_timezone_shift(ftp: FTP) -> int:
 def parse_ftp_dir_listing(
     items: List[str], time_shift: Optional[int] = 0
 ) -> List[dict]:
-    result, now = [], timezone.now()
+    result, now = [], timezone.now().astimezone(timezone.utc)
 
     parser = FTPParser()
     files = parser.parse(items)
