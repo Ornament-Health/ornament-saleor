@@ -7,7 +7,6 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from saleor.attribute.models.base import AttributeValue
 from saleor.attribute.models.product import (
-    AssignedProductAttribute,
     AssignedProductAttributeValue,
 )
 from saleor.ornament.vendors.kdl.management.utils import (
@@ -44,13 +43,6 @@ class Command(BaseCommand):
     ) -> AssignedProductAttributeValue:
         product_id = attribute["product_id"]
 
-        assigned_product_attribute = AssignedProductAttribute(
-            product_id=product_id,
-            assignment_id=attribute_id,
-        )
-
-        assigned_product_attribute.save()
-
         sex_attribute_value = sex_attribute_values.get(attribute["value"])
 
         if not sex_attribute_value:
@@ -59,7 +51,6 @@ class Command(BaseCommand):
             )
 
         return AssignedProductAttributeValue(
-            assignment_id=assigned_product_attribute.pk,
             value_id=sex_attribute_value.pk,
             product_id=product_id,
         )
@@ -197,7 +188,6 @@ class Command(BaseCommand):
                     AttributeUtils.add_medical_attributes_data(
                         biomarkers["product_id"],
                         biomarkers["value"],
-                        AttributeUtils.attrubutes_ids["biomarkers"],
                         biomarkers_attribute_values_ids,
                     )
                 )
@@ -206,7 +196,6 @@ class Command(BaseCommand):
                     AttributeUtils.add_medical_attributes_data(
                         medical_exams["product_id"],
                         medical_exams["value"],
-                        AttributeUtils.attrubutes_ids["medical_exams"],
                         medical_exams_attribute_values_ids,
                     )
                 )
