@@ -33,7 +33,8 @@ def resolve_search_products(info):
                 "channel__slug", "price_amount", "currency"
             )
             variant_prices = [
-                {**v, "vendor": variant.name, "id": variant.pk} for v in variant_prices
+                {**v, "vendor": variant.name, "variant_id": variant.pk}
+                for v in variant_prices
             ]
             product_prices += variant_prices
             product_vendors.add(variant.name)
