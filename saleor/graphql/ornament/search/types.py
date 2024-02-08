@@ -17,7 +17,7 @@ class SearchProductChannelPrice(graphene.ObjectType):
     vendor = graphene.String(description="Price vendor")
     amount = graphene.String(description="Price amount")
     currency = graphene.String(description="Price currency")
-    variant_id = graphene.GlobalID(required=True, description="Variant ID")
+    variant_id = graphene.String(description="Variant ID")
 
 
 class SearchProductType(graphene.ObjectType):
@@ -103,7 +103,9 @@ class SearchProduct(ModelObjectType[product_models.Product]):
                 amount=float(p["price_amount"]),
                 currency=p["currency"],
                 vendor=p["vendor"],
-                variant_id=p["id"],
+                variant_id=graphene.Node.to_global_id(
+                    "ProductVariant", p["variant_id"]
+                ),
             )
             for p in root.variants_prices
         ]
