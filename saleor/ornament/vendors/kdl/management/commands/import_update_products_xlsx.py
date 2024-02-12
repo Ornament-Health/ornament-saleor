@@ -1,4 +1,5 @@
 from datetime import datetime
+import enum
 import os
 import re
 from itertools import chain
@@ -12,13 +13,8 @@ from openpyxl.utils import exceptions as openpyxl_exceptions
 
 from saleor.attribute.models.base import AttributeValue
 from saleor.attribute.models.product import AssignedProductAttributeValue
-from saleor.ornament.vendors.kdl.management.utils import (
-    AttributeUtils,
-    KdlDurationUnitEnum,
-    fetch_medical_data,
-    form_description,
-    form_rich_text,
-)
+from saleor.ornament.vendors.attribute_utils import AttributeUtils
+from saleor.ornament.vendors.utils import form_description, form_rich_text
 from saleor.product.models import (
     Product,
     ProductVariant,
@@ -29,6 +25,11 @@ from saleor.product.models import (
     ProductVariantChannelListing,
 )
 from saleor.channel.models import Channel
+
+
+class KdlDurationUnitEnum(enum.Enum):
+    HOUR = 1
+    DAY = 2
 
 
 class Command(BaseCommand):
@@ -89,24 +90,6 @@ class Command(BaseCommand):
 
         return AssignedProductAttributeValue(
             value_id=featured_attribute_value.pk,
-            product_id=product_id,
-        )
-
-    def add_color_attribute_data(
-        self,
-        product_id: int,
-        color_slug: str,
-        color_attribute_values: dict[str, AttributeValue],
-    ) -> AssignedProductAttributeValue:
-        color_attribute_value = color_attribute_values.get(color_slug)
-
-        if not color_attribute_value:
-            raise CommandError(
-                f"""Can't find color attribute value for slug {color_slug}"""
-            )
-
-        return AssignedProductAttributeValue(
-            value_id=color_attribute_value.pk,
             product_id=product_id,
         )
 
@@ -379,7 +362,7 @@ class Command(BaseCommand):
 
                 if data_product["color_slug"]:
                     assigned_product_attribute_values.append(
-                        self.add_color_attribute_data(
+                        AttributeUtils.add_color_attribute_data(
                             product.pk,
                             data_product["color_slug"],
                             color_attribute_values,

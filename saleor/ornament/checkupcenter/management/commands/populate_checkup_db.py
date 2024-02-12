@@ -1,8 +1,6 @@
 import json
 import logging
 import os
-import string
-import secrets
 from datetime import datetime
 from itertools import chain, groupby
 from typing import Optional
@@ -13,6 +11,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from slugify import slugify
 import requests
+
+from saleor.ornament.vendors.utils import random_string
 
 
 logger = logging.getLogger(__name__)
@@ -105,10 +105,6 @@ class Command(BaseCommand):
             sql_str += f"({attributes_ids['medical_exams'] + id}, '{id}', {attributes_ids['medical_exams']}, '{id}', {id + 1}, ''),"
 
         return sql_str[:-1] + ";"
-
-    def random_string(self, size):
-        letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
-        return "".join(secrets.choice(letters) for _ in range(size))
 
     def get_attributes_by_key(
         self, lab_meta: dict, key: str, product_id: int, id: int, ornament: bool = False
@@ -257,7 +253,7 @@ class Command(BaseCommand):
                     "time": tsnow,
                     "blocks": [
                         {
-                            "id": self.random_string(10),
+                            "id": random_string(10),
                             "data": {
                                 "text": products_translations.get(name, {})
                                 .get("en", {})
@@ -286,7 +282,7 @@ class Command(BaseCommand):
                     for block in blocks:
                         description["blocks"].append(
                             {
-                                "id": self.random_string(10),
+                                "id": random_string(10),
                                 "data": {"text": block.replace('"', "“")},
                                 "type": "paragraph",
                             }

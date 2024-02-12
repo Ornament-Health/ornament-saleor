@@ -15,6 +15,7 @@ from slugify import slugify
 import requests
 
 from saleor.ornament.vendors.kdl.utils import attributes_ids
+from saleor.ornament.vendors.utils import random_string
 
 # -- sku_product_id_local_provider_id_price_amount.json
 # select pp.sku, pp2.id as product_id, glppv.local_provider_id, glppv.price_amount, glppv.is_active from geo_local_provider_product_variant glppv
@@ -110,10 +111,6 @@ class Command(BaseCommand):
 
         return sql_str[:-1] + ";"
 
-    def random_string(self, size):
-        letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
-        return "".join(secrets.choice(letters) for _ in range(size))
-
     def get_attributes_by_key(
         self, lab_meta: dict, key: str, product_id: int, id: int, ornament: bool = False
     ):
@@ -176,7 +173,7 @@ class Command(BaseCommand):
                 "time": tsnow,
                 "blocks": [
                     {
-                        "id": self.random_string(10),
+                        "id": random_string(10),
                         "data": {"text": attr["value"]},
                         "type": "paragraph",
                     }
@@ -321,7 +318,7 @@ class Command(BaseCommand):
                     "time": tsnow,
                     "blocks": [
                         {
-                            "id": self.random_string(10),
+                            "id": random_string(10),
                             "data": {"text": r["description"]},
                             "type": "header",
                         }
@@ -379,7 +376,7 @@ class Command(BaseCommand):
                     for block in blocks:
                         description["blocks"].append(
                             {
-                                "id": self.random_string(10),
+                                "id": random_string(10),
                                 "data": {"text": block},
                                 "type": "paragraph",
                             }
