@@ -1006,3 +1006,13 @@ SUBSCRIPTION_VOUCHER_UNKNOWN = os.environ.get(
 )
 
 DEFAULT_CHANNEL_CURRENCY = os.environ.get("DEFAULT_CHANNEL_CURRENCY", "USD")
+
+THESAURUS_API_URL = os.environ.get(
+    "THESAURUS_API_URL", "https://api.ornament.health/thesaurus-api/public"
+)
+THESAURUS_API_URL_1_0 = os.environ.get(
+    "THESAURUS_API_URL_1_0", f"{THESAURUS_API_URL}/v1.0"
+)
+THESAURUS_API_URL_1_1 = os.environ.get(
+    "THESAURUS_API_URL_1_1", f"{THESAURUS_API_URL}/v1.1"
+)

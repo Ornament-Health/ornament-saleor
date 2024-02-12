@@ -9,10 +9,8 @@ from saleor.attribute.models.base import AttributeValue
 from saleor.attribute.models.product import (
     AssignedProductAttributeValue,
 )
-from saleor.ornament.vendors.kdl.management.utils import (
-    AttributeUtils,
-    fetch_medical_data,
-)
+from saleor.ornament.vendors.attribute_utils import AttributeUtils
+from saleor.ornament.vendors.utils import fetch_medical_data
 
 
 logger = logging.getLogger(__name__)
