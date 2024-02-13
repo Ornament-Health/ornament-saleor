@@ -81,8 +81,12 @@ def resolve_promotions(info) -> QuerySet:
 
 # @cf::ornament.saleor.graphql.discount
 def resolve_voucher_by_code(code, channel):
-    voucher = [v for v in models.Voucher.objects.all() if v.code == code]
-    return ChannelContext(node=voucher[0], channel_slug=channel) if voucher else None
+    voucher = models.Voucher.objects.filter(name=code).first()
+
+    if not voucher:
+        return None
+
+    return ChannelContext(node=voucher, channel_slug=channel)
 
 
 # @cf::ornament.saleor.graphql.discount
