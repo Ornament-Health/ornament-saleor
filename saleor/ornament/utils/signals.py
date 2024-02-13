@@ -37,7 +37,7 @@ def order_event_post_save_handler(sender, instance: OrderEvent, created, **kwarg
                                 f"Order #*{instance.order.number}*\n"
                                 f"Order id: *{instance.order.id}*\n"
                                 f"Order channel: *{instance.order.channel.name}*\n"
-                                f"Cобытие в заказе:\n"
+                                f"Order event:\n"
                                 f"*{order_event_text}"
                                 f"{' by ' + str(instance.user.email) if instance.user and instance.user.email else ''}*"
                             ),
