@@ -8,7 +8,7 @@ class Vendor(ModelObjectType[vendors_models.Vendor]):
     id = graphene.GlobalID(required=True)
     name = graphene.String(description="Vendor name.", required=True)
     slug = graphene.String(description="Vendor slug.", required=True)
-    transaction_flow = graphene.String(
+    transaction_flow = graphene.Boolean(
         description="Is transaction flow enabled for Vendor.", required=True
     )
 
