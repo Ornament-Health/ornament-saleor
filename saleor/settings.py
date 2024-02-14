@@ -1016,3 +1016,5 @@ THESAURUS_API_URL_1_0 = os.environ.get(
 THESAURUS_API_URL_1_1 = os.environ.get(
     "THESAURUS_API_URL_1_1", f"{THESAURUS_API_URL}/v1.1"
 )
+
+AUTO_CITY_APPROVED = os.environ.get("AUTO_CITY_APPROVED", False)

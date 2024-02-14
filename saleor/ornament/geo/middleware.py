@@ -32,7 +32,6 @@ class GeoChannelMiddleware(MiddlewareMixin):
                 try:
                     geodata = reader.city(client_ip)
 
-                    # if geodata and geodata.country.iso_code == "RU":
                     if geodata:
                         city: Optional[City] = (
                             City.objects.all()
@@ -55,15 +54,19 @@ class GeoChannelMiddleware(MiddlewareMixin):
                     logger.warning(f"GeoIP geodata failed. Error: {e}")
                     city = None
 
-        if (
-            city
-            and user
-            and user.is_authenticated
-            and not user.city
-            and not user.city_approved
-        ):
-            user.city = city
-            user.save(update_fields=["city"])
+        if city and user and user.is_authenticated:
+            update_fields = []
+
+            if not user.city:
+                user.city = city
+                update_fields.append("city")
+
+            if not user.city_approved and settings.AUTO_CITY_APPROVED:
+                user.city_approved = True
+                update_fields.append("city_approved")
+
+            if update_fields:
+                user.save(update_fields=update_fields)
 
         channel: str = city.channel.slug if city else settings.DEFAULT_CHANNEL_SLUG
 
