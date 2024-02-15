@@ -488,6 +488,7 @@ class Command(BaseCommand):
                     product_variant_channel_listing.price_amount = price
                     product_variant_channel_listing.discounted_price_amount = price
 
+        # TODO: https://github.com/Ornament-Health/ornament-saleor/pull/7#discussion_r1447222450
         AssignedProductAttributeValue.objects.filter(
             id__in=[apav.pk for apav in assigned_product_attribute_values_to_delete]
         ).delete()
