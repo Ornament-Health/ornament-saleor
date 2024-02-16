@@ -5,6 +5,7 @@ import graphene
 import graphene_django_optimizer as gql_optimizer
 from django.conf import settings
 from django.db.models import Prefetch
+from django.utils import timezone
 
 from saleor.graphql.channel import ChannelContext
 from saleor.graphql.ornament.checkupcenter.translations import (
@@ -331,8 +332,7 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
         if getattr(root, "is_actualized", False):
             return
 
-        # @cf::ornament:CORE-2283
-        date = datetime.datetime.now()
+        date = timezone.now()
         delta_checkup_days = datetime.timedelta(days=settings.CHECKUP_DURATION_DAYS)
 
         data = root.deserialize_raw_data(root.meta.get("data") or {})
@@ -340,8 +340,6 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
 
         if (
             root.status == CheckUpStateStatus.PARTIAL
-            and root.date_from
-            and root.date_to
             and date - delta_checkup_days > root.date_from
             and date - delta_checkup_days < root.date_to
         ):
