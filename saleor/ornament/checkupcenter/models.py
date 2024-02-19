@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from itertools import groupby
 
@@ -478,6 +479,10 @@ class CheckUpState(AutoNowUpdateFieldsMixin, models.Model):
         }
 
     @classmethod
+    def _delete_legacy_timezone(cls, date: datetime) -> datetime:
+        return date.replace(tzinfo=None)
+
+    @classmethod
     def deserialize_raw_data(cls, data):
         """
         Converts json ready format to pythonic, like serialize_raw_data but vice versa.
@@ -490,12 +495,18 @@ class CheckUpState(AutoNowUpdateFieldsMixin, models.Model):
                 parse_datetime(value[0]) if isinstance(value[0], str) else value[0],
                 value[1],
             )
+            if value and isinstance(value[0], datetime):
+                value = cls._delete_legacy_timezone(value[0]), value[1]
+
             meta[(None, int(bid))] = value
         for sid, value in data["medical_exams"].items():
             value = value and (
                 parse_datetime(value[0]) if isinstance(value[0], str) else value[0],
                 value[1],
             )
+            if value and isinstance(value[0], datetime):
+                value = cls._delete_legacy_timezone(value[0]), value[1]
+
             meta[(int(sid), None)] = value
 
         return meta
