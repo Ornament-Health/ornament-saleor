@@ -14,7 +14,11 @@ from openpyxl.utils import exceptions as openpyxl_exceptions
 from saleor.attribute.models.base import AttributeValue
 from saleor.attribute.models.product import AssignedProductAttributeValue
 from saleor.ornament.vendors.attribute_utils import AttributeUtils
-from saleor.ornament.vendors.utils import form_description, form_rich_text
+from saleor.ornament.vendors.utils import (
+    fetch_medical_data,
+    form_description,
+    form_rich_text,
+)
 from saleor.product.models import (
     Product,
     ProductVariant,
