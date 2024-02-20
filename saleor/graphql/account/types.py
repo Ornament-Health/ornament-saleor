@@ -478,6 +478,8 @@ class User(ModelObjectType[models.User]):
     )
     # @cf::ornament.vendors
     vendor = graphene.Field(Vendor, description="User's global vendor")
+    # @cf::ornament.account
+    sso_id = graphene.Field(UUID, description="Ornament sso id")
 
     class Meta:
         description = "Represents user data."
