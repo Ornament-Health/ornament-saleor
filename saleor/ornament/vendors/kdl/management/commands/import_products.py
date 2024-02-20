@@ -1,18 +1,19 @@
 from datetime import datetime
 import os
 import csv
-import secrets
-import string
 
 from django.core.management.base import BaseCommand, CommandError
 from slugify import slugify
 
 from saleor.attribute.models.base import AttributeValue
 from saleor.attribute.models.product import (
-    AssignedProductAttribute,
     AssignedProductAttributeValue,
 )
-
+from saleor.ornament.vendors.utils import (
+    form_description,
+    get_current_timestamp,
+    random_string,
+)
 from saleor.product.models import Product, ProductVariant, ProductChannelListing
 from saleor.channel.models import Channel
 from saleor.ornament.vendors.kdl.utils import attributes_ids
@@ -24,53 +25,18 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("filename", help="Path to CSV file with target data")
 
-    def random_string(self, size: int) -> str:
-        letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
-        return "".join(secrets.choice(letters) for _ in range(size))
-
-    def get_current_timestamp(self) -> float:
-        now = datetime.now()
-        return now.timestamp()
-
-    def form_description(self, name: str, description: str) -> dict:
-        description_dict = {
-            "time": self.get_current_timestamp(),
-            "blocks": [
-                {
-                    "id": self.random_string(10),
-                    "data": {"text": name},
-                    "type": "header",
-                }
-            ],
-            # TODO::ornament move to settings
-            "version": "2.24.3",
-        }
-        blocks = description.split("\n")
-
-        for block in blocks:
-            description_dict["blocks"].append(
-                {
-                    "id": self.random_string(10),
-                    "data": {"text": block},
-                    "type": "paragraph",
-                }
-            )
-
-        return description_dict
-
     def get_preparation_attributes_data(
         self, product: Product, id: int, preparation: str
     ) -> tuple[
-        AssignedProductAttribute,
         AttributeValue,
         AssignedProductAttributeValue,
     ]:
         name = preparation[:50] + "..."
         rich_text = {
-            "time": self.get_current_timestamp(),
+            "time": get_current_timestamp(),
             "blocks": [
                 {
-                    "id": self.random_string(10),
+                    "id": random_string(10),
                     "data": {"text": preparation},
                     "type": "paragraph",
                 }
@@ -80,11 +46,6 @@ class Command(BaseCommand):
         }
         slug = f'{product.pk}_{attributes_ids["kdl_preparation"]}'
 
-        assigned_product_attribute = AssignedProductAttribute(
-            id=id,
-            product=product,
-            assignment_id=attributes_ids["kdl_preparation"],
-        )
         attribute_value = AttributeValue(
             id=id,
             name=name,
@@ -102,25 +63,15 @@ class Command(BaseCommand):
         )
 
         return (
-            assigned_product_attribute,
             attribute_value,
             assigned_product_attribute_value,
         )
 
-    def get_duration_unit_attributes_data(
-        self, product: Product, id: int
-    ) -> tuple[
-        AssignedProductAttribute,
+    def get_duration_unit_attributes_data(self, product: Product, id: int) -> tuple[
         AttributeValue,
         AssignedProductAttributeValue,
     ]:
         slug = f'{product.pk}_{attributes_ids["kdl_duration_unit"]}'
-
-        assigned_product_attribute = AssignedProductAttribute(
-            id=id,
-            product=product,
-            assignment_id=attributes_ids["kdl_duration_unit"],
-        )
 
         attribute_value = AttributeValue(
             id=id,
@@ -139,7 +90,6 @@ class Command(BaseCommand):
         )
 
         return (
-            assigned_product_attribute,
             attribute_value,
             assigned_product_attribute_value,
         )
@@ -147,17 +97,10 @@ class Command(BaseCommand):
     def get_max_duration_attributes_data(
         self, product: Product, id: int, duration: str
     ) -> tuple[
-        AssignedProductAttribute,
         AttributeValue,
         AssignedProductAttributeValue,
     ]:
         slug = f'{product.pk}_{attributes_ids["kdl_max_duration"]}'
-
-        assigned_product_attribute = AssignedProductAttribute(
-            id=id,
-            product=product,
-            assignment_id=attributes_ids["kdl_max_duration"],
-        )
 
         attribute_value = AttributeValue(
             id=id,
@@ -176,7 +119,6 @@ class Command(BaseCommand):
         )
 
         return (
-            assigned_product_attribute,
             attribute_value,
             assigned_product_attribute_value,
         )
@@ -184,18 +126,11 @@ class Command(BaseCommand):
     def get_biomaterial_attributes_data(
         self, product: Product, id: int, biomaterial: str
     ) -> tuple[
-        AssignedProductAttribute,
         AttributeValue,
         AssignedProductAttributeValue,
     ]:
         value = biomaterial.replace("\n", ", ")
         slug = f'{product.pk}_{attributes_ids["kdl_biomaterials"]}'
-
-        assigned_product_attribute = AssignedProductAttribute(
-            id=id,
-            product=product,
-            assignment_id=attributes_ids["kdl_biomaterials"],
-        )
 
         attribute_value = AttributeValue(
             id=id,
@@ -215,7 +150,6 @@ class Command(BaseCommand):
         )
 
         return (
-            assigned_product_attribute,
             attribute_value,
             assigned_product_attribute_value,
         )
@@ -263,7 +197,7 @@ class Command(BaseCommand):
                 product_type_id=1,
                 name=d["sku"],
                 slug=slugify(d["sku"], lowercase=True, max_length=100),
-                description=self.form_description(d["name"], d["description"]),
+                description=form_description(d["name"], d["description"]),
                 description_plaintext=d["description"],
                 category_id=1000,
                 search_index_dirty=True,
@@ -278,7 +212,6 @@ class Command(BaseCommand):
         product_variants = []
         product_channel_listings = []
         attribute_values = []
-        assigned_product_attributes = []
         assigned_product_attribute_values = []
 
         data = {d["sku"]: d for d in data}
@@ -336,14 +269,12 @@ class Command(BaseCommand):
                     preparation = data_product["preparation"]
 
                     (
-                        assigned_product_attribute,
                         attribute_value,
                         assigned_product_attribute_value,
                     ) = self.get_preparation_attributes_data(
                         product, curr_prep_id, preparation
                     )
 
-                    assigned_product_attributes.append(assigned_product_attribute)
                     attribute_values.append(attribute_value)
                     assigned_product_attribute_values.append(
                         assigned_product_attribute_value
@@ -356,14 +287,12 @@ class Command(BaseCommand):
                     biomaterial = data_product["biomaterial"]
 
                     (
-                        assigned_product_attribute,
                         attribute_value,
                         assigned_product_attribute_value,
                     ) = self.get_biomaterial_attributes_data(
                         product, curr_bio_id, biomaterial
                     )
 
-                    assigned_product_attributes.append(assigned_product_attribute)
                     attribute_values.append(attribute_value)
                     assigned_product_attribute_values.append(
                         assigned_product_attribute_value
@@ -382,7 +311,6 @@ class Command(BaseCommand):
                     duration = data_product["duration"]
 
                     (
-                        assigned_product_attribute_d_u,
                         attribute_value_d_u,
                         assigned_product_attribute_value_d_u,
                     ) = self.get_duration_unit_attributes_data(
@@ -390,20 +318,17 @@ class Command(BaseCommand):
                     )
 
                     (
-                        assigned_product_attribute_m_d,
                         attribute_value_m_d,
                         assigned_product_attribute_value_m_d,
                     ) = self.get_max_duration_attributes_data(
                         product, curr_max_duration_id, duration
                     )
 
-                    assigned_product_attributes.append(assigned_product_attribute_d_u)
                     attribute_values.append(attribute_value_d_u)
                     assigned_product_attribute_values.append(
                         assigned_product_attribute_value_d_u
                     )
 
-                    assigned_product_attributes.append(assigned_product_attribute_m_d)
                     attribute_values.append(attribute_value_m_d)
                     assigned_product_attribute_values.append(
                         assigned_product_attribute_value_m_d
@@ -412,7 +337,6 @@ class Command(BaseCommand):
         ProductChannelListing.objects.bulk_create(product_channel_listings)
         ProductVariant.objects.bulk_create(product_variants)
 
-        AssignedProductAttribute.objects.bulk_create(assigned_product_attributes)
         AttributeValue.objects.bulk_create(attribute_values)
         AssignedProductAttributeValue.objects.bulk_create(
             assigned_product_attribute_values
