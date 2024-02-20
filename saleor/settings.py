@@ -275,6 +275,7 @@ INSTALLED_APPS = [
     # @cf::ornament.vendors
     "saleor.ornament.vendors",
     "saleor.ornament.vendors.kdl",
+    "saleor.ornament.vendors.gettested",
     # @cf::ornament.geo
     "saleor.ornament.geo",
     # External apps
@@ -944,6 +945,7 @@ GEO_LITE_DB_FILE_PATH = os.path.join(
 
 SLACK_ENABLED = os.environ.get("SLACK_ENABLED", None)
 SLACK_ENVIRONMENT = os.environ.get("SLACK_ENVIRONMENT", None)
+SLACK_REGION = os.environ.get("SLACK_REGION", None)
 SLACK_API_TOKEN = os.environ.get("SLACK_API_TOKEN", None)
 SLACK_API_CHANNEL_NAME = os.environ.get("SLACK_API_CHANNEL_NAME", None)
 SLACK_WEBHOOK = os.environ.get("SLACK_WEBHOOK", None)
@@ -1005,3 +1007,15 @@ SUBSCRIPTION_VOUCHER_UNKNOWN = os.environ.get(
 )
 
 DEFAULT_CHANNEL_CURRENCY = os.environ.get("DEFAULT_CHANNEL_CURRENCY", "USD")
+
+THESAURUS_API_URL = os.environ.get(
+    "THESAURUS_API_URL", "https://api.ornament.health/thesaurus-api/public"
+)
+THESAURUS_API_URL_1_0 = os.environ.get(
+    "THESAURUS_API_URL_1_0", f"{THESAURUS_API_URL}/v1.0"
+)
+THESAURUS_API_URL_1_1 = os.environ.get(
+    "THESAURUS_API_URL_1_1", f"{THESAURUS_API_URL}/v1.1"
+)
+
+AUTO_CITY_APPROVED = os.environ.get("AUTO_CITY_APPROVED", False)

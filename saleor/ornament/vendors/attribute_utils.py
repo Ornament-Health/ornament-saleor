@@ -1,111 +1,8 @@
-import enum
-from itertools import chain
-from dataclasses import dataclass
-from datetime import datetime
-import asyncio
-import secrets
-import string
+from django.core.management.base import CommandError
 
-import aiohttp
-from asgiref.sync import async_to_sync
 from saleor.attribute.models.base import AttributeValue
-
 from saleor.attribute.models.product import AssignedProductAttributeValue
-
-# TODO::ornament move to settings
-thesaurus_api_url_1_0 = "https://api.ornament.health/thesaurus-api/public/v1.0"
-thesaurus_api_url_1_1 = "https://api.ornament.health/thesaurus-api/public/v1.1"
-
-
-@dataclass
-class MedicalData:
-    biomarker_ids: list[int]
-    medical_exams_ids: list[int]
-
-
-@async_to_sync
-async def fetch_medical_data() -> MedicalData:
-    async with aiohttp.ClientSession() as session:
-        requests = [
-            session.post(
-                f"{thesaurus_api_url_1_1}/biomarkers",
-                json={"lang": "RU"},
-            ),
-            session.post(
-                f"{thesaurus_api_url_1_0}/medical-exams",
-                json={},
-            ),
-        ]
-        result = await asyncio.gather(*requests)
-
-        biomarkers_response, medical_exams_response = result
-
-        biomarkers = await biomarkers_response.json()
-        medical_exams = await medical_exams_response.json()
-
-        biomarker_ids = [b["id"] for b in biomarkers["biomarkers"]]
-        medical_exams_ids = [
-            exam_object["examTypeObjectId"]
-            for exam_object in chain.from_iterable(
-                [exam["objects"] for exam in medical_exams["exams"]]
-            )
-        ]
-
-        return MedicalData(
-            biomarker_ids=biomarker_ids, medical_exams_ids=medical_exams_ids
-        )
-
-
-# TODO::ornament move to common vendors utils
-def random_string(size) -> str:
-    letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
-    return "".join(secrets.choice(letters) for _ in range(size))
-
-
-def get_current_timestamp() -> float:
-    now = datetime.now()
-    return now.timestamp()
-
-
-def form_description_block(text: str, block_type: str) -> dict:
-    return {
-        "id": random_string(10),
-        "data": {"text": text},
-        "type": block_type,
-    }
-
-
-def form_rich_text(text: str) -> dict:
-    return {
-        "time": get_current_timestamp(),
-        "blocks": [form_description_block(text, "paragraph")],
-        # TODO::ornament move to settings
-        "version": "2.24.3",
-    }
-
-
-def form_description(name: str, description: str) -> dict:
-    description_dict = {
-        "time": get_current_timestamp(),
-        "blocks": [form_description_block(name, "header")],
-        # TODO::ornament move to settings
-        "version": "2.24.3",
-    }
-
-    if description:
-        blocks = description.split("\n")
-
-        for block in blocks:
-            description_dict["blocks"].append(
-                form_description_block(block, "paragraph")
-            )
-
-    return description_dict
-
-
-class KdlDurationUnitEnum(enum.Enum):
-    HOUR = 1
-    DAY = 2
+from saleor.ornament.vendors.utils import form_rich_text
 
 
 class AttributeUtils:
@@ -123,6 +20,7 @@ class AttributeUtils:
         "age-to": 11,
         "biomarkers": 12,
         "medical_exams": 13,
+        "gettested_test-method": 14,
     }
 
     @staticmethod
@@ -208,3 +106,21 @@ class AttributeUtils:
             )
             for b in set(medical_data_ids)
         ]
+
+    @staticmethod
+    def add_color_attribute_data(
+        product_id: int,
+        color_slug: str,
+        color_attribute_values: dict[str, AttributeValue],
+    ) -> AssignedProductAttributeValue:
+        color_attribute_value = color_attribute_values.get(color_slug)
+
+        if not color_attribute_value:
+            raise CommandError(
+                f"""Can't find color attribute value for slug {color_slug}"""
+            )
+
+        return AssignedProductAttributeValue(
+            value_id=color_attribute_value.pk,
+            product_id=product_id,
+        )

@@ -9,6 +9,7 @@ from saleor.product.models import Category
 class Vendor(AutoNowUpdateFieldsMixin, models.Model):
     name = models.CharField(max_length=255, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
+    transaction_flow = models.BooleanField(default=False)
 
     created = models.DateTimeField(default=timezone.now, editable=False)
     updated = models.DateTimeField(auto_now=True, editable=False)

@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Optional
 import graphene
 from promise import Promise
 
+from saleor.ornament.vendors.models import Vendor
+
 from ...checkout import calculations, models, problems
 from ...checkout.base_calculations import (
     calculate_undiscounted_base_line_total_price,
@@ -782,6 +784,14 @@ class Checkout(ModelObjectType[models.Checkout]):
         ),
     )
 
+    # @cf::ornament.saleor.checkout
+    transaction_flow = graphene.Boolean(
+        description=(
+            "Determines whether transaction flow is enabled for all vendors in checkout"
+        ),
+        required=True,
+    )
+
     class Meta:
         description = "Checkout object."
         model = models.Checkout
@@ -1063,11 +1073,11 @@ class Checkout(ModelObjectType[models.Checkout]):
             CheckoutMetadataByCheckoutIdLoader(info.context)
             .load(root.pk)
             .then(
-                lambda metadata_storage: MetaResolvers.resolve_metadata(
-                    metadata_storage.metadata
+                lambda metadata_storage: (
+                    MetaResolvers.resolve_metadata(metadata_storage.metadata)
+                    if metadata_storage
+                    else {}
                 )
-                if metadata_storage
-                else {}
             )
         )
 
@@ -1077,9 +1087,9 @@ class Checkout(ModelObjectType[models.Checkout]):
             CheckoutMetadataByCheckoutIdLoader(info.context)
             .load(root.pk)
             .then(
-                lambda metadata_storage: metadata_storage.metadata.get(key)
-                if metadata_storage
-                else None
+                lambda metadata_storage: (
+                    metadata_storage.metadata.get(key) if metadata_storage else None
+                )
             )
         )
 
@@ -1089,11 +1099,11 @@ class Checkout(ModelObjectType[models.Checkout]):
             CheckoutMetadataByCheckoutIdLoader(info.context)
             .load(root.pk)
             .then(
-                lambda metadata_storage: _filter_metadata(
-                    metadata_storage.metadata, keys
+                lambda metadata_storage: (
+                    _filter_metadata(metadata_storage.metadata, keys)
+                    if metadata_storage
+                    else {}
                 )
-                if metadata_storage
-                else {}
             )
         )
 
@@ -1103,11 +1113,11 @@ class Checkout(ModelObjectType[models.Checkout]):
             CheckoutMetadataByCheckoutIdLoader(info.context)
             .load(root.pk)
             .then(
-                lambda metadata_storage: MetaResolvers.resolve_private_metadata(
-                    metadata_storage, info
+                lambda metadata_storage: (
+                    MetaResolvers.resolve_private_metadata(metadata_storage, info)
+                    if metadata_storage
+                    else {}
                 )
-                if metadata_storage
-                else {}
             )
         )
 
@@ -1121,11 +1131,11 @@ class Checkout(ModelObjectType[models.Checkout]):
             CheckoutMetadataByCheckoutIdLoader(info.context)
             .load(root.pk)
             .then(
-                lambda metadata_storage: resolve_private_metafield_with_privilege_check(
-                    metadata_storage
+                lambda metadata_storage: (
+                    resolve_private_metafield_with_privilege_check(metadata_storage)
+                    if metadata_storage
+                    else None
                 )
-                if metadata_storage
-                else None
             )
         )
 
@@ -1139,11 +1149,11 @@ class Checkout(ModelObjectType[models.Checkout]):
             CheckoutMetadataByCheckoutIdLoader(info.context)
             .load(root.pk)
             .then(
-                lambda metadata_storage: resolve_private_metafields_with_privilege(
-                    metadata_storage
+                lambda metadata_storage: (
+                    resolve_private_metafields_with_privilege(metadata_storage)
+                    if metadata_storage
+                    else {}
                 )
-                if metadata_storage
-                else {}
             )
         )
 
@@ -1267,6 +1277,17 @@ class Checkout(ModelObjectType[models.Checkout]):
         channel = ChannelByIdLoader(info.context).load(root.channel_id)
 
         return Promise.all([voucher, channel]).then(wrap_voucher_with_channel_context)
+
+    # @cf::ornament.saleor.checkout
+    @staticmethod
+    def resolve_transaction_flow(root: models.Checkout, info) -> bool:
+        vendor_names = set([l.variant.name for l in root.lines.all()])
+        transaction_flow = all(
+            Vendor.objects.filter(name__in=vendor_names).values_list(
+                "transaction_flow", flat=True
+            )
+        )
+        return transaction_flow
 
 
 class CheckoutCountableConnection(CountableConnection):

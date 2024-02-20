@@ -1,6 +1,14 @@
+import asyncio
+from dataclasses import dataclass
+from datetime import datetime
+from itertools import chain
 import logging
+import secrets
+import string
 from typing import Optional
 
+import aiohttp
+from asgiref.sync import async_to_sync
 from django.conf import settings
 
 from saleor.order.fetch import OrderLineInfo
@@ -10,6 +18,91 @@ from saleor.ornament.vendors.models import Vendor
 from saleor.product.models import ProductVariant
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_DESCRIPTION_VERSION = "2.24.3"
+
+
+@dataclass
+class MedicalData:
+    biomarker_ids: list[int]
+    medical_exams_ids: list[int]
+
+
+@async_to_sync
+async def fetch_medical_data() -> MedicalData:
+    async with aiohttp.ClientSession() as session:
+        requests = [
+            session.post(
+                f"{settings.THESAURUS_API_URL_1_1}/biomarkers",
+                json={"lang": "RU"},
+            ),
+            session.post(
+                f"{settings.THESAURUS_API_URL_1_0}/medical-exams",
+                json={},
+            ),
+        ]
+        result = await asyncio.gather(*requests)
+
+        biomarkers_response, medical_exams_response = result
+
+        biomarkers = await biomarkers_response.json()
+        medical_exams = await medical_exams_response.json()
+
+        biomarker_ids = [b["id"] for b in biomarkers["biomarkers"]]
+        medical_exams_ids = [
+            exam_object["examTypeObjectId"]
+            for exam_object in chain.from_iterable(
+                [exam["objects"] for exam in medical_exams["exams"]]
+            )
+        ]
+
+        return MedicalData(
+            biomarker_ids=biomarker_ids, medical_exams_ids=medical_exams_ids
+        )
+
+
+def random_string(size) -> str:
+    letters = string.ascii_lowercase + string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(letters) for _ in range(size))
+
+
+def get_current_timestamp() -> float:
+    now = datetime.now()
+    return now.timestamp()
+
+
+def form_description_block(text: str, block_type: str) -> dict:
+    return {
+        "id": random_string(10),
+        "data": {"text": text},
+        "type": block_type,
+    }
+
+
+def form_rich_text(text: str) -> dict:
+    return {
+        "time": get_current_timestamp(),
+        "blocks": [form_description_block(text, "paragraph")],
+        "version": DEFAULT_DESCRIPTION_VERSION,
+    }
+
+
+def form_description(name: str, description: str) -> dict:
+    description_dict = {
+        "time": get_current_timestamp(),
+        "blocks": [form_description_block(name, "header")],
+        "version": DEFAULT_DESCRIPTION_VERSION,
+    }
+
+    if description:
+        blocks = description.split("\n")
+
+        for block in blocks:
+            description_dict["blocks"].append(
+                form_description_block(block, "paragraph")
+            )
+
+    return description_dict
 
 
 def apply_kdl_order_logic(order: Order):
