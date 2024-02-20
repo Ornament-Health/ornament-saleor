@@ -103,6 +103,9 @@ class SearchProduct(ModelObjectType[product_models.Product]):
                 amount=float(p["price_amount"]),
                 currency=p["currency"],
                 vendor=p["vendor"],
+                variant_id=graphene.Node.to_global_id(
+                    "ProductVariant", p["variant_id"]
+                ),
             )
             for p in root.variants_prices
         ]
