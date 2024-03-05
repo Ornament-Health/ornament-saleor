@@ -21,6 +21,7 @@ class AttributeUtils:
         "biomarkers": 12,
         "medical_exams": 13,
         "gettested_test-method": 14,
+        "dardoc-duration": 15,
     }
 
     @staticmethod

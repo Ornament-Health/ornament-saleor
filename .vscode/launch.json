@@ -140,6 +140,19 @@
             "justMyCode": false
         },
         {
+            "name": "Saleor dardoc_import_update_products_xlsx",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": [
+                "dardoc_import_update_products_xlsx",
+                "dardoc_import_update_products_xlsx.xlsx"
+            ],
+            "django": true,
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        },
+        {
             "name": "Saleor recreate_attributes",
             "type": "python",
             "request": "launch",
