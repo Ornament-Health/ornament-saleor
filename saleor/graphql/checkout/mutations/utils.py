@@ -13,12 +13,11 @@ from typing import (
 )
 
 import graphene
-import pytz
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q, QuerySet
-from django.forms import model_to_dict
 
-from saleor.ornament.vendors.models import Vendor
+from saleor.graphql.checkout.utils import check_deal_types_valid
+from saleor.graphql.ornament.vendors.utils import get_vendor_deal_type
 
 from ....checkout import models
 from ....checkout.error_codes import CheckoutErrorCode
@@ -274,34 +273,14 @@ def validate_variants_vendor_deal_flow(
     variants: list[ProductVariant],
     error_code: str = CheckoutErrorCode.VENDORS_DEAL_FLOW.value,
 ):
-    variants_vendors = set([v.name for v in variants])
+    vendors = set([v.name for v in variants])
 
-    vendors = Vendor.objects.filter(name__in=variants_vendors).all()
-
-    if len(vendors) != len(variants_vendors):
-        raise ValidationError(
-            {
-                "lines": ValidationError(
-                    "Cannot add lines for variants with unknown vendors",
-                    code=CheckoutErrorCode.VENDOR_UNKNOWN.value,
-                    params={"vendors": variants_vendors},
-                )
-            }
-        )
-
-    vendor_deal_types = [
-        model_to_dict(v.deal_type, exclude="id") for v in vendors if v.deal_type
-    ]
-
-    deal_type_legitimate = all(d == vendor_deal_types[0] for d in vendor_deal_types)
-
-    if not deal_type_legitimate:
+    if not check_deal_types_valid([get_vendor_deal_type(v) for v in vendors]):
         raise ValidationError(
             {
                 "lines": ValidationError(
                     "Cannot add lines for variants with different vendors deal types",
                     code=error_code,
-                    params={"vendors": vendor_deal_types},
                 )
             }
         )

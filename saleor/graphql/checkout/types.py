@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Optional
 
 import graphene
 from promise import Promise
-from django.forms.models import model_to_dict
 
 from ...checkout import calculations, models, problems
 from ...checkout.base_calculations import (
@@ -97,6 +96,9 @@ from .utils import prevent_sync_event_circular_query
 from saleor.ornament.utils.slack import Slack
 from saleor.ornament.vendors.models import Vendor
 from saleor.ornament.vendors.utils import form_slack_error_message
+from saleor.graphql.checkout.utils import check_deal_types_valid
+from saleor.graphql.ornament.vendors.types import VendorDealType
+from saleor.graphql.ornament.vendors.utils import get_vendor_deal_type
 
 if TYPE_CHECKING:
     from ...account.models import Address
@@ -471,17 +473,6 @@ class DeliveryMethod(graphene.Union):
         return super().resolve_type(instance, info)
 
 
-class DealType(graphene.ObjectType):
-    transaction_flow = graphene.Boolean(
-        description="Checkout transaction flow", required=True
-    )
-    home_visit = graphene.Boolean(description="Checkout home visit", required=True)
-    shipment = graphene.Boolean(description="Checkout shipment", required=True)
-
-    class Meta:
-        description = "Represents Deal Type for checkout."
-
-
 class Checkout(ModelObjectType[models.Checkout]):
     id = graphene.ID(required=True, description="The ID of the checkout.")
     created = graphene.DateTime(
@@ -807,7 +798,7 @@ class Checkout(ModelObjectType[models.Checkout]):
     )
     # @cf::ornament.saleor.checkout
     deal_type = BaseField(
-        DealType,
+        VendorDealType,
         description=("The deal type for this checkout."),
     )
 
@@ -1310,19 +1301,14 @@ class Checkout(ModelObjectType[models.Checkout]):
 
     # @cf::ornament.saleor.checkout
     @staticmethod
-    def resolve_deal_type(root: models.Checkout, info) -> DealType:
-        vendor_names = set([l.variant.name for l in root.lines.all()])
-        vendors = Vendor.objects.filter(name__in=vendor_names)
-        vendor_deal_types = [
-            model_to_dict(v.deal_type, exclude="id") for v in vendors if v.deal_type
-        ]
+    def resolve_deal_type(root: models.Checkout, info) -> Optional[VendorDealType]:
+        vendors = set([l.variant.name for l in root.lines.all()])
+        deal_types = [get_vendor_deal_type(v) for v in vendors]
 
-        if not vendor_deal_types:
-            return DealType(transaction_flow=False, home_visit=False, shipment=False)
+        if not deal_types:
+            return None
 
-        deal_type_legitimate = all(d == vendor_deal_types[0] for d in vendor_deal_types)
-
-        if not deal_type_legitimate:
+        if not check_deal_types_valid(deal_types):
             error_text = (
                 f"<!channel> \n"
                 f":bangbang: Detected checkout with illegitimate vendors deal type! \n"
@@ -1331,11 +1317,7 @@ class Checkout(ModelObjectType[models.Checkout]):
             slack_message = form_slack_error_message(error_text)
             Slack.send_message_task.delay(slack_message)
 
-        return DealType(
-            transaction_flow=vendor_deal_types[0]["transaction_flow"],
-            home_visit=vendor_deal_types[0]["home_visit"],
-            shipment=vendor_deal_types[0]["shipment"],
-        )
+        return deal_types[0]
 
 
 class CheckoutCountableConnection(CountableConnection):
