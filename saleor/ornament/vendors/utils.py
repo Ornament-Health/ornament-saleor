@@ -28,6 +28,37 @@ class MedicalData:
     medical_exams_ids: list[int]
 
 
+def form_slack_error_message(error_text: str) -> dict:
+    return {
+        "attachments": [
+            {
+                "color": "#ff0000",
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": error_text,
+                        },
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": (
+                                    f"Server *{settings.SLACK_ENVIRONMENT}*, "
+                                    f"Region *{settings.SLACK_REGION}*"
+                                ),
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
+    }
+
+
 @async_to_sync
 async def fetch_medical_data() -> MedicalData:
     async with aiohttp.ClientSession() as session:

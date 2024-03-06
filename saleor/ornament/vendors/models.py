@@ -6,10 +6,24 @@ from saleor.account.models import User
 from saleor.product.models import Category
 
 
+class VendorDealType(AutoNowUpdateFieldsMixin, models.Model):
+    transaction_flow = models.BooleanField(default=False)
+    home_visit = models.BooleanField(default=False)
+    shipment = models.BooleanField(default=False)
+
+    created = models.DateTimeField(default=timezone.now, editable=False)
+    updated = models.DateTimeField(auto_now=True, editable=False)
+
+    class Meta:
+        db_table = "ornament_vendor_deal_type"
+
+
 class Vendor(AutoNowUpdateFieldsMixin, models.Model):
     name = models.CharField(max_length=255, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
-    transaction_flow = models.BooleanField(default=False)
+    deal_type = models.OneToOneField(
+        VendorDealType, null=True, on_delete=models.SET_NULL
+    )
 
     created = models.DateTimeField(default=timezone.now, editable=False)
     updated = models.DateTimeField(auto_now=True, editable=False)

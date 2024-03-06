@@ -32,6 +32,7 @@ from .utils import (
     update_checkout_shipping_method_if_invalid,
     validate_variants_are_published,
     validate_variants_available_for_purchase,
+    validate_variants_vendor_deal_flow,
 )
 
 
@@ -146,6 +147,7 @@ class CheckoutLinesAdd(BaseMutation):
             validate_variants_are_published(
                 variants_ids_to_validate, checkout.channel_id
             )
+            validate_variants_vendor_deal_flow(variants + [l.variant for l in lines])
 
         if variants and checkout_lines_data:
             site = get_site_promise(info.context).get()
