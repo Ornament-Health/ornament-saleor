@@ -4,7 +4,7 @@ from typing import Optional
 from django.db.models import Q
 from i18naddress import get_validation_rules, ValidationRules
 
-from ...account import models
+from ...account import Sex, models
 from ...core.exceptions import PermissionDenied
 from ...graphql.core.context import get_database_connection_name
 from ...payment import gateway
@@ -188,6 +188,11 @@ def resolve_address_validation_rules(
 
 
 # @cf::ornament.saleor.graphql.account
+def get_area_choices(areas: list[tuple]) -> list[ChoiceValue]:
+    return [ChoiceValue(area[0], area[1]) for area in areas]
+
+
+# @cf::ornament.saleor.graphql.account
 def augment_ornament_validation_field(
     field_name: str, required: bool, rules: ValidationRules
 ) -> OrnamentValidationFieldData:
@@ -196,23 +201,18 @@ def augment_ornament_validation_field(
     examples = None
     prefix = None
 
-    if field_name:
-        if field_name == "country_area":
-            choices = [
-                ChoiceValue(area[0], area[1]) for area in rules.country_area_choices
-            ]
-        if field_name == "city":
-            choices = [ChoiceValue(area[0], area[1]) for area in rules.city_choices]
-        if field_name == "city_area":
-            choices = [
-                ChoiceValue(area[0], area[1]) for area in rules.city_area_choices
-            ]
-        if field_name == "postal_code":
-            matchers = [compiled.pattern for compiled in rules.postal_code_matchers]
-            examples = rules.postal_code_examples
-            prefix = rules.postal_code_prefix
-        if field_name == "sex":
-            choices = [ChoiceValue(s) for s in ["M", "F", "U"]]
+    if field_name == "country_area":
+        choices = get_area_choices(rules.country_area_choices)
+    if field_name == "city":
+        choices = get_area_choices(rules.city_choices)
+    if field_name == "city_area":
+        choices = get_area_choices(rules.city_area_choices)
+    if field_name == "sex":
+        choices = get_area_choices(Sex.CHOICES)
+    if field_name == "postal_code":
+        matchers = [compiled.pattern for compiled in rules.postal_code_matchers]
+        examples = rules.postal_code_examples
+        prefix = rules.postal_code_prefix
 
     return OrnamentValidationFieldData(
         name=validation_field_to_camel_case(field_name),
