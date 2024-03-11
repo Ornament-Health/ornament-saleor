@@ -14,7 +14,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         orders = models.Order.objects.prefetch_related("lines").filter(
-            status="unconfirmed", external_lab_order_id__isnull=False
+            status__in=["unconfirmed", "unfulfilled"],
+            external_lab_order_id__isnull=False,
         )
         for order in orders:
             create_fulfillments_internal(order)
