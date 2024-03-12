@@ -1009,9 +1009,9 @@ def create_fulfillments(
 
 # @cf::ornament.saleor.order
 def create_fulfillments_internal(order: "Order"):
-    lines_for_warehouses: DefaultDict[
-        UUID, List[OrderFulfillmentLineInfo]
-    ] = defaultdict(list)
+    lines_for_warehouses: DefaultDict[UUID, List[OrderFulfillmentLineInfo]] = (
+        defaultdict(list)
+    )
 
     if not order.user:
         logger.error(
@@ -1020,7 +1020,7 @@ def create_fulfillments_internal(order: "Order"):
         raise PermissionDenied()
 
     site = Site.objects.get_current()
-    manager = get_plugins_manager()
+    manager = get_plugins_manager(allow_replica=False)
     insufficient_stocks = []
 
     for line in order.lines.all():
