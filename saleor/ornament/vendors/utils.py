@@ -87,7 +87,7 @@ def form_rich_text(text: str) -> dict:
     }
 
 
-def form_description(name: str, description: str) -> dict:
+def form_description(name: str, description: Optional[str]) -> dict:
     description_dict = {
         "time": get_current_timestamp(),
         "blocks": [form_description_block(name, "header")],
