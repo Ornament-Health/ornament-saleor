@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Optional
 
 import graphene
-import pytz
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -122,7 +121,7 @@ class PromotionUpdate(ModelMutation):
         :return: "started" if promotion has started, "ended" if promotion has ended or
         None if there was no toggle.
         """
-        now = datetime.now(pytz.utc)
+        now = datetime.now()
         notification_date = instance.last_notification_scheduled_at
         start_date = clean_input.get("start_date")
         end_date = clean_input.get("end_date")
@@ -164,7 +163,7 @@ class PromotionUpdate(ModelMutation):
             event = manager.promotion_ended
         if event:
             cls.call_event(event, instance)
-            instance.last_notification_scheduled_at = datetime.now(pytz.utc)
+            instance.last_notification_scheduled_at = datetime.now()
             instance.save(update_fields=["last_notification_scheduled_at"])
 
     @classmethod

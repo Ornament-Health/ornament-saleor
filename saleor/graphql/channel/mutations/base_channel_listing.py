@@ -2,7 +2,6 @@ import datetime
 from collections import defaultdict
 from collections.abc import Iterable
 
-import pytz
 from django.core.exceptions import ValidationError
 
 from ....channel import models

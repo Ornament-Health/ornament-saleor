@@ -5,7 +5,6 @@ from typing import Optional
 from uuid import uuid4
 
 import graphene
-import pytz
 from django.conf import settings
 from django.contrib.postgres.indexes import BTreeIndex, GinIndex
 from django.contrib.postgres.search import SearchVectorField

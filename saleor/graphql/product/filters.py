@@ -5,7 +5,6 @@ from typing import Optional, TypedDict
 
 import django_filters
 import graphene
-import pytz
 from django.db.models import Exists, FloatField, OuterRef, Q, Subquery, Sum
 from django.db.models.expressions import ExpressionWrapper
 from django.db.models.fields import IntegerField
@@ -173,15 +172,11 @@ def _clean_product_attributes_date_time_range_filter_input(filter_value):
     for _, val_range in filter_value:
         if lte := val_range.get("lte"):
             if not isinstance(lte, datetime.datetime):
-                lte = datetime.datetime.combine(
-                    lte, datetime.datetime.max.time(), tzinfo=pytz.UTC
-                )
+                lte = datetime.datetime.combine(lte, datetime.datetime.max.time())
             filters["date_time__lte"] = lte
         if gte := val_range.get("gte"):
             if not isinstance(gte, datetime.datetime):
-                gte = datetime.datetime.combine(
-                    gte, datetime.datetime.min.time(), tzinfo=pytz.UTC
-                )
+                gte = datetime.datetime.combine(gte, datetime.datetime.min.time())
             filters["date_time__gte"] = gte
     return matching_attributes.filter(**filters)
 
@@ -632,7 +627,8 @@ def filter_is_preorder(qs, _, value):
     if value:
         return qs.filter(is_preorder=True).filter(
             # @cf::ornament:CORE-2283
-            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gte=datetime.datetime.now())
+            Q(preorder_end_date__isnull=True)
+            | Q(preorder_end_date__gte=datetime.datetime.now())
         )
     return qs.filter(
         Q(is_preorder=False)
@@ -978,7 +974,8 @@ def where_filter_has_preordered_variants(qs, _, value):
         ProductVariant.objects.filter(is_preorder=True)
         .filter(
             # @cf::ornament:CORE-2283
-            Q(preorder_end_date__isnull=True) | Q(preorder_end_date__gt=datetime.datetime.now())
+            Q(preorder_end_date__isnull=True)
+            | Q(preorder_end_date__gt=datetime.datetime.now())
         )
         .values("product_id")
     )

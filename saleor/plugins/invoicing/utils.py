@@ -3,7 +3,6 @@ import re
 from datetime import datetime
 from decimal import Decimal
 
-import pytz
 from django.conf import settings
 from django.template.loader import get_template
 from prices import Money
@@ -96,7 +95,7 @@ def generate_invoice_pdf(invoice):
     )
     order = invoice.order
     gift_cards_payment = get_gift_cards_payment_amount(order)
-    creation_date = datetime.now(tz=pytz.utc)
+    creation_date = datetime.now()
     rendered_template = get_template("invoices/invoice.html").render(
         {
             "invoice": invoice,

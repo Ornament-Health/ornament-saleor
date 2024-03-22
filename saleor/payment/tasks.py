@@ -2,7 +2,6 @@ import logging
 import uuid
 from datetime import datetime
 
-import pytz
 from django.conf import settings
 from django.db.models import OuterRef, Q, Subquery
 
@@ -26,7 +25,7 @@ def checkouts_with_funds_to_release():
     checkout doesn't have any processed funds.
     """
     expired_checkouts_time = (
-        datetime.now(pytz.UTC) - settings.CHECKOUT_TTL_BEFORE_RELEASING_FUNDS
+        datetime.now() - settings.CHECKOUT_TTL_BEFORE_RELEASING_FUNDS
     )
 
     return Checkout.objects.filter(
