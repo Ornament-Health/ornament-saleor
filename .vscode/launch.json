@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Saleor API",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -18,7 +18,7 @@
         },
         {
             "name": "Saleor uvicorn",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",
             "args": [
@@ -29,7 +29,7 @@
         },
         {
             "name": "Celery (worker)",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "celery",
             "args": [
@@ -40,7 +40,7 @@
         },
         {
             "name": "Saleor check_kdl_results",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -52,7 +52,7 @@
         },
         {
             "name": "Saleor import_pricelist_xlsx",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -66,7 +66,7 @@
         },
         {
             "name": "Saleor populate_db",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -78,7 +78,7 @@
         },
         {
             "name": "Saleor populate_checkup_db",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -90,7 +90,7 @@
         },
         {
             "name": "Saleor kdl_clean_ftp",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -102,7 +102,7 @@
         },
         {
             "name": "Saleor import_products",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -115,7 +115,7 @@
         },
         {
             "name": "Saleor import_update_products_xlsx",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -128,7 +128,7 @@
         },
         {
             "name": "Saleor gettested_import_update_products_xlsx",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
@@ -141,11 +141,25 @@
         },
         {
             "name": "Saleor recreate_attributes",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
             "args": [
                 "recreate_attributes",
+            ],
+            "django": true,
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        },
+        {
+            "name": "Saleor populate_checkup_db_xlsx",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/manage.py",
+            "args": [
+                "populate_checkup_db_xlsx",
+                "populate_checkup_db_xlsx.xlsx",
+                "--channel_slug=uk-gettested",
             ],
             "django": true,
             "envFile": "${workspaceFolder}/.env",
