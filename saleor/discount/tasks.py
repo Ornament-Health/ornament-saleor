@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import graphene
-import pytz
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.db.models import Exists, F, OuterRef, Q, QuerySet
@@ -81,11 +80,11 @@ def handle_promotion_toggle():
     for promotion in promotions:
         variants = promotion_id_to_variants.get(promotion.id)
         catalogues = {
-            "variants": [
-                graphene.Node.to_global_id("ProductVariant", v.pk) for v in variants
-            ]
-            if variants
-            else [],
+            "variants": (
+                [graphene.Node.to_global_id("ProductVariant", v.pk) for v in variants]
+                if variants
+                else []
+            ),
             "products": [],
             "categories": [],
             "collections": [],
@@ -116,7 +115,7 @@ def handle_promotion_toggle():
     # DEPRECATED: will be removed in Saleor 4.0.
     promotion_ids_str = ", ".join([str(promo.id) for promo in promotions])
 
-    promotions.update(last_notification_scheduled_at=datetime.now(pytz.UTC))
+    promotions.update(last_notification_scheduled_at=datetime.now())
     if starting_promotion_ids:
         task_logger.info(
             "The promotion_started webhook sent for Promotions with ids: %s",
@@ -141,7 +140,7 @@ def get_starting_promotions(batch=False):
     and the notification date is null or the last notification was sent
     before the start date.
     """
-    now = datetime.now(pytz.UTC)
+    now = datetime.now()
     promotions = Promotion.objects.filter(
         (
             Q(last_notification_scheduled_at__isnull=True)
@@ -161,7 +160,7 @@ def get_ending_promotions(batch=False):
     and the notification date is null or the last notification was sent
     before the end date.
     """
-    now = datetime.now(pytz.UTC)
+    now = datetime.now()
     promotions = Promotion.objects.filter(
         (
             Q(last_notification_scheduled_at__isnull=True)

@@ -4,8 +4,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Optional, Union
 
-import pytz
-
 from ..graphql.channel import ChannelContext
 from ..product.models import ProductChannelListing, ProductVariant
 from ..warehouse.models import Stock
@@ -153,9 +151,9 @@ def get_checkout_lines_problems(
 
     The stocks need to have annotated available_quantity field.
     """
-    problems: dict[
-        CHECKOUT_LINE_PK_TYPE, list[CHECKOUT_LINE_PROBLEM_TYPE]
-    ] = defaultdict(list)
+    problems: dict[CHECKOUT_LINE_PK_TYPE, list[CHECKOUT_LINE_PROBLEM_TYPE]] = (
+        defaultdict(list)
+    )
 
     not_available_lines = get_not_available_lines(lines, product_channel_listings_map)
     if not_available_lines:
