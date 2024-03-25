@@ -68,6 +68,7 @@ class SaleUpdate(ModelMutation):
             ),
         ]
 
+    # @cf::ornament.saleor.graphql.discount
     @classmethod
     def _patch_input_datetime_tz_info(
         cls, input: Optional[SaleInput]
@@ -88,7 +89,10 @@ class SaleUpdate(ModelMutation):
     def perform_mutation(cls, _root, info: ResolveInfo, /, **data):
         promotion = cls.get_instance(info, **data)
         input = data.get("input")
+
+        # @cf::ornament.saleor.graphql.discount
         input = cls._patch_input_datetime_tz_info(input)
+
         cls.validate_dates(promotion, input)
         rules = promotion.rules.all()
         previous_predicate = rules[0].catalogue_predicate
