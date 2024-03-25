@@ -16,8 +16,7 @@ import graphene
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q, QuerySet
 
-from saleor.graphql.checkout.utils import check_deal_types_valid
-from saleor.graphql.ornament.vendors.utils import get_vendor_deal_type
+from saleor.ornament.vendors.utils import check_deal_types_valid, get_vendor_deal_type
 
 from ....checkout import models
 from ....checkout.error_codes import CheckoutErrorCode

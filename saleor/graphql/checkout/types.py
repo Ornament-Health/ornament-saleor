@@ -95,10 +95,12 @@ from .utils import prevent_sync_event_circular_query
 
 from saleor.ornament.utils.slack import Slack
 from saleor.ornament.vendors.models import Vendor
-from saleor.ornament.vendors.utils import form_slack_error_message
-from saleor.graphql.checkout.utils import check_deal_types_valid
+from saleor.ornament.vendors.utils import (
+    form_slack_error_message,
+    check_deal_types_valid,
+    get_vendor_deal_type
+)
 from saleor.graphql.ornament.vendors.types import VendorDealType
-from saleor.graphql.ornament.vendors.utils import get_vendor_deal_type
 
 if TYPE_CHECKING:
     from ...account.models import Address

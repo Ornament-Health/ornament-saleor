@@ -48,10 +48,3 @@ def prevent_sync_event_circular_query(func):
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def check_deal_types_valid(deal_types: list[Optional[VendorDealType]]) -> bool:
-    if not deal_types:
-        return False
-
-    return all(d.__dict__ == deal_types[0].__dict__ for d in deal_types if d)
