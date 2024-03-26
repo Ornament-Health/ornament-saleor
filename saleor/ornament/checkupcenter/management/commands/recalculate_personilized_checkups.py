@@ -42,7 +42,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         user_start = options.get("user_id_start")
-        user_end = options.get("user_id_end")
+        user_end = options.get("user_id_end") or user_start
 
         checkups = CheckUp.objects.filter(
             user_id__in=[user_start, user_end], is_personalized=True
@@ -76,7 +76,8 @@ class Command(BaseCommand):
             profile_data = known_profiles_data.get(pid)
 
             if not profile_data:
-                raise CommandError(f"Can't find profile data: {pid}")
+                logger.critical(f"Can't find profile data: {pid}")
+                continue
 
             logger.info(
                 f"Deleting checkup {checkup.id} for user {user_id} and pid {pid}..."
