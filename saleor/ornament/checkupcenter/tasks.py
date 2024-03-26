@@ -680,6 +680,8 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
     """
     is_changed = False
 
+    logger.info(f"handle_checkup_personalization_event_task matches: {matches}")
+
     # 1.
     user = User.objects.filter(id=user_id).first()
     if not user:
