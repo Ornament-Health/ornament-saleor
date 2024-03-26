@@ -383,6 +383,10 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
     7. Emit checkup calculation event.
     """
 
+    logger.info(
+        f"handle_checkup_matching_event_task pid: {profile_uuid}, user_id: {user_id}"
+    )
+
     # 1. Get user
     user = User.objects.filter(id=user_id).first()
     if not user:
@@ -510,6 +514,9 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
             )
 
         # 6.5. Emit personalized checkup SKU rematching in FSMAPI event
+        logger.info(
+            f"Running FSMApi.run_processor... pid: {profile_uuid}, user_id: {user_id}"
+        )
         FSMApi.run_processor(str(user.sso_id), str(profile_uuid))
 
     # 7. Emit checkup calculation event
