@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import logging
+from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError
 from slugify import slugify
@@ -8,6 +9,9 @@ from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import exceptions as openpyxl_exceptions
 
+from saleor.attribute.models.base import AttributeValue
+from saleor.attribute.models.product import AssignedProductAttributeValue
+from saleor.ornament.vendors.attribute_utils import AttributeUtils
 from saleor.ornament.vendors.utils import (
     form_description,
 )
@@ -36,8 +40,11 @@ class Command(BaseCommand):
         "description de",
         "description pt",
         "description es",
+        "biomarkers",
+        "medical_exams",
     ]
     sku_missed_en_translation = []
+    sku_missed_medical_data = []
     checkup_category_id = 1
     product_category_id = 1
     checkup_default_language_code = "en"
@@ -62,10 +69,35 @@ class Command(BaseCommand):
                 f"Sheet header does not contain all known columns: {self.known_header_rows}"
             )
 
+    def convert_medical_data_ids(self, data_row: Optional[str]) -> Optional[list[int]]:
+        try:
+            if data_row and isinstance(data_row, str):
+                return list(map(int, data_row.split(",")))
+            else:
+                return None
+        except ValueError:
+            return None
+
+    def check_row_medical_data(self, row: tuple) -> bool:
+        biomarkers = self.convert_medical_data_ids(row[11])
+        medical_exams = self.convert_medical_data_ids(row[12])
+
+        if not biomarkers and not medical_exams:
+            self.sku_missed_medical_data.append(row[0])
+
+        return bool(biomarkers) or bool(medical_exams)
+
     def check_row_required_data(self, row: tuple) -> bool:
         if row[0] and not row[2]:
             self.sku_missed_en_translation.append(row[0])
-        return row[2]
+        return row[2] and self.check_row_medical_data(row)
+
+    def get_medical_attribute_values_ids(self, attribute_name: str) -> dict[int, int]:
+        medical_attribute_values = AttributeValue.objects.filter(
+            attribute_id=AttributeUtils.attrubutes_ids[attribute_name]
+        ).values_list("pk", "name")
+
+        return {int(b[1]): b[0] for b in medical_attribute_values}
 
     def handle(self, *args, **options):
         filename = options.get("filename")
@@ -102,6 +134,8 @@ class Command(BaseCommand):
                     "pt": s[9],
                     "es": s[10],
                 },
+                "biomarkers": self.convert_medical_data_ids(str(s[11])) or [],
+                "medical_exams": self.convert_medical_data_ids(str(s[12])) or [],
             }
             for s in sheet.iter_rows(min_row=2, values_only=True)
             if self.check_row_required_data(s)
@@ -112,9 +146,15 @@ class Command(BaseCommand):
                 f"No EN `title` translation for SKUs {self.sku_missed_en_translation}"
             )
 
+        if self.sku_missed_medical_data:
+            logger.info(
+                f"No biomarkers or medical_exams for SKUs {self.sku_missed_medical_data}"
+            )
+
         current_products = Product.objects.values_list("name", flat=True)
 
         data_to_insert = {k: v for k, v in data.items() if k not in current_products}
+        data_to_update = {k: v for k, v in data.items() if k in current_products}
 
         channel = Channel.objects.filter(slug=channel_slug).first()
 
@@ -122,6 +162,20 @@ class Command(BaseCommand):
             raise CommandError(f"Can't find a channel with slug `{channel_slug}`!")
 
         new_products = []
+
+        assigned_product_attribute_values_to_insert: list[
+            AssignedProductAttributeValue
+        ] = []
+        assigned_product_attribute_values_to_delete: list[
+            AssignedProductAttributeValue
+        ] = []
+
+        biomarkers_attribute_values_ids = self.get_medical_attribute_values_ids(
+            "biomarkers"
+        )
+        medical_exams_attribute_values_ids = self.get_medical_attribute_values_ids(
+            "medical_exams"
+        )
 
         for d in data_to_insert.values():
             title = d["title"][self.checkup_default_language_code]
@@ -139,7 +193,87 @@ class Command(BaseCommand):
                 )
             )
 
-        Product.objects.bulk_create(new_products, ignore_conflicts=False)
+        inserted_products = Product.objects.bulk_create(
+            new_products, ignore_conflicts=False
+        )
+
+        for product in inserted_products:
+            product_data = data_to_insert.get(product.name) or {}
+            biomarkers = product_data.get("biomarkers")
+            medical_exams = product_data.get("medical_exams")
+
+            if biomarkers:
+                assigned_product_attribute_values_to_insert += (
+                    AttributeUtils.add_medical_attributes_data(
+                        product.pk,
+                        biomarkers,
+                        biomarkers_attribute_values_ids,
+                    )
+                )
+
+            if medical_exams:
+                assigned_product_attribute_values_to_insert += (
+                    AttributeUtils.add_medical_attributes_data(
+                        product.pk,
+                        medical_exams,
+                        medical_exams_attribute_values_ids,
+                    )
+                )
+
+        products_to_update = Product.objects.filter(name__in=data_to_update.keys())
+
+        for product in products_to_update:
+            data_product = data_to_update.get(product.name)
+
+            if data_product:
+                biomarkers = data_product.get("biomarkers")
+                medical_exams = data_product.get("medical_exams")
+
+                if biomarkers:
+                    biomarkers = [int(b) for b in biomarkers]
+
+                    biomarkers_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                                "biomarkers"
+                            ],
+                            product_id=product.pk,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        biomarkers_assigned_product_attribute_values
+                    )
+
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            biomarkers,
+                            biomarkers_attribute_values_ids,
+                        )
+                    )
+
+                if medical_exams:
+                    medical_exams = [int(b) for b in medical_exams]
+
+                    medical_exams_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                                "medical_exams"
+                            ],
+                            product_id=product.pk,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        medical_exams_assigned_product_attribute_values
+                    )
+
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            medical_exams,
+                            medical_exams_attribute_values_ids,
+                        )
+                    )
 
         all_checkup_products = Product.objects.filter(
             name__in=data.keys()
@@ -196,6 +330,15 @@ class Command(BaseCommand):
                             language_code=lang,
                         )
                     )
+
+        AssignedProductAttributeValue.objects.filter(
+            id__in=[apav.pk for apav in assigned_product_attribute_values_to_delete]
+        ).delete()
+
+        AssignedProductAttributeValue.objects.bulk_create(
+            assigned_product_attribute_values_to_insert,
+            batch_size=500,
+        )
 
         ProductChannelListing.objects.bulk_create(
             product_channel_listings, ignore_conflicts=True
