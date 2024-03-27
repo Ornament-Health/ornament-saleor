@@ -40,7 +40,7 @@ class Command(BaseCommand):
         parser.add_argument("--user_id_start", help="")
         parser.add_argument("--user_id_end", help="")
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options) -> None:
         user_start = options.get("user_id_start")
         user_end = options.get("user_id_end") or user_start
 
@@ -94,4 +94,4 @@ class Command(BaseCommand):
                 user_id, pid, profile_data["sex"], profile_data["age"]
             )
 
-        return
+        return None
