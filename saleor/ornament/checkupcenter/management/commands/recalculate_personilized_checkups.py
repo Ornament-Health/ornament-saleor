@@ -34,7 +34,7 @@ def calculate_age(birthday: int):
 
 
 class Command(BaseCommand):
-    help = "Recalculate personilized checkups"
+    help = "Personalized checkups rematching"
 
     def add_arguments(self, parser):
         parser.add_argument("--user_id_start", help="")
@@ -44,9 +44,11 @@ class Command(BaseCommand):
         user_start = options.get("user_id_start")
         user_end = options.get("user_id_end") or user_start
 
-        checkups = CheckUp.objects.filter(
-            user_id__in=[user_start, user_end], is_personalized=True
-        ).active()
+        checkups = (
+            CheckUp.objects.select_related("user")
+            .filter(user_id__in=[user_start, user_end], is_personalized=True)
+            .active()
+        )
 
         known_profiles_data = {}
 
