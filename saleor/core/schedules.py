@@ -2,7 +2,6 @@ from collections import namedtuple
 from datetime import datetime, timedelta
 from typing import cast
 
-import pytz
 from celery.utils.time import maybe_timedelta, remaining
 from django.db.models import F, Q
 
@@ -66,7 +65,7 @@ class promotion_webhook_schedule(CustomSchedule):
             get_starting_promotions,
         )
 
-        now = datetime.now(pytz.UTC)
+        now = datetime.now()
 
         # remaining time must be calculated as the next call is overridden with 0
         # when is_due was True (/celery/beat.py Scheduler.populate_heap)

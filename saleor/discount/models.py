@@ -4,7 +4,6 @@ from functools import partial
 from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-import pytz
 from django.conf import settings
 from django.contrib.postgres.indexes import BTreeIndex, GinIndex
 from django.db import connection, models
@@ -342,7 +341,7 @@ class Promotion(ModelWithMetadata):
 
     def is_active(self, date=None):
         if date is None:
-            date = datetime.now(pytz.utc)
+            date = datetime.now()
         return (not self.end_date or self.end_date >= date) and self.start_date <= date
 
     def assign_old_sale_id(self):

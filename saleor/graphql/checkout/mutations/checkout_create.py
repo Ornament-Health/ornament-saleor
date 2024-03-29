@@ -41,6 +41,7 @@ from .utils import (
     group_lines_input_on_add,
     validate_variants_are_published,
     validate_variants_available_for_purchase,
+    validate_variants_vendor_deal_flow,
 )
 from saleor.ornament.vendors.utils import apply_vendor_address_augmentation
 
@@ -224,6 +225,7 @@ class CheckoutCreate(ModelMutation, I18nMixin):
             CheckoutErrorCode.UNAVAILABLE_VARIANT_IN_CHANNEL.value,
         )
         validate_variants_are_published(variant_db_ids, channel.id)
+        validate_variants_vendor_deal_flow(variants)
 
         variants, quantities = get_variants_and_total_quantities(
             variants, checkout_lines_data

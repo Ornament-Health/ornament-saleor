@@ -17,3 +17,14 @@ class Vendor(ModelObjectType[vendors_models.Vendor]):
         interfaces = [graphene.relay.Node]
         fields = ["id", "name", "slug", "transaction_flow"]
         description = "Represents a Vendor."
+
+
+class VendorDealType(graphene.ObjectType):
+    transaction_flow = graphene.Boolean(
+        description="Vendor transaction flow", required=True
+    )
+    home_visit = graphene.Boolean(description="Vendor home visit", required=True)
+    shipment = graphene.Boolean(description="Vendor shipment", required=True)
+
+    class Meta:
+        description = "Represents Deal Type for vendor."

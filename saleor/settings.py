@@ -1019,3 +1019,6 @@ THESAURUS_API_URL_1_1 = os.environ.get(
 )
 
 AUTO_CITY_APPROVED = os.environ.get("AUTO_CITY_APPROVED", False)
+VENDOR_DEAL_TYPE_CACHE_TTL = int(
+    os.environ.get("VENDOR_DEAL_TYPE_CACHE_TTL", 60 * 5)  # 5 min
+)

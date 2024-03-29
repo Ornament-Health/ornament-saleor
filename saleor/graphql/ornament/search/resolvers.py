@@ -1,6 +1,8 @@
 from itertools import groupby
 from operator import attrgetter
 
+from django.forms import model_to_dict
+
 from saleor.ornament.vendors.models import Vendor
 from saleor.product.models import ProductChannelListing
 
@@ -11,7 +13,7 @@ def resolve_search_products(info):
         .order_by("product_id")
         .prefetch_related("channel", "product__variants__channel_listings")
     )
-    vendors = Vendor.objects.values_list("name", flat=True)
+    vendors = Vendor.objects.all()
 
     products = []
 
@@ -24,10 +26,20 @@ def resolve_search_products(info):
         variants = product.variants.all()
         product_prices = []
         product_vendors = set()
+        product_deal_types = []
 
         for variant in variants:
-            if not variant.name in vendors:
+            vendor = vendors.filter(name=variant.name).first()
+
+            if not vendor:
                 continue
+
+            deal_type = (
+                model_to_dict(vendor.deal_type, exclude="id")
+                if vendor.deal_type
+                else None
+            )
+            product_deal_types.append({"vendor": vendor.name, "deal_type": deal_type})
 
             variant_prices = variant.channel_listings.select_related("channel").values(
                 "channel__slug", "price_amount", "currency"
@@ -44,6 +56,7 @@ def resolve_search_products(info):
 
         product.variants_prices = product_prices
         product.vendors = product_vendors
+        product.deal_types = product_deal_types
         # legacy (for old app versions support), deprecated
         product.variant_id = variants[0].id
 

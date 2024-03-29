@@ -4,12 +4,15 @@ from dataclasses import asdict
 from decimal import Decimal
 from typing import Optional
 
+
 import graphene
 from graphene import relay
 from promise import Promise
 import graphene_django_optimizer as gql_optimizer
 
 # @cf::ornament.saleor.product
+from saleor.graphql.ornament.vendors.types import VendorDealType
+from saleor.ornament.vendors.utils import get_vendor_deal_type
 from saleor.ornament.geo.channel_utils import get_channel
 
 from ....attribute import models as attribute_models
@@ -71,6 +74,7 @@ from ...core.doc_category import DOC_CATEGORY_PRODUCTS
 from ...core.enums import ReportingPeriod
 from ...core.federation import federated_entity, resolve_federation_references
 from ...core.fields import (
+    BaseField,
     ConnectionField,
     FilterConnectionField,
     JSONString,
@@ -409,6 +413,11 @@ class ProductVariant(ChannelContextTypeWithMetadata[models.ProductVariant]):
     external_reference = graphene.String(
         description=f"External ID of this product. {ADDED_IN_310}",
         required=False,
+    )
+    # @cf::ornament.saleor.checkout
+    deal_type = BaseField(
+        VendorDealType,
+        description=("The deal type for this checkout."),
     )
 
     class Meta:
@@ -824,6 +833,13 @@ class ProductVariant(ChannelContextTypeWithMetadata[models.ProductVariant]):
                 )
 
         return [variants.get(root_id) for root_id in roots_ids]
+
+    # @cf::ornament.saleor.product
+    @staticmethod
+    def resolve_deal_type(
+        root: ChannelContext[models.ProductVariant], info
+    ) -> Optional[VendorDealType]:
+        return get_vendor_deal_type(root.node.name)
 
 
 class ProductVariantCountableConnection(CountableConnection):

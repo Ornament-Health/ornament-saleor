@@ -1,7 +1,7 @@
 from datetime import datetime
+from typing import Optional
 
 import graphene
-import pytz
 from django.core.exceptions import ValidationError
 
 from .....core.tracing import traced_atomic_transaction
@@ -139,6 +139,15 @@ class SaleCreate(ModelMutation):
         cls.call_event(manager.sale_created, instance, catalogue_info)
         cls.send_sale_toggle_notification(manager, instance, catalogue_info)
 
+    # @cf::ornament.saleor.graphql.discount
+    @classmethod
+    def _patch_promotion_datetime_tz_info(cls, promotion: Promotion) -> Promotion:
+        if promotion.start_date:
+            promotion.start_date = promotion.start_date.replace(tzinfo=None)
+        if promotion.end_date:
+            promotion.end_date = promotion.end_date.replace(tzinfo=None)
+        return promotion
+
     @classmethod
     def send_sale_toggle_notification(cls, manager, instance, catalogue):
         """Send a notification about starting or ending sale if it hasn't been sent yet.
@@ -146,7 +155,10 @@ class SaleCreate(ModelMutation):
         Send the notification when the start date is before the current date and the
         sale is not already finished.
         """
-        now = datetime.now(pytz.utc)
+        now = datetime.now()
+
+        # @cf::ornament.saleor.graphql.discount
+        instance = cls._patch_promotion_datetime_tz_info(instance)
 
         start_date = instance.start_date
         end_date = instance.end_date

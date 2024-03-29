@@ -1,7 +1,7 @@
 from datetime import datetime
+from typing import Optional
 
 import graphene
-import pytz
 from django.core.exceptions import ValidationError
 from django.db.models import Exists, OuterRef
 
@@ -68,10 +68,31 @@ class SaleUpdate(ModelMutation):
             ),
         ]
 
+    # @cf::ornament.saleor.graphql.discount
+    @classmethod
+    def _patch_input_datetime_tz_info(
+        cls, input: Optional[SaleInput]
+    ) -> Optional[SaleInput]:
+        if not input:
+            return None
+        if input.start_date:
+            start_date = input.start_date.replace(tzinfo=None)
+            setattr(input, "start_date", start_date)
+            input["start_date"] = start_date
+        if input.end_date:
+            end_date = input.end_date.replace(tzinfo=None)
+            setattr(input, "end_date", end_date)
+            input["end_date"] = end_date
+        return input
+
     @classmethod
     def perform_mutation(cls, _root, info: ResolveInfo, /, **data):
         promotion = cls.get_instance(info, **data)
         input = data.get("input")
+
+        # @cf::ornament.saleor.graphql.discount
+        input = cls._patch_input_datetime_tz_info(input)
+
         cls.validate_dates(promotion, input)
         rules = promotion.rules.all()
         previous_predicate = rules[0].catalogue_predicate
@@ -231,7 +252,7 @@ class SaleUpdate(ModelMutation):
         and the notification_date is not set or the last notification was sent
         before start or end date.
         """
-        now = datetime.now(pytz.utc)
+        now = datetime.now()
 
         notification_date = instance.last_notification_scheduled_at
         start_date = input.get("start_date")

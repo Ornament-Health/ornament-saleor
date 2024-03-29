@@ -1,7 +1,6 @@
 import datetime
 from typing import Any, TypeVar
 
-import pytz
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models, transaction
 from django.db.models import F, JSONField, Max, Q

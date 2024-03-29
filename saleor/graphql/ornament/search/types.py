@@ -20,6 +20,13 @@ class SearchProductChannelPrice(graphene.ObjectType):
     variant_id = graphene.String(description="Variant ID")
 
 
+class SearchProductVendorDealType(graphene.ObjectType):
+    vendor = graphene.String(description="Vendor name")
+    transaction_flow = graphene.Boolean(description="Vendor transaction flow")
+    home_visit = graphene.Boolean(description="Vendor home visit")
+    shipment = graphene.Boolean(description="Vendor shipment")
+
+
 class SearchProductType(graphene.ObjectType):
     id = graphene.GlobalID(required=True, description="The ID of the product type.")
     name = graphene.String(required=True, description="Name of the product type.")
@@ -37,6 +44,11 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     vendors = graphene.List(
         graphene.NonNull(graphene.String),
         description="List of product vendors.",
+        required=True,
+    )
+    deal_types = graphene.List(
+        graphene.NonNull(SearchProductVendorDealType),
+        description="List of vendors deal types",
         required=True,
     )
     name = graphene.String(required=True, description="Product name.")
@@ -117,6 +129,19 @@ class SearchProduct(ModelObjectType[product_models.Product]):
             name=root.product_type.name,
             slug=root.product_type.slug,
         )
+
+    @classmethod
+    def resolve_deal_types(cls, root: product_models.Product, info):
+        return [
+            SearchProductVendorDealType(
+                vendor=dt["vendor"],
+                transaction_flow=dt["deal_type"]["transaction_flow"],
+                home_visit=dt["deal_type"]["home_visit"],
+                shipment=dt["deal_type"]["shipment"],
+            )
+            for dt in root.deal_types
+            if dt["deal_type"]
+        ]
 
 
 class SearchProductCountableConnection(CountableConnection):

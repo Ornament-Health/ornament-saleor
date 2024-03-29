@@ -10,7 +10,10 @@ from typing import Optional
 import aiohttp
 from asgiref.sync import async_to_sync
 from django.conf import settings
+from django.core.cache import cache
+from django.forms import model_to_dict
 
+from saleor.graphql.ornament.vendors.types import VendorDealType
 from saleor.order.fetch import OrderLineInfo
 from saleor.order.models import Order
 from saleor.ornament.vendors.kdl import tasks as kdl_tasks
@@ -26,6 +29,37 @@ DEFAULT_DESCRIPTION_VERSION = "2.24.3"
 class MedicalData:
     biomarker_ids: list[int]
     medical_exams_ids: list[int]
+
+
+def form_slack_error_message(error_text: str) -> dict:
+    return {
+        "attachments": [
+            {
+                "color": "#ff0000",
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": error_text,
+                        },
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": (
+                                    f"Server *{settings.SLACK_ENVIRONMENT}*, "
+                                    f"Region *{settings.SLACK_REGION}*"
+                                ),
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
+    }
 
 
 @async_to_sync
@@ -59,6 +93,35 @@ async def fetch_medical_data() -> MedicalData:
         return MedicalData(
             biomarker_ids=biomarker_ids, medical_exams_ids=medical_exams_ids
         )
+
+
+def get_vendor_deal_type(vendor_name: str) -> Optional[VendorDealType]:
+    key = f"vendor_deal_type:{vendor_name}"
+    cached = cache.get(key)
+    ttl = settings.VENDOR_DEAL_TYPE_CACHE_TTL
+
+    if cached:
+        if cached == "null":
+            return None
+        return VendorDealType(**cached)
+
+    vendor = Vendor.objects.filter(name=vendor_name).first()
+
+    if not vendor or not vendor.deal_type:
+        cache.set(key, "null", ttl)
+        return None
+
+    deal_type_dict = model_to_dict(vendor.deal_type, exclude="id")
+    cache.set(key, deal_type_dict, ttl)
+
+    return VendorDealType(**deal_type_dict)
+
+
+def check_deal_types_valid(deal_types: list[Optional[VendorDealType]]) -> bool:
+    if not deal_types:
+        return False
+
+    return all(d.__dict__ == deal_types[0].__dict__ for d in deal_types if d)
 
 
 def random_string(size) -> str:

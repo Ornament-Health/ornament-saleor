@@ -2,9 +2,9 @@ from itertools import chain
 from typing import Optional
 
 from django.db.models import Q
-from i18naddress import get_validation_rules
+from i18naddress import get_validation_rules, ValidationRules
 
-from ...account import models
+from ...account import Sex, models
 from ...core.exceptions import PermissionDenied
 from ...graphql.core.context import get_database_connection_name
 from ...payment import gateway
@@ -17,13 +17,23 @@ from ..core.tracing import traced_resolver
 from ..core.utils import from_global_id_or_error
 from ..meta.resolvers import resolve_metadata
 from ..utils import format_permissions_for_display, get_user_or_app_from_context
-from .types import Address, AddressValidationData, ChoiceValue, User
+from .types import (
+    Address,
+    AddressValidationData,
+    ChoiceValue,
+    OrnamentValidationData,
+    OrnamentValidationFieldData,
+    User,
+)
 from .utils import (
     get_allowed_fields_camel_case,
     get_required_fields_camel_case,
     get_upper_fields_camel_case,
     get_user_permissions,
+    validation_field_to_camel_case,
 )
+
+from saleor.channel.models import Channel
 
 USER_SEARCH_FIELDS = (
     "email",
@@ -174,6 +184,95 @@ def resolve_address_validation_rules(
         ],
         postal_code_examples=rules.postal_code_examples,
         postal_code_prefix=rules.postal_code_prefix,
+    )
+
+
+# @cf::ornament.saleor.graphql.account
+def get_area_choices(areas: list[tuple]) -> list[ChoiceValue]:
+    return [ChoiceValue(area[0], area[1]) for area in areas]
+
+
+# @cf::ornament.saleor.graphql.account
+def augment_ornament_validation_field(
+    field_name: str, required: bool, rules: ValidationRules
+) -> OrnamentValidationFieldData:
+    choices = None
+    matchers = None
+    examples = None
+    prefix = None
+
+    if field_name == "country_area":
+        choices = get_area_choices(rules.country_area_choices)
+    if field_name == "city":
+        choices = get_area_choices(rules.city_choices)
+    if field_name == "city_area":
+        choices = get_area_choices(rules.city_area_choices)
+    if field_name == "sex":
+        choices = get_area_choices(Sex.CHOICES)
+    if field_name == "postal_code":
+        matchers = [compiled.pattern for compiled in rules.postal_code_matchers]
+        examples = rules.postal_code_examples
+        prefix = rules.postal_code_prefix
+
+    return OrnamentValidationFieldData(
+        name=validation_field_to_camel_case(field_name),
+        required=required,
+        choices=choices,
+        matchers=matchers,
+        examples=examples,
+        prefix=prefix,
+    )
+
+
+# @cf::ornament.saleor.graphql.account
+def get_ornament_validation_fields(
+    fields: list[dict], rules: ValidationRules
+) -> list[OrnamentValidationFieldData]:
+    augmented_fields = []
+
+    for field in fields:
+        name = field.get("name")
+        required = field.get("required", False)
+
+        if name:
+            augmented_fields.append(
+                augment_ornament_validation_field(name, required, rules)
+            )
+
+    return augmented_fields
+
+
+# @cf::ornament.saleor.graphql.account
+@traced_resolver
+def resolve_ornament_validation_rules(
+    info: ResolveInfo,
+    country_code: str,
+    channel: str,
+):
+    rules = get_validation_rules({"country_code": country_code})
+
+    channel_db = Channel.objects.filter(slug=channel).first()
+
+    if (
+        not channel_db
+        or not channel_db.metadata
+        or not channel_db.metadata.get("ornament_validation_data")
+    ):
+        return OrnamentValidationData(
+            checkout_fields=[],
+            address_fields=[],
+        )
+
+    validation_data = channel_db.metadata.get("ornament_validation_data") or {}
+    data_checkout_fields = validation_data.get("checkout_fields") or []
+    data_address_fields = validation_data.get("address_fields") or []
+
+    checkout_fields = get_ornament_validation_fields(data_checkout_fields, rules)
+    address_fields = get_ornament_validation_fields(data_address_fields, rules)
+
+    return OrnamentValidationData(
+        checkout_fields=checkout_fields,
+        address_fields=address_fields,
     )
 
 

@@ -1,8 +1,12 @@
+from typing import Optional
+
 import graphene
 from django.core.exceptions import ValidationError
 
+
 from ...core.exceptions import CircularSubscriptionSyncEvent
 from ...webhook.event_types import WebhookEventSyncType
+from saleor.graphql.ornament.vendors.types import VendorDealType
 
 
 def prepare_insufficient_stock_checkout_validation_error(exc):
