@@ -13,9 +13,10 @@ from typing import (
 )
 
 import graphene
-import pytz
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q, QuerySet
+
+from saleor.ornament.vendors.utils import check_deal_types_valid, get_vendor_deal_type
 
 from ....checkout import models
 from ....checkout.error_codes import CheckoutErrorCode
@@ -262,6 +263,23 @@ def validate_variants_are_published(
                     "Cannot add lines for unpublished variants.",
                     code=error_code,
                     params={"variants": not_published_graphql_ids},
+                )
+            }
+        )
+
+
+def validate_variants_vendor_deal_flow(
+    variants: list[ProductVariant],
+    error_code: str = CheckoutErrorCode.VENDORS_DEAL_FLOW.value,
+):
+    vendors = set([v.name for v in variants])
+
+    if not check_deal_types_valid([get_vendor_deal_type(v) for v in vendors]):
+        raise ValidationError(
+            {
+                "lines": ValidationError(
+                    "Cannot add lines for variants with different vendors deal types",
+                    code=error_code,
                 )
             }
         )

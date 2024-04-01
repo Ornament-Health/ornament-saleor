@@ -74,6 +74,7 @@ from .resolvers import (
     resolve_address,
     resolve_address_validation_rules,
     resolve_customers,
+    resolve_ornament_validation_rules,
     resolve_permission_group,
     resolve_permission_groups,
     resolve_staff_users,
@@ -85,6 +86,7 @@ from .types import (
     AddressValidationData,
     Group,
     GroupCountableConnection,
+    OrnamentValidationData,
     User,
     UserCountableConnection,
 )
@@ -194,6 +196,21 @@ class AccountQueries(graphene.ObjectType):
         description="Look up a user by ID or email address.",
         doc_category=DOC_CATEGORY_USERS,
     )
+    # @cf::ornament.saleor.graphql.account
+    ornament_validation_rules = BaseField(
+        OrnamentValidationData,
+        description="Returns Ornament validation rules.",
+        country_code=graphene.Argument(
+            CountryCodeEnum,
+            description="Two-letter ISO 3166-1 country code.",
+            required=True,
+        ),
+        channel=graphene.Argument(
+            graphene.String,
+            description="Slug of a channel for which the data should be returned.",
+        ),
+        doc_category=DOC_CATEGORY_USERS,
+    )
 
     @staticmethod
     def resolve_address_validation_rules(
@@ -212,6 +229,17 @@ class AccountQueries(graphene.ObjectType):
             city=city,
             city_area=city_area,
         )
+
+    # @cf::ornament.saleor.graphql.account
+    @staticmethod
+    def resolve_ornament_validation_rules(
+        _root,
+        info: ResolveInfo,
+        *,
+        country_code,
+        channel,
+    ):
+        return resolve_ornament_validation_rules(info, country_code, channel)
 
     @staticmethod
     def resolve_customers(_root, info: ResolveInfo, **kwargs):

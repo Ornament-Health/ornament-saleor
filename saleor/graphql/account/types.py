@@ -890,6 +890,47 @@ class AddressValidationData(BaseObjectType):
         doc_category = DOC_CATEGORY_USERS
 
 
+# @cf::ornament.saleor.graphql.account
+class OrnamentValidationFieldData(graphene.ObjectType):
+    name = graphene.String(description="Name of a field.", required=True)
+    required = graphene.Boolean(
+        description="Determines if a field is required.", required=True
+    )
+    choices = graphene.List(
+        ChoiceValue,
+        description=("Available choices for the field validation."),
+    )
+    matchers = graphene.List(
+        graphene.String,
+        description="Regular expression for postal code validation.",
+    )
+    examples = graphene.List(
+        graphene.String,
+        description="Example of a field value.",
+    )
+    prefix = graphene.String(
+        description="Prefix of a field.",
+    )
+
+
+# @cf::ornament.saleor.graphql.account
+class OrnamentValidationData(BaseObjectType):
+    checkout_fields = NonNullList(
+        OrnamentValidationFieldData,
+        required=True,
+        description="Fields to use in checkout.",
+    )
+    address_fields = NonNullList(
+        OrnamentValidationFieldData,
+        required=True,
+        description="Fields to use in address.",
+    )
+
+    class Meta:
+        description = "Represents Ornament validation rules."
+        doc_category = DOC_CATEGORY_USERS
+
+
 class StaffNotificationRecipient(graphene.ObjectType):
     id = graphene.ID(
         required=True, description="The ID of the staff notification recipient."

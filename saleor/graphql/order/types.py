@@ -9,6 +9,14 @@ from django.core.exceptions import ValidationError
 from graphene import relay
 from promise import Promise
 
+from saleor.graphql.ornament.vendors.types import VendorDealType
+from saleor.ornament.vendors.utils import (
+    check_deal_types_valid,
+    form_slack_error_message,
+    get_vendor_deal_type,
+)
+from saleor.ornament.utils.slack import Slack
+
 from ...account.models import Address
 from ...account.models import User as UserModel
 from ...checkout.utils import get_external_shipping_id
@@ -81,7 +89,7 @@ from ..core.descriptions import (
 )
 from ..core.doc_category import DOC_CATEGORY_ORDERS
 from ..core.enums import LanguageCodeEnum
-from ..core.fields import PermissionsField
+from ..core.fields import BaseField, PermissionsField
 from ..core.mutations import validation_error_to_error_type
 from ..core.scalars import PositiveDecimal
 from ..core.tracing import traced_resolver
@@ -1472,6 +1480,12 @@ class Order(ModelObjectType[models.Order]):
         permissions=[OrderPermissions.MANAGE_ORDERS],
     )
 
+    # @cf::ornament.saleor.graphql.order
+    deal_type = BaseField(
+        VendorDealType,
+        description=("The deal type for this order."),
+    )
+
     class Meta:
         description = "Represents an order in the shop."
         interfaces = [relay.Node, ObjectWithMetadata]
@@ -2281,9 +2295,9 @@ class Order(ModelObjectType[models.Order]):
     def resolve_shipping_tax_class(cls, root: models.Order, info):
         if root.shipping_method_id:
             return cls.resolve_shipping_method(root, info).then(
-                lambda shipping_method_data: shipping_method_data.tax_class
-                if shipping_method_data
-                else None
+                lambda shipping_method_data: (
+                    shipping_method_data.tax_class if shipping_method_data else None
+                )
             )
         return None
 
@@ -2319,6 +2333,26 @@ class Order(ModelObjectType[models.Order]):
             qs = models.Order.objects.none()
 
         return resolve_federation_references(Order, roots, qs)
+
+    # @cf::ornament.saleor.graphql.order
+    @staticmethod
+    def resolve_deal_type(root: models.Order, info) -> Optional[VendorDealType]:
+        vendors = set([l.variant.name for l in root.lines.all()])
+        deal_types = [get_vendor_deal_type(v) for v in vendors]
+
+        if not deal_types:
+            return None
+
+        if not check_deal_types_valid(deal_types):
+            error_text = (
+                f"<!channel> \n"
+                f":bangbang: Detected order with illegitimate vendors deal type! \n"
+                f"Order number: {root.number}"
+            )
+            slack_message = form_slack_error_message(error_text)
+            Slack.send_message_task.delay(slack_message)
+
+        return deal_types[0]
 
 
 class OrderCountableConnection(CountableConnection):

@@ -1,7 +1,6 @@
 import datetime
 
 import graphene
-import pytz
 from django.core.exceptions import ValidationError
 
 from .....core.utils.date_time import convert_to_utc_date_time

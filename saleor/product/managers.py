@@ -5,7 +5,6 @@ from typing import Optional, Union
 from functools import reduce
 from operator import or_
 
-import pytz
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models

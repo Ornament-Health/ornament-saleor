@@ -4,8 +4,6 @@ from typing import TYPE_CHECKING, Optional
 import graphene
 from promise import Promise
 
-from saleor.ornament.vendors.models import Vendor
-
 from ...checkout import calculations, models, problems
 from ...checkout.base_calculations import (
     calculate_undiscounted_base_line_total_price,
@@ -94,6 +92,15 @@ from .dataloaders import (
 )
 from .enums import CheckoutAuthorizeStatusEnum, CheckoutChargeStatusEnum
 from .utils import prevent_sync_event_circular_query
+
+from saleor.ornament.utils.slack import Slack
+from saleor.ornament.vendors.models import Vendor
+from saleor.ornament.vendors.utils import (
+    form_slack_error_message,
+    check_deal_types_valid,
+    get_vendor_deal_type
+)
+from saleor.graphql.ornament.vendors.types import VendorDealType
 
 if TYPE_CHECKING:
     from ...account.models import Address
@@ -791,6 +798,11 @@ class Checkout(ModelObjectType[models.Checkout]):
         ),
         required=True,
     )
+    # @cf::ornament.saleor.checkout
+    deal_type = BaseField(
+        VendorDealType,
+        description=("The deal type for this checkout."),
+    )
 
     class Meta:
         description = "Checkout object."
@@ -1282,12 +1294,32 @@ class Checkout(ModelObjectType[models.Checkout]):
     @staticmethod
     def resolve_transaction_flow(root: models.Checkout, info) -> bool:
         vendor_names = set([l.variant.name for l in root.lines.all()])
-        transaction_flow = all(
-            Vendor.objects.filter(name__in=vendor_names).values_list(
-                "transaction_flow", flat=True
-            )
+        vendors = Vendor.objects.filter(name__in=vendor_names)
+
+        return (
+            vendors.exists()
+            and vendors.filter(deal_type__transaction_flow=False).count() == 0
         )
-        return transaction_flow
+
+    # @cf::ornament.saleor.checkout
+    @staticmethod
+    def resolve_deal_type(root: models.Checkout, info) -> Optional[VendorDealType]:
+        vendors = set([l.variant.name for l in root.lines.all()])
+        deal_types = [get_vendor_deal_type(v) for v in vendors]
+
+        if not deal_types:
+            return None
+
+        if not check_deal_types_valid(deal_types):
+            error_text = (
+                f"<!channel> \n"
+                f":bangbang: Detected checkout with illegitimate vendors deal type! \n"
+                f"Checkout token: {root.token}"
+            )
+            slack_message = form_slack_error_message(error_text)
+            Slack.send_message_task.delay(slack_message)
+
+        return deal_types[0]
 
 
 class CheckoutCountableConnection(CountableConnection):
