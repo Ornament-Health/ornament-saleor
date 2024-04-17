@@ -44,9 +44,15 @@ class Command(BaseCommand):
         user_start = options.get("user_id_start")
         user_end = options.get("user_id_end") or user_start
 
+        if not user_start or not user_end:
+            return
+
         checkups = (
             CheckUp.objects.select_related("user")
-            .filter(user_id__in=[user_start, user_end], is_personalized=True)
+            .filter(
+                user_id__in=list(range(int(user_start), int(user_end))),
+                is_personalized=True,
+            )
             .active()
         )
 
