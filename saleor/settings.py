@@ -276,6 +276,7 @@ INSTALLED_APPS = [
     "saleor.ornament.vendors",
     "saleor.ornament.vendors.kdl",
     "saleor.ornament.vendors.gettested",
+    "saleor.ornament.vendors.dardoc",
     # @cf::ornament.geo
     "saleor.ornament.geo",
     # External apps
