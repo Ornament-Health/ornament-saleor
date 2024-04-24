@@ -413,7 +413,7 @@ class ProductQueries(graphene.ObjectType):
     @staticmethod
     @traced_resolver
     # @cf::ornament.saleor.product
-    @login_required
+    @login_required(check_header=True)
     def resolve_product(
         _root,
         info: ResolveInfo,
@@ -449,7 +449,7 @@ class ProductQueries(graphene.ObjectType):
     @staticmethod
     @traced_resolver
     # @cf::ornament.saleor.product
-    @login_required
+    @login_required(check_header=True)
     def resolve_products(_root, info: ResolveInfo, *, channel=None, **kwargs):
         check_for_sorting_by_rank(info, kwargs)
         search = kwargs.get("search")
@@ -483,7 +483,7 @@ class ProductQueries(graphene.ObjectType):
     @staticmethod
     @traced_resolver
     # @cf::ornament.saleor.product
-    @login_required
+    @login_required(check_header=True)
     def resolve_product_variant(
         _root,
         info: ResolveInfo,
@@ -518,7 +518,7 @@ class ProductQueries(graphene.ObjectType):
 
     @staticmethod
     # @cf::ornament.saleor.product
-    @login_required
+    @login_required(check_header=True)
     def resolve_product_variants(
         _root, info: ResolveInfo, *, ids=None, channel=None, **kwargs
     ):
@@ -544,7 +544,7 @@ class ProductQueries(graphene.ObjectType):
     @staticmethod
     @traced_resolver
     # @cf::ornament.saleor.product
-    @login_required
+    @login_required(check_header=True)
     def resolve_report_product_sales(
         _root, info: ResolveInfo, *, period, channel, **kwargs
     ):

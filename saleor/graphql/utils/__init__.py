@@ -312,17 +312,22 @@ def format_error(error, handled_exceptions):
 
 
 # @cf::ornament.saleor.utils
-def login_required(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        with suppress(IndexError):
-            info = args[1]
-            requester = get_user_or_app_from_context(info.context)
+def login_required(check_header=False):
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            with suppress(IndexError):
+                info = args[1]
+                if check_header and info.context.headers.get("WISE"):
+                    return fn(*args, **kwargs)
+                requester = get_user_or_app_from_context(info.context)
 
-            if requester and requester.is_authenticated:
-                return fn(*args, **kwargs)
+                if requester and requester.is_authenticated:
+                    return fn(*args, **kwargs)
 
+                return PermissionDenied()
             return PermissionDenied()
-        return PermissionDenied()
 
-    return wrapper
+        return wrapper
+
+    return decorator
