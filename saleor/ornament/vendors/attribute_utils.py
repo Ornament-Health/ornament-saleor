@@ -103,11 +103,11 @@ class AttributeUtils:
         if not medical_data_ids:
             return []
 
-        apav = []
+        assigned_product_attribute_values = []
 
         for b in set(medical_data_ids):
             if attribute_values.get(b):
-                apav.append(
+                assigned_product_attribute_values.append(
                     AssignedProductAttributeValue(
                         value_id=attribute_values.get(b),
                         product_id=product_id,
@@ -118,7 +118,7 @@ class AttributeUtils:
                     f"No medical data (biomarkers or medical_exams) found for: {b}"
                 )
 
-        return apav
+        return assigned_product_attribute_values
 
     @staticmethod
     def add_color_attribute_data(
