@@ -1,8 +1,12 @@
+import logging
+
 from django.core.management.base import CommandError
 
 from saleor.attribute.models.base import AttributeValue
 from saleor.attribute.models.product import AssignedProductAttributeValue
 from saleor.ornament.vendors.utils import form_rich_text
+
+logger = logging.getLogger(__name__)
 
 
 class AttributeUtils:
@@ -99,13 +103,22 @@ class AttributeUtils:
         if not medical_data_ids:
             return []
 
-        return [
-            AssignedProductAttributeValue(
-                value_id=attribute_values.get(b),
-                product_id=product_id,
-            )
-            for b in set(medical_data_ids)
-        ]
+        apav = []
+
+        for b in set(medical_data_ids):
+            if attribute_values.get(b):
+                apav.append(
+                    AssignedProductAttributeValue(
+                        value_id=attribute_values.get(b),
+                        product_id=product_id,
+                    )
+                )
+            else:
+                logger.error(
+                    f"No medical data (biomarkers or medical_exams) found for: {b}"
+                )
+
+        return apav
 
     @staticmethod
     def add_color_attribute_data(
