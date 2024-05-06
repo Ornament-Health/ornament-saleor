@@ -434,8 +434,6 @@ class Command(BaseCommand):
                     data_product["biomaterial"]
                     and "N/A" not in data_product["biomaterial"]
                 ):
-                    insert = False
-
                     name = data_product["biomaterial"].replace("\n", ", ")
 
                     if biomaterial_db_attribute_value:
@@ -445,10 +443,12 @@ class Command(BaseCommand):
                         )
 
                         if recreate:
-                            attribute_values_to_delete.append(
-                                biomaterial_db_attribute_value
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    value_id=biomaterial_db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
                             )
-                            insert = True
                         else:
                             biomaterial_db_attribute_value.name = name
                             biomaterial_db_attribute_value.plain_text = name
@@ -456,15 +456,13 @@ class Command(BaseCommand):
                                 biomaterial_db_attribute_value
                             )
                     else:
-                        insert = True
-
-                    if insert:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_biomaterial_attribute_data(
                                 product_id,
                                 data_product["biomaterial"],
                             )
                         )
+
                 else:
                     if biomaterial_db_attribute_value:
                         attribute_values_to_delete.append(
@@ -481,8 +479,6 @@ class Command(BaseCommand):
                     data_product["preparation"]
                     and "N/A" not in data_product["preparation"]
                 ):
-                    insert = False
-
                     preparation = data_product["preparation"]
                     name = preparation[:20] + "..."
                     rich_text = form_rich_text(preparation)
@@ -494,10 +490,12 @@ class Command(BaseCommand):
                         )
 
                         if recreate:
-                            attribute_values_to_delete.append(
-                                preparation_db_attribute_value
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    value_id=preparation_db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
                             )
-                            insert = True
                         else:
                             preparation_db_attribute_value.name = name
                             preparation_db_attribute_value.rich_text = rich_text
@@ -505,15 +503,13 @@ class Command(BaseCommand):
                                 preparation_db_attribute_value
                             )
                     else:
-                        insert = True
-
-                    if insert:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_preparation_attribute_data(
                                 product_id,
                                 preparation,
                             )
                         )
+
                 else:
                     if preparation_db_attribute_value:
                         attribute_values_to_delete.append(
@@ -532,9 +528,6 @@ class Command(BaseCommand):
                 if data_product["duration"] and "N/A" not in str(
                     data_product["duration"]
                 ):
-                    insert_duration = False
-                    insert_duration_unit = False
-
                     duration = int(data_product["duration"])
 
                     # DURATION
@@ -545,19 +538,18 @@ class Command(BaseCommand):
                         )
 
                         if recreate:
-                            attribute_values_to_delete.append(
-                                duration_db_attribute_value
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    value_id=duration_db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
                             )
-                            insert_duration = True
                         else:
                             duration_db_attribute_value.name = str(duration)
                             attribute_values_to_update.append(
                                 duration_db_attribute_value
                             )
                     else:
-                        insert_duration = True
-
-                    if insert_duration:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
@@ -574,10 +566,12 @@ class Command(BaseCommand):
                         )
 
                         if recreate:
-                            attribute_values_to_delete.append(
-                                duration_unit_db_attribute_value
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    value_id=duration_unit_db_attribute_value.pk,
+                                    product_id=product_id,
+                                )
                             )
-                            insert_duration_unit = True
                         else:
                             duration_unit_db_attribute_value.name = str(
                                 KdlDurationUnitEnum.DAY.value
@@ -586,9 +580,6 @@ class Command(BaseCommand):
                                 duration_unit_db_attribute_value
                             )
                     else:
-                        insert_duration_unit = True
-
-                    if insert_duration_unit:
                         assigned_product_attribute_values_to_insert.append(
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
@@ -596,6 +587,7 @@ class Command(BaseCommand):
                                 AttributeUtils.attrubutes_ids["kdl-duration_unit"],
                             )
                         )
+
                 else:
                     if duration_db_attribute_value:
                         attribute_values_to_delete.append(duration_db_attribute_value)
