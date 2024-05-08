@@ -35,7 +35,7 @@ from ..translations.mutations import (
     ProductVariantTranslate,
 )
 
-# @cf::ornament.saleor.product
+# @cf::ornament.saleor.graphql.product
 from ..utils import get_user_or_app_from_context, login_required
 from .bulk_mutations import (
     CategoryBulkDelete,

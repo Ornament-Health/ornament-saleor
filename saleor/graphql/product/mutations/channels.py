@@ -392,7 +392,9 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
 class ProductVariantChannelListingAddInput(BaseInputObjectType):
     channel_id = graphene.ID(required=True, description="ID of a channel.")
     price = PositiveDecimal(
-        required=True, description="Price of the particular variant in channel."
+        # @cf::ornament.saleor.graphql.product
+        required=False,
+        description="Price of the particular variant in channel.",
     )
     cost_price = PositiveDecimal(description="Cost price of the variant in channel.")
     preorder_threshold = graphene.Int(
@@ -415,6 +417,11 @@ class ProductVariantChannelListingUpdate(BaseMutation):
         sku = graphene.String(
             required=False,
             description="SKU of a product variant to update." + ADDED_IN_38,
+        )
+        # @cf::ornament.saleor.graphql.product
+        external_reference = graphene.String(
+            required=False,
+            description="External ID of a product variant to update.",
         )
         input = NonNullList(
             ProductVariantChannelListingAddInput,
@@ -546,15 +553,38 @@ class ProductVariantChannelListingUpdate(BaseMutation):
 
     @classmethod
     def perform_mutation(  # type: ignore[override]
-        cls, _root, info: ResolveInfo, /, *, id=None, input, sku=None
+        # @cf::ornament.saleor.graphql.product
+        cls,
+        _root,
+        info: ResolveInfo,
+        /,
+        *,
+        id=None,
+        input,
+        sku=None,
+        external_reference=None,
     ):
-        validate_one_of_args_is_in_mutation("sku", sku, "id", id)
+        validate_one_of_args_is_in_mutation(
+            "sku", sku, "id", id, "external_reference", external_reference
+        )
 
         qs = ProductVariantModel.objects.prefetched_for_webhook()
         if id:
             variant = cls.get_node_or_error(
                 info, id, only_type=ProductVariant, field="id", qs=qs
             )
+        # @cf::ornament.saleor.graphql.product
+        elif external_reference:
+            variant = qs.filter(external_reference=external_reference).first()
+            if not variant:
+                raise ValidationError(
+                    {
+                        "external_reference": ValidationError(
+                            f"Couldn't resolve to a node by external reference: {external_reference}",
+                            code="not_found",
+                        )
+                    }
+                )
         else:
             variant = qs.filter(sku=sku).first()
             if not variant:
