@@ -304,7 +304,7 @@ class ProductVariantQueryset(models.QuerySet):
         user_vendors_rules = None
         user_vendor = None
 
-        if requestor and requestor.id:
+        if not isinstance(requestor, App) and (requestor and requestor.id):
             user_vendor = requestor.vendor
 
             if user_vendor:

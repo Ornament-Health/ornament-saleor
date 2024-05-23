@@ -22,6 +22,8 @@ from ..thumbnail.utils import get_thumbnail_size
 from .base_plugin import ConfigurationTypeField
 from .error_codes import PluginErrorCode
 
+from saleor.ornament.utils.notification_api import NotificationApi
+
 if TYPE_CHECKING:
     from ..plugins.base_plugin import BasePlugin
     from ..plugins.models import PluginConfiguration
@@ -122,9 +124,9 @@ DEFAULT_EMAIL_CONFIG_STRUCTURE = {
 def format_address(this, address, include_phone=True, inline=False, latin=False):
     address["name"] = f"{address.get('first_name', '')} {address.get('last_name', '')}"
     address["country_code"] = address["country"]
-    address[
-        "street_address"
-    ] = f"{address.get('street_address_1','')}\n {address.get('street_address_2','')}"
+    address["street_address"] = (
+        f"{address.get('street_address_1','')}\n {address.get('street_address_2','')}"
+    )
     address_lines = i18naddress.format_address(address, latin).split("\n")
     phone = address.get("phone")
     if include_phone and phone:
@@ -183,7 +185,7 @@ def price(this, net_amount, gross_amount, currency, display_gross=False):
     return pybars.strlist([formatted_price])
 
 
-def send_email(
+def send_email_saleor_legacy(
     config: EmailConfig, recipient_list, context, subject="", template_str=""
 ):
     sender_name = config.sender_name or ""
@@ -219,6 +221,26 @@ def send_email(
         recipient_list,
         html_message=message,
         connection=email_backend,
+    )
+
+
+def send_email(
+    config: EmailConfig, recipient_list, context, subject="", template_str=""
+):
+    compiler = pybars.Compiler()
+    template = compiler.compile(template_str)
+    subject_template = compiler.compile(subject)
+    helpers = {
+        "format_address": format_address,
+        "price": price,
+        "format_datetime": format_datetime,
+        "get_product_image_thumbnail": get_product_image_thumbnail,
+        "compare": compare,
+    }
+    message = template(context, helpers=helpers)
+    subject_message = subject_template(context, helpers)
+    NotificationApi.send_email(
+        recipients=recipient_list, subject=subject_message, body=message
     )
 
 
