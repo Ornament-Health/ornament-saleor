@@ -40,6 +40,7 @@ def order_event_post_save_handler(sender, instance: OrderEvent, created, **kwarg
                                 f"Order event:\n"
                                 f"*{order_event_text}"
                                 f"{' by ' + str(instance.user.email) if instance.user and instance.user.email else ''}*"
+                                f"\n{'iid: ' + str(instance.parameters['iid']) if instance.parameters and instance.parameters.get('iid') else ''}"
                             ),
                         },
                     },
