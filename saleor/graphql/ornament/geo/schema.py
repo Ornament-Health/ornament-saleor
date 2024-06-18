@@ -21,11 +21,11 @@ class GeoQueries(graphene.ObjectType):
         CityCountableConnection, description="List of the cities."
     )
 
-    @login_required
+    @login_required()
     def resolve_city(self, info, id):
         return graphene.Node.get_node_from_global_id(info, id, City)
 
-    @login_required
+    @login_required()
     def resolve_cities(self, info, **kwargs):
         qs = resolve_cities(info, **kwargs)
         qs = filter_connection_queryset(qs, kwargs)

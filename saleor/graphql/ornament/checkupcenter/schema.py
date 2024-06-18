@@ -44,7 +44,7 @@ class CheckUpCenterQueries(graphene.ObjectType):
         ),
     )
 
-    @login_required
+    @login_required()
     def resolve_checkup_categories(self, info, **kwargs):
         qs = resolvers.resolve_checkup_categories(info, **kwargs)
         qs = filter_connection_queryset(qs, kwargs)
@@ -52,7 +52,7 @@ class CheckUpCenterQueries(graphene.ObjectType):
             qs, info, kwargs, types.CheckUpCategoryCountableConnection
         )
 
-    @login_required
+    @login_required()
     def resolve_checkup_product_categories(self, info, **kwargs):
         qs = resolvers.resolve_checkup_product_categories(info, **kwargs)
         qs = filter_connection_queryset(qs, kwargs)
@@ -60,7 +60,7 @@ class CheckUpCenterQueries(graphene.ObjectType):
             qs, info, kwargs, types.CheckUpProductCategoryCountableConnection
         )
 
-    @login_required
+    @login_required()
     def resolve_checkups(self, info, **kwargs):
         qs = resolvers.resolve_checkups(info, **kwargs)
         qs = filter_connection_queryset(qs, kwargs)
@@ -68,11 +68,11 @@ class CheckUpCenterQueries(graphene.ObjectType):
             qs, info, kwargs, types.CheckUpCountableConnection
         )
 
-    @login_required
+    @login_required()
     def resolve_checkup_states(self, info, **kwargs):
         return resolvers.resolve_checkup_states(info, **kwargs)
 
-    @login_required
+    @login_required()
     def resolve_fsm_variable_sku_matches(self, info, **kwargs):
         return resolvers.resolve_fsm_variable_sku_matches(info, **kwargs)
 
