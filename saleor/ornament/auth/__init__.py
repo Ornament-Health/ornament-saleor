@@ -13,6 +13,7 @@ from saleor.account.models import User
 from saleor.core.exceptions import PermissionDenied
 from saleor.core.jwt import create_access_token, create_refresh_token
 from saleor.ornament.geo.channel_utils import get_channel
+from saleor.ornament.geo.models import City
 from saleor.plugins.base_plugin import BasePlugin, ExternalAccessTokens
 from saleor.plugins.error_codes import PluginErrorCode
 
@@ -61,6 +62,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
         self, data: dict, request: WSGIRequest, previous_value
     ) -> ExternalAccessTokens:
         token = data.get("token")
+        city_slug = data.get("city")
 
         if not token:
             msg = "Missing required field - token"
@@ -76,9 +78,14 @@ class OrnamentSSOAuthBackend(BasePlugin):
             sso_id=sso_id, defaults={User.USERNAME_FIELD: fake_email}
         )
 
+        city = City.objects.filter(slug=city_slug).first()
+
         if created:
             user.set_unusable_password()
-            user.save(update_fields=("password",))
+            if city:
+                user.city = city
+                user.city_approved = True
+            user.save(update_fields=("password", "city", "city_approved"))
 
         # Update email and change other_user's email if it exists,
         # sso-api is main source of email-sso_id pairs, so email from sso is preferable
@@ -97,7 +104,10 @@ class OrnamentSSOAuthBackend(BasePlugin):
                 )
                 other_user.save()
             user.email = email
-            user.save(update_fields=("email",))
+            if city:
+                user.city = city
+                user.city_approved = True
+            user.save(update_fields=("email", "city", "city_approved"))
 
         access_token = create_access_token(user)
         refresh_token = create_refresh_token(user)
