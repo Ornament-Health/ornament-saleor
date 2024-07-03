@@ -40,7 +40,10 @@ from .utils import (
 )
 
 # @cf::ornament.saleor.checkout
-from saleor.ornament.vendors.utils import apply_vendor_address_augmentation
+from saleor.ornament.vendors.utils import (
+    apply_vendor_address_augmentation,
+    apply_vendor_checkout_address_update,
+)
 
 if TYPE_CHECKING:
     from ....checkout.fetch import DeliveryMethodBase
@@ -216,5 +219,11 @@ class CheckoutShippingAddressUpdate(AddressMetadataMixin, BaseMutation, I18nMixi
         )
 
         cls.call_event(manager.checkout_updated, checkout)
+
+        # @cf::ornament.saleor.checkout
+        if checkout.user:
+            apply_vendor_checkout_address_update(
+                variants, checkout.user, shipping_address, shipping_address_instance
+            )
 
         return CheckoutShippingAddressUpdate(checkout=checkout)

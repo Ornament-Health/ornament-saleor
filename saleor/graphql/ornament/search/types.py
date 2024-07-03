@@ -25,6 +25,8 @@ class SearchProductVendorDealType(graphene.ObjectType):
     transaction_flow = graphene.Boolean(description="Vendor transaction flow")
     home_visit = graphene.Boolean(description="Vendor home visit")
     shipment = graphene.Boolean(description="Vendor shipment")
+    map_location = graphene.Boolean(description="Vendor map location")
+    visit_time = graphene.Boolean(description="Vendor visit time")
 
 
 class SearchProductType(graphene.ObjectType):
@@ -138,6 +140,8 @@ class SearchProduct(ModelObjectType[product_models.Product]):
                 transaction_flow=dt["deal_type"]["transaction_flow"],
                 home_visit=dt["deal_type"]["home_visit"],
                 shipment=dt["deal_type"]["shipment"],
+                map_location=dt["deal_type"]["map_location"],
+                visit_time=dt["deal_type"]["visit_time"],
             )
             for dt in root.deal_types
             if dt["deal_type"]

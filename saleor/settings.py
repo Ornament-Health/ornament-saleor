@@ -907,6 +907,10 @@ ORNAMENT_API_PUBLIC_HOST = os.environ.get("ORNAMENT_API_PUBLIC_HOST", None)
 ORNAMENT_API_INTERNAL_HOST = os.environ.get("ORNAMENT_API_INTERNAL_HOST", None)
 ORNAMENT_SSO_VALIDATION_URL = os.environ.get("ORNAMENT_SSO_VALIDATION_URL", None)
 
+DARDOC_API_HOST = os.environ.get("DARDOC_API_HOST", None)
+DARDOC_API_TOKEN = os.environ.get("DARDOC_API_TOKEN", None)
+DARDOC_SERVICE_UUID = os.environ.get("DARDOC_SERVICE_UUID", None)
+
 CHECKUP_SKU_GROUPS_DEFAULT = (
     {"name": "CBC", "skus": ["1.0.D1.202", "1.0.D2.202"], "part": 36},
     {"name": "URINALYSIS", "skus": ["6.1.D1.401"], "part": 28},

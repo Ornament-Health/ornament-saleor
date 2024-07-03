@@ -10,6 +10,8 @@ class VendorDealType(AutoNowUpdateFieldsMixin, models.Model):
     transaction_flow = models.BooleanField(default=False)
     home_visit = models.BooleanField(default=False)
     shipment = models.BooleanField(default=False)
+    map_location = models.BooleanField(default=False)
+    visit_time = models.BooleanField(default=False)
 
     created = models.DateTimeField(default=timezone.now, editable=False)
     updated = models.DateTimeField(auto_now=True, editable=False)
