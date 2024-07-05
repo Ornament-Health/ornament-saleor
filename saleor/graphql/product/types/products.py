@@ -1456,7 +1456,12 @@ class Product(ChannelContextTypeWithMetadata[models.Product]):
 
         variants = variants.then(map_channel_context)
 
-        if not isinstance(requestor, App) and (requestor and requestor.id):
+        if (
+            requestor
+            and requestor.id
+            and hasattr(requestor, "vendor")
+            and hasattr(requestor, "rules")
+        ):
             user_vendor = requestor.vendor
 
             if user_vendor:
