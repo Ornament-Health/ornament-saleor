@@ -319,7 +319,14 @@ def login_required(fn):
             info = args[1]
             requester = get_user_or_app_from_context(info.context)
 
-            if requester and requester.is_authenticated:
+            if (
+                requester
+                and (
+                    hasattr(requester, "is_authenticated")
+                    and requester.is_authenticated
+                )
+                or (hasattr(requester, "identifier") and requester.is_active)
+            ):
                 return fn(*args, **kwargs)
 
             return PermissionDenied()
