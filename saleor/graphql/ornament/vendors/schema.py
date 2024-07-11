@@ -7,12 +7,12 @@ from saleor.graphql.core.scalars import Date
 from saleor.permission.enums import InternalAPIPermissions
 
 from .resolvers import (
-    resolve_dardoc_disabled_dates,
+    resolve_vendor_disabled_dates,
     resolve_vendors,
-    resolve_dardoc_area,
-    resolve_dardoc_timeslots,
+    resolve_vendor_area,
+    resolve_vendor_timeslots,
 )
-from .types import DarDocArea, DarDocTimeslots, Vendor
+from .types import VendorArea, VendorTimeslots, Vendor
 
 
 class VendorsQueries(graphene.ObjectType):
@@ -26,26 +26,38 @@ class VendorsQueries(graphene.ObjectType):
         description="List of all vendors.",
         permissions=[InternalAPIPermissions.MANAGE_USERS_VENDORS],
     )
-    dardoc_area = graphene.Field(
-        DarDocArea,
+    vendor_area = graphene.Field(
+        VendorArea,
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned.",
+            required=True,
+        ),
         lat=graphene.Argument(graphene.Float, required=True),
         lng=graphene.Argument(graphene.Float, required=True),
-        description="Check if DarDoc are is serviceable by latitude and longitude.",
+        description="Check if Vendor area is serviceable by latitude and longitude.",
     )
-    dardoc_disabled_dates = graphene.Field(
-        graphene.List(Date, required=True, description="DarDoc Disabled Date."),
-        emirate=graphene.Argument(
-            graphene.String, required=True, description="DarDoc Emirate."
+    vendor_disabled_dates = graphene.Field(
+        graphene.List(Date, required=True, description="Vendor Disabled Date."),
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned.",
+            required=True,
         ),
-        description="Check DarDoc's Emirate disabled dates.",
+        area=graphene.Argument(
+            graphene.String, required=True, description="Vendor Area."
+        ),
+        description="Check Vendor's Area disabled dates.",
     )
-    dardoc_timeslots = graphene.Field(
-        graphene.List(DarDocTimeslots, required=True, description="DarDoc Timeslot."),
-        dates=graphene.List(Date, required=True, description="DarDoc Date Timeslot."),
-        emirate=graphene.Argument(
-            graphene.String, required=True, description="DarDoc Emirate."
+    vendor_timeslots = graphene.Field(
+        graphene.List(VendorTimeslots, required=True, description="Vendor Timeslot."),
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned.",
+            required=True,
         ),
-        description="DarDoc Timeslots.",
+        dates=graphene.List(Date, required=True, description="Vendor Date Timeslot."),
+        area=graphene.Argument(
+            graphene.String, required=True, description="Vendor Area."
+        ),
+        description="Vendor Timeslots.",
     )
 
     def resolve_vendor(self, info, id):
@@ -54,11 +66,13 @@ class VendorsQueries(graphene.ObjectType):
     def resolve_vendors(self, info, **kwargs):
         return resolve_vendors(info, **kwargs)
 
-    def resolve_dardoc_area(self, info, lat: float, lng: float):
-        return resolve_dardoc_area(info, lat, lng)
+    def resolve_vendor_area(self, info, channel: str, lat: float, lng: float):
+        return resolve_vendor_area(info, channel, lat, lng)
 
-    def resolve_dardoc_disabled_dates(self, info, emirate: str):
-        return resolve_dardoc_disabled_dates(info, emirate)
+    def resolve_vendor_disabled_dates(self, info, channel: str, area: str):
+        return resolve_vendor_disabled_dates(info, channel, area)
 
-    def resolve_dardoc_timeslots(self, info, dates: list[datetime], emirate: str):
-        return resolve_dardoc_timeslots(info, dates, emirate)
+    def resolve_vendor_timeslots(
+        self, info, channel: str, dates: list[datetime], area: str
+    ):
+        return resolve_vendor_timeslots(info, channel, dates, area)

@@ -33,27 +33,27 @@ class VendorDealType(graphene.ObjectType):
         description = "Represents Deal Type for vendor."
 
 
-class DarDocArea(graphene.ObjectType):
+class VendorArea(graphene.ObjectType):
     is_serviceable = graphene.Boolean(
-        description="Is DarDoc area serviceable", required=True
+        description="Is Vendor area serviceable", required=True
     )
-    area = graphene.String(description="DarDoc area name", required=False)
-    city = graphene.String(description="DarDoc area city", required=False)
+    area = graphene.String(description="Vendor area name", required=False)
+    city = graphene.String(description="Vendor area city", required=False)
 
     class Meta:
-        description = "Represents DarDoc area."
+        description = "Represents Vendor area."
 
 
-class DarDocTimeslots(graphene.ObjectType):
+class VendorTimeslots(graphene.ObjectType):
     date = Date(
         description="Date of available timeslots",
         required=True,
     )
     timeslots = graphene.List(
         graphene.String,
-        description="DarDoc timeslots (09:00 - 09:30AM)",
+        description="Vendor timeslots (09:00 - 09:30AM)",
         required=True,
     )
 
     class Meta:
-        description = "Represents DarDoc date timeslots."
+        description = "Represents Vendor date timeslots."
