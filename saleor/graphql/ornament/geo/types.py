@@ -22,3 +22,15 @@ class CityCountableConnection(CountableConnection):
     class Meta:
         doc_category = "Geo"
         node = City
+
+
+class ChannelMapLocation(graphene.ObjectType):
+    default_lat = graphene.String(
+        description="Channel map location default latitude", required=True
+    )
+    default_lng = graphene.String(
+        description="Channel map location default longitude", required=True
+    )
+
+    class Meta:
+        description = "Represents Channel's default map location data (if any)."
