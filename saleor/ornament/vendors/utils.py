@@ -189,6 +189,14 @@ def apply_kdl_vendor_address_augmentation(address_data: dict) -> dict:
     return address_data
 
 
+def apply_dardoc_vendor_address_augmentation(address_data: dict) -> dict:
+    if not address_data.get("street_address_1"):
+        address_data["street_address_1"] = settings.DEFAULT_DARDOC_COUNTRY_AREA
+    if not address_data.get("country_area"):
+        address_data["country_area"] = settings.DEFAULT_DARDOC_STREET_ADDRESS
+    return address_data
+
+
 def apply_dardoc_checkout_address_update(
     user: User, shipping_address: dict, shipping_address_instance: Address
 ) -> None:
@@ -307,5 +315,8 @@ def apply_vendor_checkout_address_update(
 
 vendor_order_logic_map = {"kdl": apply_kdl_order_logic}
 vendor_order_notification_map = {"kdl": apply_kdl_order_notification}
-vendor_address_augmentation_map = {"kdl": apply_kdl_vendor_address_augmentation}
+vendor_address_augmentation_map = {
+    "kdl": apply_kdl_vendor_address_augmentation,
+    "dardoc": apply_dardoc_vendor_address_augmentation,
+}
 vendor_checkout_address_update_map = {"dardoc": apply_dardoc_checkout_address_update}

@@ -982,6 +982,11 @@ KDL_ORDER_EMAIL_TEMPLATE_PATH = os.path.join(
 DEFAULT_KDL_POSTAL_CODE = os.environ.get("DEFAULT_KDL_POSTAL_CODE", "101000")
 DEFAULT_KDL_COUNTRY_AREA = os.environ.get("DEFAULT_KDL_COUNTRY_AREA", "Москва")
 
+DEFAULT_DARDOC_COUNTRY_AREA = os.environ.get("DEFAULT_DARDOC_COUNTRY_AREA", "Abu Dhabi")
+DEFAULT_DARDOC_STREET_ADDRESS = os.environ.get(
+    "DEFAULT_DARDOC_STREET_ADDRESS", "Abu Dhabi"
+)
+
 DATA_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "datadir"))
 LOCK_DIR = os.path.abspath(os.path.join(DATA_DIR, "lock"))
 
