@@ -101,12 +101,12 @@ def get_dardoc_address_id(
             address_id = [a._id for a in dardoc_addresses.addresses][0]
             update = True
 
-    lat = shipping_address_instance.get_value_from_metadata("dardoc_address_lat")
-    lng = shipping_address_instance.get_value_from_metadata("dardoc_address_lng")
+    lat = shipping_address_instance.get_value_from_metadata("vendor_address_lat")
+    lng = shipping_address_instance.get_value_from_metadata("vendor_address_lng")
 
     if not all([lat, lng]):
         logger.error(
-            f"{error_message} Shipping address metadata doesn't contain lat and lng! dardoc_address_lat: {lat}, dardoc_address_lng: {lng}"
+            f"{error_message} Shipping address metadata doesn't contain lat and lng! vendor_address_lat: {lat}, vendor_address_lng: {lng}"
         )
         return None
 
