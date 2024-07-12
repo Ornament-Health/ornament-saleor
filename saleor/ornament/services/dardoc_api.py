@@ -184,8 +184,8 @@ class DarDocApi:
             logger.critical(f"{error_base_message} {error}")
             return None
 
-    def patents_get(self, dardoc_user_id: str) -> Optional[DarDocApiPatientsByUserId]:
-        error_base_message = "DarDocApi patents_get error;"
+    def patients_get(self, dardoc_user_id: str) -> Optional[DarDocApiPatientsByUserId]:
+        error_base_message = "DarDocApi patients_get error;"
 
         try:
             response = requests.get(
@@ -198,7 +198,7 @@ class DarDocApi:
             message = data.get("message")
 
             if not success:
-                logger.critical(f"{error_base_message} {message}")
+                logger.info(f"{error_base_message} {message}")
                 return None
 
             patients = data.get("patients", [])

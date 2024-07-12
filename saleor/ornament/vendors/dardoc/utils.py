@@ -43,7 +43,7 @@ def get_or_create_dardoc_user(
 
         if not all([email, phone, name]):
             logger.error(
-                f"{error_message}; Shipping address doesn't contain all required fields; email: {email}, phone: {phone}, name: {name}"
+                f"{error_message} Shipping address doesn't contain all required fields; email: {email}, phone: {phone}, name: {name}"
             )
             return None
 
@@ -71,7 +71,7 @@ def get_dardoc_patient_id(user: User, dardoc_user_id: str) -> str:
     if dardoc_patient_id:
         patient_id = dardoc_patient_id
     else:
-        dardoc_patients = dardoc_api.patents_get(dardoc_user_id)
+        dardoc_patients = dardoc_api.patients_get(dardoc_user_id)
         if dardoc_patients and dardoc_patients.patients:
             patient_id = [p._id for p in dardoc_patients.patients][0]
 
@@ -106,7 +106,7 @@ def get_dardoc_address_id(
 
     if not all([lat, lng]):
         logger.error(
-            f"{error_message}; Shipping address metadata doesn't contain lat and lng! dardoc_address_lat: {lat}, dardoc_address_lng: {lng}"
+            f"{error_message} Shipping address metadata doesn't contain lat and lng! dardoc_address_lat: {lat}, dardoc_address_lng: {lng}"
         )
         return None
 
