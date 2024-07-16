@@ -33,6 +33,10 @@ class SearchProductType(graphene.ObjectType):
     id = graphene.GlobalID(required=True, description="The ID of the product type.")
     name = graphene.String(required=True, description="Name of the product type.")
     slug = graphene.String(required=True, description="Slug of the product type.")
+    legacy_title = graphene.Boolean(
+        required=True,
+        description="Product type uses legacy title (title in description).",
+    )
 
 
 class SearchProduct(ModelObjectType[product_models.Product]):
@@ -130,6 +134,7 @@ class SearchProduct(ModelObjectType[product_models.Product]):
             id=root.product_type.pk,
             name=root.product_type.name,
             slug=root.product_type.slug,
+            legacy_title=bool(root.product_type.get_value_from_metadata("legacyTitle")),
         )
 
     @classmethod
