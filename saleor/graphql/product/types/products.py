@@ -11,6 +11,7 @@ from promise import Promise
 import graphene_django_optimizer as gql_optimizer
 
 # @cf::ornament.saleor.product
+from saleor.app.models import App
 from saleor.graphql.ornament.vendors.types import VendorDealType
 from saleor.ornament.vendors.utils import get_vendor_deal_type
 from saleor.ornament.geo.channel_utils import get_channel
