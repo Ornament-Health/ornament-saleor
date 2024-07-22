@@ -1,7 +1,10 @@
 from collections.abc import Iterable
+from typing import Optional
 
 import graphene
 from django.core.exceptions import ValidationError
+
+from saleor.graphql.checkout.mutations.checkout_create import CheckoutValidationRules
 
 from ....checkout import AddressType
 from ....checkout.checkout_cleaner import (
@@ -23,7 +26,12 @@ from ....webhook.event_types import WebhookEventAsyncType, WebhookEventSyncType
 from ...account.i18n import I18nMixin
 from ...app.dataloaders import get_app_promise
 from ...core import ResolveInfo
-from ...core.descriptions import ADDED_IN_34, ADDED_IN_38, DEPRECATED_IN_3X_INPUT
+from ...core.descriptions import (
+    ADDED_IN_34,
+    ADDED_IN_35,
+    ADDED_IN_38,
+    DEPRECATED_IN_3X_INPUT,
+)
 from ...core.doc_category import DOC_CATEGORY_CHECKOUT
 from ...core.fields import JSONString
 from ...core.mutations import BaseMutation
@@ -99,6 +107,12 @@ class CheckoutComplete(BaseMutation, I18nMixin):
             ),
             required=False,
         )
+        validation_rules = CheckoutValidationRules(
+            required=False,
+            description=(
+                "The checkout validation rules that can be changed." + ADDED_IN_35
+            ),
+        )
 
     class Meta:
         description = (
@@ -170,11 +184,31 @@ class CheckoutComplete(BaseMutation, I18nMixin):
             ),
         ]
 
+    @staticmethod
+    def _get_address_validation_rules(
+        validation_rules: Optional[dict], rule_key: str
+    ) -> tuple[bool, bool, bool]:
+        if not validation_rules:
+            return (
+                True,
+                True,
+                True,
+            )
+
+        validation_rules_data = validation_rules.get(rule_key, {})
+        format_check = validation_rules_data.get("check_fields_format", True)
+        required_check = validation_rules_data.get("check_required_fields", True)
+        enable_normalization = validation_rules_data.get(
+            "enable_fields_normalization", True
+        )
+        return (format_check, required_check, enable_normalization)
+
     @classmethod
     def validate_checkout_addresses(
         cls,
         checkout_info: CheckoutInfo,
         lines: Iterable[CheckoutLineInfo],
+        validation_rules: Optional[dict],
     ):
         """Validate checkout addresses.
 
@@ -187,6 +221,17 @@ class CheckoutComplete(BaseMutation, I18nMixin):
         shipping_address = checkout_info.shipping_address
         billing_address = checkout_info.billing_address
 
+        (
+            shipping_format_check,
+            shipping_required_check,
+            shipping_enable_normalization,
+        ) = cls._get_address_validation_rules(validation_rules, "shipping_address")
+        (
+            billing_format_check,
+            billing_required_check,
+            billing_enable_normalization,
+        ) = cls._get_address_validation_rules(validation_rules, "billing_address")
+
         if is_shipping_required(lines):
             clean_checkout_shipping(checkout_info, lines, CheckoutErrorCode)
             if shipping_address:
@@ -194,9 +239,9 @@ class CheckoutComplete(BaseMutation, I18nMixin):
                 cls.validate_address(
                     shipping_address_data,
                     address_type=AddressType.SHIPPING,
-                    format_check=True,
-                    required_check=True,
-                    enable_normalization=True,
+                    format_check=shipping_format_check,
+                    required_check=shipping_required_check,
+                    enable_normalization=shipping_enable_normalization,
                     instance=shipping_address,
                 )
                 if shipping_address_data != shipping_address.as_data():
@@ -215,9 +260,9 @@ class CheckoutComplete(BaseMutation, I18nMixin):
         cls.validate_address(
             billing_address_data,
             address_type=AddressType.BILLING,
-            format_check=True,
-            required_check=True,
-            enable_normalization=True,
+            format_check=billing_format_check,
+            required_check=billing_required_check,
+            enable_normalization=billing_enable_normalization,
             instance=billing_address,
         )
         if billing_address_data != billing_address.as_data():
@@ -237,6 +282,7 @@ class CheckoutComplete(BaseMutation, I18nMixin):
         redirect_url=None,
         store_source,
         token=None,
+        validation_rules=None,
     ):
         # DEPRECATED
         validate_one_of_args_is_in_mutation(
@@ -309,7 +355,7 @@ class CheckoutComplete(BaseMutation, I18nMixin):
             )
         checkout_info = fetch_checkout_info(checkout, lines, manager)
 
-        cls.validate_checkout_addresses(checkout_info, lines)
+        cls.validate_checkout_addresses(checkout_info, lines, validation_rules)
 
         requestor = get_user_or_app_from_context(info.context)
         if requestor and requestor.has_perm(AccountPermissions.IMPERSONATE_USER):

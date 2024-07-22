@@ -191,9 +191,9 @@ def apply_kdl_vendor_address_augmentation(address_data: dict) -> dict:
 
 def apply_dardoc_vendor_address_augmentation(address_data: dict) -> dict:
     if not address_data.get("street_address_1"):
-        address_data["street_address_1"] = settings.DEFAULT_DARDOC_COUNTRY_AREA
+        address_data["street_address_1"] = settings.DEFAULT_DARDOC_STREET_ADDRESS
     if not address_data.get("country_area"):
-        address_data["country_area"] = settings.DEFAULT_DARDOC_STREET_ADDRESS
+        address_data["country_area"] = settings.DEFAULT_DARDOC_COUNTRY_AREA
     return address_data
 
 
