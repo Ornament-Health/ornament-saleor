@@ -56,6 +56,9 @@ def get_url_from_env(name, *, schemes=None) -> Optional[str]:
     return None
 
 
+ENVIRONMENT = os.environ.get("ENVIRONMENT")
+VERSION = os.environ.get("VERSION")
+
 DEBUG = get_bool_from_env("DEBUG", True)
 
 SITE_ID = 1
@@ -706,6 +709,10 @@ POPULATE_DEFAULTS = get_bool_from_env("POPULATE_DEFAULTS", True)
 #  Sentry
 sentry_sdk.utils.MAX_STRING_LENGTH = 4096  # type: ignore[attr-defined]
 SENTRY_DSN = os.environ.get("SENTRY_DSN")
+SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", 1.0))
+SENTRY_PROFILING_SAMPLE_RATE = float(
+    os.environ.get("SENTRY_PROFILING_SAMPLE_RATE", 1.0)
+)
 SENTRY_OPTS = {"integrations": [CeleryIntegration(), DjangoIntegration()]}
 
 
@@ -715,7 +722,16 @@ def SENTRY_INIT(dsn: str, sentry_opts: dict):
     Will only be called if SENTRY_DSN is not None, during core start, can be
     overriden in separate settings file.
     """
-    sentry_sdk.init(dsn, release=__version__, **sentry_opts)
+    sentry_sdk.init(
+        dsn=dsn,
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+        environment=ENVIRONMENT,
+        traces_sampler=lambda context: SENTRY_TRACES_SAMPLE_RATE,
+        send_default_pii=True,
+        release=VERSION,
+        profiles_sample_rate=SENTRY_PROFILING_SAMPLE_RATE,
+        **sentry_opts,
+    )
     ignore_logger("graphql.execution.utils")
     ignore_logger("graphql.execution.executor")
 
