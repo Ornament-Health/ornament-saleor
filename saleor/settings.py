@@ -907,6 +907,10 @@ ORNAMENT_API_PUBLIC_HOST = os.environ.get("ORNAMENT_API_PUBLIC_HOST", None)
 ORNAMENT_API_INTERNAL_HOST = os.environ.get("ORNAMENT_API_INTERNAL_HOST", None)
 ORNAMENT_SSO_VALIDATION_URL = os.environ.get("ORNAMENT_SSO_VALIDATION_URL", None)
 
+DARDOC_API_HOST = os.environ.get("DARDOC_API_HOST", None)
+DARDOC_API_TOKEN = os.environ.get("DARDOC_API_TOKEN", None)
+DARDOC_SERVICE_UUID = os.environ.get("DARDOC_SERVICE_UUID", None)
+
 CHECKUP_SKU_GROUPS_DEFAULT = (
     {"name": "CBC", "skus": ["1.0.D1.202", "1.0.D2.202"], "part": 36},
     {"name": "URINALYSIS", "skus": ["6.1.D1.401"], "part": 28},
@@ -977,6 +981,11 @@ KDL_ORDER_EMAIL_TEMPLATE_PATH = os.path.join(
 )
 DEFAULT_KDL_POSTAL_CODE = os.environ.get("DEFAULT_KDL_POSTAL_CODE", "101000")
 DEFAULT_KDL_COUNTRY_AREA = os.environ.get("DEFAULT_KDL_COUNTRY_AREA", "Москва")
+
+DEFAULT_DARDOC_COUNTRY_AREA = os.environ.get("DEFAULT_DARDOC_COUNTRY_AREA", "Abu Dhabi")
+DEFAULT_DARDOC_STREET_ADDRESS = os.environ.get(
+    "DEFAULT_DARDOC_STREET_ADDRESS", "Abu Dhabi"
+)
 
 DATA_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, "datadir"))
 LOCK_DIR = os.path.abspath(os.path.join(DATA_DIR, "lock"))

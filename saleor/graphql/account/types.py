@@ -77,7 +77,7 @@ from .utils import can_user_manage_group, get_groups_which_user_can_manage
 from saleor.graphql.core.scalars import Date
 
 # @cf::ornament.geo
-from saleor.graphql.ornament.geo.types import City
+from saleor.graphql.ornament.geo.types import ChannelMapLocation, City
 from saleor.ornament.geo.channel_utils import get_channel
 
 # @cf::ornament.vendors
@@ -472,6 +472,10 @@ class User(ModelObjectType[models.User]):
         description="Slug of a channel that has been set to user",
         required=True,
     )
+    channel_map_location = graphene.Field(
+        ChannelMapLocation,
+        description="Channel's map location metadata",
+    )
     current_currency = graphene.String(
         description="Currency code of a channel that has been set to user",
         required=True,
@@ -495,6 +499,27 @@ class User(ModelObjectType[models.User]):
     @staticmethod
     def resolve_current_channel(root: models.User, _info: ResolveInfo):
         return root.city.channel.slug if root.city else get_channel()
+
+    @staticmethod
+    def resolve_channel_map_location(
+        root: models.User, _info: ResolveInfo
+    ) -> Optional[ChannelMapLocation]:
+        channel_map_location = (
+            root.city.channel.get_value_from_metadata("map_location")
+            if root.city and root.city.channel
+            else None
+        )
+
+        if not channel_map_location or not isinstance(channel_map_location, dict):
+            return None
+
+        default_lat = channel_map_location.get("default_lat")
+        default_lng = channel_map_location.get("default_lng")
+
+        if not all([default_lat, default_lng]):
+            return None
+
+        return ChannelMapLocation(default_lat=default_lat, default_lng=default_lng)
 
     # @cf::ornament.geo
     @staticmethod

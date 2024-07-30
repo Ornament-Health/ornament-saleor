@@ -1,5 +1,6 @@
 import graphene
 
+from saleor.graphql.core.scalars import Date
 from saleor.graphql.core.types import ModelObjectType
 from saleor.ornament.vendors import models as vendors_models
 
@@ -25,6 +26,34 @@ class VendorDealType(graphene.ObjectType):
     )
     home_visit = graphene.Boolean(description="Vendor home visit", required=True)
     shipment = graphene.Boolean(description="Vendor shipment", required=True)
+    map_location = graphene.Boolean(description="Vendor map location", required=True)
+    visit_time = graphene.Boolean(description="Vendor visit time", required=True)
 
     class Meta:
         description = "Represents Deal Type for vendor."
+
+
+class VendorArea(graphene.ObjectType):
+    is_serviceable = graphene.Boolean(
+        description="Is Vendor area serviceable", required=True
+    )
+    area = graphene.String(description="Vendor area name", required=False)
+    city = graphene.String(description="Vendor area city", required=False)
+
+    class Meta:
+        description = "Represents Vendor area."
+
+
+class VendorTimeslots(graphene.ObjectType):
+    date = Date(
+        description="Date of available timeslots",
+        required=True,
+    )
+    timeslots = graphene.List(
+        graphene.String,
+        description="Vendor timeslots (09:00 - 09:30AM)",
+        required=True,
+    )
+
+    class Meta:
+        description = "Represents Vendor date timeslots."

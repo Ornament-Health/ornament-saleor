@@ -13,6 +13,7 @@ from saleor.account.models import User
 from saleor.core.exceptions import PermissionDenied
 from saleor.core.jwt import create_access_token, create_refresh_token
 from saleor.ornament.geo.channel_utils import get_channel
+from saleor.ornament.geo.models import City
 from saleor.plugins.base_plugin import BasePlugin, ExternalAccessTokens
 from saleor.plugins.error_codes import PluginErrorCode
 
@@ -29,7 +30,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
     PLUGIN_NAME = "Ornament SSO Auth"
     CONFIGURATION_PER_CHANNEL = False
 
-    def _get_user_info_from_sso_api(self, token: str) -> tuple[str, str]:
+    def _get_user_info_from_sso_api(self, token: str) -> tuple[str, str, Optional[str]]:
         try:
             response = requests.post(
                 settings.ORNAMENT_SSO_VALIDATION_URL,
@@ -44,7 +45,11 @@ class OrnamentSSOAuthBackend(BasePlugin):
             raise PermissionDenied()
 
         data = response.json()
-        login, sso_id = data.get("login"), data.get("sso_id")
+        login, sso_id, country_code = (
+            data.get("login"),
+            data.get("sso_id"),
+            data.get("country_code"),
+        )
 
         if not login or not sso_id:
             raise PermissionDenied()
@@ -55,7 +60,14 @@ class OrnamentSSOAuthBackend(BasePlugin):
         except ValidationError:
             email = f"{sso_id}@orna.me"
 
-        return sso_id, email
+        return sso_id, email, country_code
+
+    def _get_city_for_country_code(self, country_code: str) -> Optional[City]:
+        return (
+            City.objects.select_related("channel")
+            .filter(channel__default_country=country_code)
+            .first()
+        )
 
     def external_obtain_access_tokens(
         self, data: dict, request: WSGIRequest, previous_value
@@ -68,13 +80,17 @@ class OrnamentSSOAuthBackend(BasePlugin):
                 {"code": ValidationError(msg, code=PluginErrorCode.NOT_FOUND.value)}
             )
 
-        sso_id, email = self._get_user_info_from_sso_api(token)
+        sso_id, email, country_code = self._get_user_info_from_sso_api(token)
 
         # @cf::ornament:CORE-2283
         fake_email = f"{sso_id}@orna.me-{int(datetime.now().timestamp())}"
         user, created = User.objects.get_or_create(
             sso_id=sso_id, defaults={User.USERNAME_FIELD: fake_email}
         )
+
+        city = None
+        if country_code:
+            city = self._get_city_for_country_code(country_code)
 
         if created:
             user.set_unusable_password()
@@ -101,6 +117,16 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         access_token = create_access_token(user)
         refresh_token = create_refresh_token(user)
+
+        if city and user.city != city:
+            update_fields = ["city"]
+            user.city = city
+
+            if not user.city_approved and settings.AUTO_CITY_APPROVED:
+                user.city_approved = True
+                update_fields.append("city_approved")
+
+            user.save(update_fields=update_fields)
 
         channel = user.city.channel.slug if user.city else get_channel()
 
