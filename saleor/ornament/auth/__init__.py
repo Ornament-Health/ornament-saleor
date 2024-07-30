@@ -88,6 +88,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
             sso_id=sso_id, defaults={User.USERNAME_FIELD: fake_email}
         )
 
+        city = None
         if country_code:
             city = self._get_city_for_country_code(country_code)
 
