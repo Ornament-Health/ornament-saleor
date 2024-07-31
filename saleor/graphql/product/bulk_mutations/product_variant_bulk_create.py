@@ -100,14 +100,18 @@ def get_results(instances_data_with_errors_list, reject_everything=False):
             for data in instances_data_with_errors_list
         ]
     return [
-        ProductVariantBulkResult(
-            product_variant=ChannelContext(
-                node=data.get("instance"), channel_slug=None
-            ),
-            errors=data.get("errors"),
+        (
+            ProductVariantBulkResult(
+                product_variant=ChannelContext(
+                    node=data.get("instance"), channel_slug=None
+                ),
+                errors=data.get("errors"),
+            )
+            if data.get("instance")
+            else ProductVariantBulkResult(
+                product_variant=None, errors=data.get("errors")
+            )
         )
-        if data.get("instance")
-        else ProductVariantBulkResult(product_variant=None, errors=data.get("errors"))
         for data in instances_data_with_errors_list
     ]
 
@@ -890,7 +894,11 @@ class ProductVariantBulkCreate(BaseMutation):
             if not variant:
                 continue
             track_inventory_by_default = get_track_inventory_by_default(info)
-            track_inventory = variant_data["cleaned_input"].get("track_inventory")
+            track_inventory = (
+                variant_data["cleaned_input"].get("track_inventory")
+                # @cf::ornament.saleor.graphql.product
+                or variant_data["instance"].track_inventory
+            )
             if track_inventory_by_default is not None:
                 variant.track_inventory = (
                     track_inventory_by_default
@@ -999,9 +1007,11 @@ class ProductVariantBulkCreate(BaseMutation):
             count=len(instances),
             product_variants=instances,
             results=results,
-            errors=validation_error_to_error_type(
-                ValidationError(errors), cls._meta.error_type_class
-            )
-            if errors
-            else None,
+            errors=(
+                validation_error_to_error_type(
+                    ValidationError(errors), cls._meta.error_type_class
+                )
+                if errors
+                else None
+            ),
         )
