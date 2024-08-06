@@ -6,7 +6,7 @@ from saleor.graphql.attribute.types import SelectedAttribute
 from saleor.graphql.core.fields import JSONString
 from saleor.graphql.core.types import ModelObjectType
 from saleor.graphql.product.dataloaders.attributes import (
-    SelectedAttributesByProductIdLoader,
+    SelectedAttributesVisibleInStorefrontByProductIdLoader,
 )
 from saleor.product import models as product_models
 from saleor.graphql.core.connection import CountableConnection
@@ -98,7 +98,7 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     @classmethod
     def resolve_biomarkers(cls, root: product_models.Product, info):
         return (
-            SelectedAttributesByProductIdLoader(info.context)
+            SelectedAttributesVisibleInStorefrontByProductIdLoader(info.context)
             .load(root.id)
             .then(lambda attributes: cls._get_attributes(attributes, "biomarkers"))
         )
@@ -106,7 +106,7 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     @classmethod
     def resolve_medical_exams(cls, root: product_models.Product, info):
         return (
-            SelectedAttributesByProductIdLoader(info.context)
+            SelectedAttributesVisibleInStorefrontByProductIdLoader(info.context)
             .load(root.id)
             .then(lambda attributes: cls._get_attributes(attributes, "medical_exams"))
         )

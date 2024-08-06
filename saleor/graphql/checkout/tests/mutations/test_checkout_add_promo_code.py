@@ -1,20 +1,26 @@
 from datetime import date, timedelta
 from decimal import Decimal
 from unittest import mock
+from unittest.mock import call, patch
 
+import before_after
 import graphene
 import pytest
+from django.test import override_settings
 from django.utils import timezone
 from prices import Money
 
 from .....checkout import base_calculations, calculations
+from .....checkout.actions import call_checkout_event_for_checkout_info
 from .....checkout.error_codes import CheckoutErrorCode
 from .....checkout.fetch import fetch_checkout_info, fetch_checkout_lines
 from .....checkout.utils import add_variant_to_checkout, set_external_shipping_id
+from .....core.models import EventDelivery
 from .....discount import VoucherType
 from .....plugins.manager import get_plugins_manager
-from .....product.models import ProductVariantChannelListing
+from .....product.models import Collection, ProductVariantChannelListing
 from .....warehouse.models import Stock
+from .....webhook.event_types import WebhookEventAsyncType, WebhookEventSyncType
 from ....core.utils import to_global_id_or_none
 from ....tests.utils import get_graphql_content
 
@@ -31,6 +37,9 @@ MUTATION_CHECKOUT_ADD_PROMO_CODE = """
                 id
                 token
                 voucherCode
+                lines {
+                    id
+                }
                 discount {
                     amount
                 }
@@ -498,6 +507,42 @@ def test_checkout_add_collection_voucher_code_checkout_with_sale(
     assert checkout.discount_amount == voucher_discount
 
 
+def test_checkout_add_collection_voucher_code_checkout_with_sale_collection_deleted(
+    api_client, checkout_with_item_on_sale, voucher_percentage, collection
+):
+    # given
+    checkout = checkout_with_item_on_sale
+
+    voucher = voucher_percentage
+    product = checkout.lines.first().variant.product
+    product.collections.add(collection)
+    voucher.type = VoucherType.SPECIFIC_PRODUCT
+    voucher.save()
+    voucher.collections.add(collection)
+    checkout.price_expiration = timezone.now()
+    lines, _ = fetch_checkout_lines(checkout)
+    variables = {
+        "id": to_global_id_or_none(checkout),
+        "promoCode": voucher.code,
+    }
+    assert Collection.objects.count() == 1
+
+    # when
+    def delete_collections(*args, **kwargs):
+        Collection.objects.all().delete()
+
+    with before_after.after(
+        "saleor.graphql.product.dataloaders.products.CollectionsByProductIdLoader"
+        ".batch_load",
+        delete_collections,
+    ):
+        data = _mutate_checkout_add_promo_code(api_client, variables)
+
+    # then
+    assert not data["errors"]
+    assert Collection.objects.count() == 0
+
+
 def test_checkout_add_category_code_checkout_with_sale(
     api_client, checkout_with_item_on_sale, voucher_percentage, channel_USD
 ):
@@ -793,6 +838,64 @@ def test_checkout_add_category_code_checkout_on_promotion(
     assert checkout.voucher_code == voucher.code
     assert checkout.discount_amount == voucher_discount
     assert checkout.subtotal < subtotal_discounted
+
+
+def test_checkout_add_voucher_code_checkout_on_order_promotion_discount(
+    api_client, checkout_with_item_and_order_discount, voucher
+):
+    # given
+    checkout = checkout_with_item_and_order_discount
+    checkout_discount = checkout.discounts.first()
+    variables = {
+        "id": to_global_id_or_none(checkout),
+        "promoCode": voucher.code,
+    }
+
+    # when
+    data = _mutate_checkout_add_promo_code(api_client, variables)
+
+    # then
+    assert not data["errors"]
+    assert data["checkout"]["token"] == str(checkout.token)
+    assert data["checkout"]["voucherCode"] == voucher.code
+    checkout.refresh_from_db()
+    assert not checkout.discounts.all()
+    assert checkout.discount_amount
+    assert checkout.discount_name == voucher.name
+    with pytest.raises(checkout_discount._meta.model.DoesNotExist):
+        checkout_discount.refresh_from_db()
+
+
+def test_checkout_add_voucher_code_checkout_with_gift_reward(
+    api_client, checkout_with_item_and_gift_promotion, voucher
+):
+    # given
+    checkout = checkout_with_item_and_gift_promotion
+    gift_line = checkout.lines.get(is_gift=True)
+    line_discount = gift_line.discounts.first()
+
+    lines_count = checkout.lines.count()
+
+    variables = {
+        "id": to_global_id_or_none(checkout),
+        "promoCode": voucher.code,
+    }
+
+    # when
+    data = _mutate_checkout_add_promo_code(api_client, variables)
+
+    # then
+    assert not data["errors"]
+    assert data["checkout"]["token"] == str(checkout.token)
+    assert data["checkout"]["voucherCode"] == voucher.code
+    checkout.refresh_from_db()
+    assert checkout.lines.count() == lines_count - 1 == len(data["checkout"]["lines"])
+    assert checkout.discount_amount
+    assert checkout.discount_name == voucher.name
+    with pytest.raises(line_discount._meta.model.DoesNotExist):
+        line_discount.refresh_from_db()
+    with pytest.raises(gift_line._meta.model.DoesNotExist):
+        gift_line.refresh_from_db()
 
 
 def test_checkout_add_variant_voucher_code_apply_once_per_order(
@@ -1437,3 +1540,74 @@ def test_with_active_problems_flow(
 
     # then
     assert not content["data"]["checkoutAddPromoCode"]["errors"]
+
+
+@patch(
+    "saleor.graphql.checkout.mutations.checkout_add_promo_code.call_checkout_event_for_checkout_info",
+    wraps=call_checkout_event_for_checkout_info,
+)
+@patch("saleor.webhook.transport.synchronous.transport.send_webhook_request_sync")
+@patch(
+    "saleor.webhook.transport.asynchronous.transport.send_webhook_request_async.apply_async"
+)
+@override_settings(PLUGINS=["saleor.plugins.webhook.plugin.WebhookPlugin"])
+def test_checkout_add_voucher_triggers_sync_webhooks(
+    mocked_send_webhook_request_async,
+    mocked_send_webhook_request_sync,
+    wrapped_call_checkout_event_for_checkout,
+    setup_checkout_webhooks,
+    settings,
+    api_client,
+    checkout_with_item,
+    voucher,
+):
+    # given
+    mocked_send_webhook_request_sync.return_value = []
+    (
+        tax_webhook,
+        shipping_webhook,
+        shipping_filter_webhook,
+        checkout_updated_webhook,
+    ) = setup_checkout_webhooks(WebhookEventAsyncType.CHECKOUT_UPDATED)
+
+    variables = {
+        "id": to_global_id_or_none(checkout_with_item),
+        "promoCode": voucher.code,
+    }
+
+    # when
+    response = api_client.post_graphql(MUTATION_CHECKOUT_ADD_PROMO_CODE, variables)
+
+    # then
+    content = get_graphql_content(response)
+    assert not content["data"]["checkoutAddPromoCode"]["errors"]
+
+    # confirm that event delivery was generated for each webhook.
+    checkout_update_delivery = EventDelivery.objects.get(
+        webhook_id=checkout_updated_webhook.id
+    )
+    tax_delivery = EventDelivery.objects.get(webhook_id=tax_webhook.id)
+    shipping_methods_delivery = EventDelivery.objects.get(
+        webhook_id=shipping_webhook.id,
+        event_type=WebhookEventSyncType.SHIPPING_LIST_METHODS_FOR_CHECKOUT,
+    )
+    filter_shipping_delivery = EventDelivery.objects.get(
+        webhook_id=shipping_filter_webhook.id,
+        event_type=WebhookEventSyncType.CHECKOUT_FILTER_SHIPPING_METHODS,
+    )
+
+    mocked_send_webhook_request_async.assert_called_once_with(
+        kwargs={"event_delivery_id": checkout_update_delivery.id},
+        queue=settings.CHECKOUT_WEBHOOK_EVENTS_CELERY_QUEUE_NAME,
+        bind=True,
+        retry_backoff=10,
+        retry_kwargs={"max_retries": 5},
+    )
+    mocked_send_webhook_request_sync.assert_has_calls(
+        [
+            call(shipping_methods_delivery, timeout=settings.WEBHOOK_SYNC_TIMEOUT),
+            call(filter_shipping_delivery, timeout=settings.WEBHOOK_SYNC_TIMEOUT),
+            call(tax_delivery),
+        ]
+    )
+    assert wrapped_call_checkout_event_for_checkout.called

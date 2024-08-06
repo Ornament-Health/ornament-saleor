@@ -22,6 +22,7 @@ from requests_hardened.ip_filter import InvalidIPAddress
 
 from ...app.headers import AppHeaders, DeprecatedAppHeaders
 from ...app.models import App
+from ...core.db.connection import allow_writer
 from ...core.http_client import HTTPClient
 from ...core.models import (
     EventDelivery,
@@ -52,7 +53,7 @@ from ..models import Webhook
 from . import signature_for_payload
 
 logger = logging.getLogger(__name__)
-task_logger = get_task_logger(__name__)
+task_logger = get_task_logger(f"{__name__}.celery")
 
 
 DEFAULT_TAX_CODE = "UNMAPPED"
@@ -306,6 +307,16 @@ def handle_webhook_retry(
     When MaxRetriesExceededError is raised the function will end without exception.
     """
     is_success = True
+    log_extra_details = {
+        "webhook": {
+            "id": webhook.id,
+            "target_url": webhook.target_url,
+            "event": delivery.event_type,
+            "execution_mode": "async",
+            "duration": response.duration,
+            "http_status_code": response.response_status_code,
+        },
+    }
     task_logger.info(
         "[Webhook ID: %r] Failed request to %r: %r for event: %r."
         " Delivery attempt id: %r",
@@ -314,6 +325,7 @@ def handle_webhook_retry(
         response.content,
         delivery.event_type,
         delivery_attempt.id,
+        extra=log_extra_details,
     )
     if response.response_status_code and 300 <= response.response_status_code < 500:
         # do not retry for 30x and 40x status codes
@@ -323,6 +335,7 @@ def handle_webhook_retry(
             webhook.target_url,
             response.response_status_code,
             delivery.id,
+            extra=log_extra_details,
         )
         return False
     try:
@@ -339,6 +352,7 @@ def handle_webhook_retry(
             webhook.id,
             webhook.target_url,
             delivery.id,
+            extra=log_extra_details,
         )
     return is_success
 
@@ -349,7 +363,7 @@ def get_delivery_for_webhook(event_delivery_id) -> Optional["EventDelivery"]:
             id=event_delivery_id
         )
     except EventDelivery.DoesNotExist:
-        logger.error("Event delivery id: %r not found", event_delivery_id)
+        logger.warning("Event delivery id: %r not found", event_delivery_id)
         return None
 
     if not delivery.webhook.is_active:
@@ -365,6 +379,7 @@ def catch_duration_time():
     yield lambda: time() - start
 
 
+@allow_writer()
 def create_attempt(
     delivery: "EventDelivery",
     task_id: Optional[str] = None,
@@ -381,6 +396,7 @@ def create_attempt(
     return attempt
 
 
+@allow_writer()
 def attempt_update(
     attempt: "EventDeliveryAttempt",
     webhook_response: "WebhookResponse",
@@ -403,6 +419,7 @@ def attempt_update(
     )
 
 
+@allow_writer()
 def clear_successful_delivery(delivery: "EventDelivery"):
     if delivery.status == EventDeliveryStatus.SUCCESS:
         payload_id = delivery.payload_id
@@ -411,6 +428,7 @@ def clear_successful_delivery(delivery: "EventDelivery"):
             EventPayload.objects.filter(pk=payload_id, deliveries__isnull=True).delete()
 
 
+@allow_writer()
 def delivery_update(delivery: "EventDelivery", status: str):
     delivery.status = status
     delivery.save(update_fields=["status"])
@@ -473,13 +491,14 @@ def trigger_transaction_request(
         payload = generate_transaction_action_request_payload(
             transaction_data, requestor
         )
-        event_payload = EventPayload.objects.create(payload=payload)
-        delivery = EventDelivery.objects.create(
-            status=EventDeliveryStatus.PENDING,
-            event_type=event_type,
-            payload=event_payload,
-            webhook=webhook,
-        )
+        with allow_writer():
+            event_payload = EventPayload.objects.create(payload=payload)
+            delivery = EventDelivery.objects.create(
+                status=EventDeliveryStatus.PENDING,
+                event_type=event_type,
+                payload=event_payload,
+                webhook=webhook,
+            )
     call_event(
         handle_transaction_request_task.delay,
         delivery.id,

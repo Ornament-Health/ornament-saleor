@@ -132,10 +132,11 @@ def order_created(
             payment=payment,
             manager=manager,
             site_settings=site_settings,
+            gateway=payment.gateway if payment else None,
         )
 
     channel = order_info.channel
-    if channel.automatically_confirm_all_new_orders or from_draft:
+    if channel.automatically_confirm_all_new_orders:
         order_confirmed(order, user, app, manager)
 
 
@@ -162,11 +163,12 @@ def handle_fully_paid_order(
     user: Optional[User] = None,
     app: Optional["App"] = None,
     site_settings: Optional["SiteSettings"] = None,
+    gateway: Optional[str] = None,
 ):
     from ..giftcard.utils import fulfill_non_shippable_gift_cards
 
     order = order_info.order
-    events.order_fully_paid_event(order=order, user=user, app=app)
+    events.order_fully_paid_event(order=order, user=user, app=app, gateway=gateway)
     if order_info.customer_email:
         send_payment_confirmation(order_info, manager)
         if utils.order_needs_automatic_fulfillment(order_info.lines_data):
@@ -182,6 +184,9 @@ def handle_fully_paid_order(
         )
 
     call_event(manager.order_fully_paid, order)
+    if not order.is_draft() and order.channel.automatically_confirm_all_new_orders:
+        update_order_status(order)
+
     call_event(manager.order_updated, order)
 
 
@@ -369,6 +374,7 @@ def order_charged(
     payment: Optional["Payment"],
     manager: "PluginsManager",
     site_settings: Optional["SiteSettings"] = None,
+    gateway: Optional[str] = None,
 ):
     order = order_info.order
     if payment and amount is not None:
@@ -377,7 +383,7 @@ def order_charged(
         )
     call_event(manager.order_paid, order)
     if order.charge_status in [OrderChargeStatus.FULL, OrderChargeStatus.OVERCHARGED]:
-        handle_fully_paid_order(manager, order_info, user, app, site_settings)
+        handle_fully_paid_order(manager, order_info, user, app, site_settings, gateway)
     else:
         call_event(manager.order_updated, order)
 
@@ -1739,7 +1745,7 @@ def _process_refund(
             user=user,
             app=app,
             refunded_lines=list(lines_to_refund.values()),
-            amount=amount,  # type: ignore
+            amount=amount,
             shipping_costs_included=refund_shipping_costs,
         )
     )

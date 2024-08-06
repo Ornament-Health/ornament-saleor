@@ -234,6 +234,9 @@ class Product(SeoModel, ModelWithMetadata, ModelWithExternalReference):
                 fields=["name", "slug"],
                 opclasses=["gin_trgm_ops"] * 2,
             ),
+            models.Index(
+                fields=["category_id", "slug"],
+            ),
         ]
         indexes.extend(ModelWithMetadata.Meta.indexes)
 
@@ -317,6 +320,7 @@ class ProductChannelListing(PublishableModel):
     discounted_price = MoneyField(
         amount_field="discounted_price_amount", currency_field="currency"
     )
+    discounted_price_dirty = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [["product", "channel"]]
@@ -395,11 +399,11 @@ class ProductVariant(SortableModel, ModelWithMetadata, ModelWithExternalReferenc
         If a custom price is provided, return the price with applied discounts from
         valid promotion rules for this variant.
         """
-        from ..discount.utils import calculate_discounted_price_for_rules
+        from ..discount.utils.promotion import calculate_discounted_price_for_rules
 
         if price_override is None:
             return channel_listing.discounted_price or channel_listing.price
-        price: "Money" = self.get_base_price(channel_listing, price_override)
+        price: Money = self.get_base_price(channel_listing, price_override)
         rules = promotion_rules or []
         return calculate_discounted_price_for_rules(
             price=price, rules=rules, currency=channel_listing.currency
@@ -517,6 +521,9 @@ class ProductVariantChannelListing(models.Model):
     class Meta:
         unique_together = [["variant", "channel"]]
         ordering = ("pk",)
+        indexes = [
+            GinIndex(fields=["price_amount", "channel_id"]),
+        ]
 
 
 class VariantChannelListingPromotionRule(models.Model):

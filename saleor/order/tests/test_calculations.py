@@ -3,11 +3,15 @@ from typing import Literal, Union
 from unittest.mock import Mock, patch, sentinel
 
 import pytest
+from django.test import override_settings
 from prices import Money, TaxedMoney
 
 from ...core.prices import quantize_price
 from ...core.taxes import TaxData, TaxError, TaxLineData, zero_taxed_money
 from ...discount import DiscountValueType
+from ...plugins import PLUGIN_IDENTIFIER_PREFIX
+from ...plugins.manager import get_plugins_manager
+from ...plugins.tests.sample_plugins import PluginSample
 from ...tax import TaxCalculationStrategy
 from ...tax.calculations.order import update_order_prices_with_flat_rates
 from .. import OrderStatus, calculations
@@ -340,6 +344,7 @@ def test_recalculate_with_plugins_order_discounts_and_total_undiscounted_price_c
     shipping_listing.price = new_shipping_price
     shipping_listing.save(update_fields=["price_amount"])
 
+    order.undiscounted_base_shipping_price = new_shipping_price
     order.base_shipping_price = new_shipping_price
     order.shipping_method = shipping_method_weight_based
     order.shipping_method_name = shipping_method_weight_based.name
@@ -362,17 +367,9 @@ def test_recalculate_with_plugins_order_discounts_and_total_undiscounted_price_c
                 price_with_discounts=total_price.price_with_discounts / line.quantity,
             )
         )
-    tax_rates = [line.tax_rate for line in tax_data.lines]
     shipping_tax_rate = 0
 
-    manager = Mock(
-        calculate_order_line_unit=Mock(side_effect=unit_prices),
-        calculate_order_line_total=Mock(side_effect=total_prices),
-        get_order_shipping_tax_rate=Mock(return_value=shipping_tax_rate),
-        get_order_line_tax_rate=Mock(side_effect=tax_rates),
-        calculate_order_shipping=Mock(return_value=zero_taxed_money(currency)),
-        calculate_order_total=Mock(return_value=zero_taxed_money(currency)),
-    )
+    manager = get_plugins_manager(allow_replica=True)
 
     # when
     calculations._recalculate_with_plugins(manager, order, lines, False)
@@ -388,7 +385,7 @@ def test_recalculate_with_plugins_order_discounts_and_total_undiscounted_price_c
     assert order.shipping_tax_rate == shipping_tax_rate
 
 
-def test_update_order_discounts_and_base_undiscounted_total_shipping_price_changed(
+def test_recalculate_prices_total_shipping_price_changed(
     draft_order, order_lines, shipping_method_weight_based
 ):
     """Test that discounts are properly updated when shipping price changes."""
@@ -416,6 +413,7 @@ def test_update_order_discounts_and_base_undiscounted_total_shipping_price_chang
     shipping_listing.save(update_fields=["price_amount"])
 
     order.base_shipping_price = new_shipping_price
+    order.undiscounted_base_shipping_price = new_shipping_price
     order.shipping_method = shipping_method_weight_based
     order.shipping_method_name = shipping_method_weight_based.name
     order.save(
@@ -427,7 +425,9 @@ def test_update_order_discounts_and_base_undiscounted_total_shipping_price_chang
     )
 
     # when
-    calculations._update_order_discounts_and_base_undiscounted_total(order, order_lines)
+    calculations._recalculate_prices(
+        order, get_plugins_manager(allow_replica=True), order_lines
+    )
 
     # then
     order_discount.refresh_from_db()
@@ -437,7 +437,7 @@ def test_update_order_discounts_and_base_undiscounted_total_shipping_price_chang
     assert order_discount.amount == order.undiscounted_total.net
 
 
-def test_update_order_discounts_and_base_undiscounted_total_line_quantity_changed(
+def test_recalculate_prices_line_quantity_changed(
     draft_order, order_lines, shipping_method_weight_based
 ):
     """Test that discounts are properly updated when line quantities change."""
@@ -459,7 +459,9 @@ def test_update_order_discounts_and_base_undiscounted_total_line_quantity_change
     line.save(update_fields=["quantity"])
 
     # when
-    calculations._update_order_discounts_and_base_undiscounted_total(order, order_lines)
+    calculations._recalculate_prices(
+        order, get_plugins_manager(allow_replica=True), order_lines
+    )
 
     # then
     order_discount.refresh_from_db()
@@ -651,7 +653,10 @@ def test_fetch_order_prices_if_expired_flat_rates(
 
     # then
     mocked_update_order_prices_with_flat_rates.assert_called_once_with(
-        order, list(order.lines.all()), prices_entered_with_tax
+        order,
+        list(order.lines.all()),
+        prices_entered_with_tax,
+        database_connection_name=order.lines.db,
     )
     assert line.tax_rate == Decimal("0.2300")
     assert order.shipping_tax_rate == Decimal("0.2300")
@@ -825,7 +830,7 @@ def test_fetch_order_prices_when_tax_exemption_and_not_include_taxes_in_prices(
     assert order_with_lines.discounts.first().amount_value == expected_discount_amount
     subtotal = zero_taxed_money(currency)
     undiscounted_subtotal = zero_taxed_money(currency)
-    undiscounted_shipping = order_with_lines.base_shipping_price
+    undiscounted_shipping = order_with_lines.undiscounted_base_shipping_price
     shipping_price = order_with_lines.shipping_price
     assert shipping_price.net == undiscounted_shipping * discount / 100
     assert shipping_price.net == shipping_price.gross
@@ -894,6 +899,7 @@ def test_fetch_order_prices_if_expired_use_base_shipping_price(
     )
     expected_price = Money("2.00", currency)
     order.base_shipping_price = expected_price
+    order.undiscounted_base_shipping_price = expected_price
     order.save()
 
     # when
@@ -1143,4 +1149,139 @@ def test_order_undiscounted_total(mocked_fetch_order_prices_if_expired):
     # then
     assert undiscounted_total == quantize_price(
         expected_undiscounted_total, order.currency
+    )
+
+
+@patch("saleor.plugins.manager.PluginsManager.calculate_order_line_total")
+@patch("saleor.plugins.manager.PluginsManager.get_taxes_for_order")
+@override_settings(PLUGINS=["saleor.plugins.tests.sample_plugins.PluginSample"])
+def test_fetch_order_data_calls_plugin(
+    mock_get_taxes,
+    mock_calculate_order_line_total,
+    order_with_lines,
+    order_lines,
+):
+    # given
+    order = order_with_lines
+    order.channel.tax_configuration.tax_app_id = (
+        PLUGIN_IDENTIFIER_PREFIX + PluginSample.PLUGIN_ID
+    )
+    order.channel.tax_configuration.save()
+
+    price = Money("10.0", currency=order.currency)
+    mock_calculate_order_line_total.return_value = OrderTaxedPricesData(
+        undiscounted_price=TaxedMoney(price, price),
+        price_with_discounts=TaxedMoney(price, price),
+    )
+
+    fetch_kwargs = {
+        "order": order,
+        "manager": get_plugins_manager(allow_replica=False),
+        "lines": order_lines,
+        "force_update": True,
+    }
+
+    # when
+    calculations.fetch_order_prices_if_expired(**fetch_kwargs)
+
+    # then
+    assert mock_calculate_order_line_total.call_count == 2
+    mock_get_taxes.assert_not_called()
+
+
+@patch("saleor.plugins.manager.PluginsManager.calculate_order_total")
+@patch("saleor.plugins.manager.PluginsManager.get_taxes_for_order")
+@patch("saleor.order.calculations._apply_tax_data")
+@override_settings(PLUGINS=["saleor.plugins.tests.sample_plugins.PluginSample"])
+def test_fetch_order_data_calls_tax_app(
+    mock_apply_tax_data,
+    mock_get_taxes,
+    mock_calculate_order_total,
+    order_with_lines,
+    order_lines,
+):
+    # given
+    order = order_with_lines
+    order.channel.tax_configuration.tax_app_id = "test.app"
+    order.channel.tax_configuration.save()
+
+    fetch_kwargs = {
+        "order": order,
+        "manager": get_plugins_manager(allow_replica=False),
+        "lines": order_lines,
+        "force_update": True,
+    }
+
+    # when
+    calculations.fetch_order_prices_if_expired(**fetch_kwargs)
+
+    # then
+    mock_apply_tax_data.assert_called_once()
+    mock_get_taxes.assert_called_once()
+    mock_calculate_order_total.assert_not_called()
+
+
+def test_fetch_order_data_calls_inactive_plugin(
+    order_with_lines,
+    order_lines,
+):
+    # given
+    order = order_with_lines
+    order.channel.tax_configuration.tax_app_id = "plugin:test"
+    order.channel.tax_configuration.save()
+
+    fetch_kwargs = {
+        "order": order,
+        "manager": get_plugins_manager(allow_replica=False),
+        "lines": order_lines,
+        "force_update": True,
+    }
+
+    # when
+    calculations.fetch_order_prices_if_expired(**fetch_kwargs)
+
+    # then
+    assert order_with_lines.tax_error == "Empty tax data."
+
+
+@pytest.mark.parametrize("tax_app_id", [None, "test.app"])
+def test_recalculate_prices_empty_tax_data_logging_address(
+    tax_app_id, draft_order, order_lines, address, caplog
+):
+    # given
+    order = draft_order
+
+    address.validation_skipped = True
+    address.postal_code = "invalid postal code"
+    address.save(update_fields=["postal_code", "validation_skipped"])
+
+    order.shipping_address = address
+    order.billing_address = address
+    order.save(update_fields=["billing_address", "shipping_address"])
+
+    order.channel.tax_configuration.tax_app_id = tax_app_id
+    order.channel.tax_configuration.save()
+
+    zero_money = zero_taxed_money(order.currency)
+    zero_prices = OrderTaxedPricesData(
+        undiscounted_price=zero_money,
+        price_with_discounts=zero_money,
+    )
+    manager_methods = {
+        "calculate_order_line_unit": Mock(side_effect=TaxError()),
+        "calculate_order_line_total": Mock(return_value=zero_prices),
+        "get_order_shipping_tax_rate": Mock(return_value=Decimal("0.00")),
+        "get_order_line_tax_rate": Mock(return_value=Decimal("0.00")),
+        "calculate_order_shipping": Mock(return_value=zero_money),
+        "get_taxes_for_order": Mock(return_value=None),
+    }
+    manager = Mock(**manager_methods)
+
+    # when
+    calculations._recalculate_prices(order, manager, order_lines)
+
+    # then
+    assert (
+        f"Fetching tax data for order with address validation skipped. "
+        f"Address ID: {address.pk}" in caplog.text
     )

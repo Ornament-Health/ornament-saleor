@@ -1,5 +1,6 @@
 import pytest
 
+from .....product.tasks import recalculate_discounted_price_for_products_task
 from ...product.utils.preparing_product import prepare_product
 from ...sales.utils import create_sale, create_sale_channel_listing, sale_catalogues_add
 from ...shop.utils.preparing_shop import prepare_default_shop
@@ -154,6 +155,10 @@ def test_checkout_calculate_discount_for_sale_and_voucher_1014(
         voucher_discount_value,
     )
 
+    # prices are updated in the background, we need to force it to retrieve the correct
+    # ones
+    recalculate_discounted_price_for_products_task()
+
     # Step 1 - Create checkout for product on sale
     lines = [
         {"variantId": product_variant_id, "quantity": 1},
@@ -226,7 +231,9 @@ def test_checkout_calculate_discount_for_sale_and_voucher_1014(
     order_line = order_data["lines"][0]
     assert order_line["unitDiscountType"] == "FIXED"
     assert order_line["unitPrice"]["gross"]["amount"] == expected_unit_price
-    assert order_line["unitDiscountReason"] == f"Sale: {sale_id}"
+    assert order_line["unitDiscountReason"] == (
+        f"Entire order voucher code: {voucher_code} & Sale: {sale_id}"
+    )
     assert order_data["total"]["gross"]["amount"] == total_gross_amount
     assert order_data["subtotal"]["gross"]["amount"] == subtotal_amount
     assert order_line["undiscountedUnitPrice"]["gross"]["amount"] == float(

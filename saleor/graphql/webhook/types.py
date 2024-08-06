@@ -13,6 +13,7 @@ from ..core.connection import (
 from ..core.context import get_database_connection_name
 from ..core.descriptions import ADDED_IN_312, DEPRECATED_IN_3X_FIELD, PREVIEW_FEATURE
 from ..core.fields import FilterConnectionField, JSONString
+from ..core.scalars import DateTime
 from ..core.types import ModelObjectType, NonNullList
 from ..webhook.enums import EventDeliveryStatusEnum, WebhookEventTypeEnum
 from ..webhook.filters import EventDeliveryFilterInput
@@ -77,7 +78,7 @@ class EventDeliveryAttempt(ModelObjectType[core_models.EventDeliveryAttempt]):
     id = graphene.GlobalID(
         required=True, description="The ID of Event Delivery Attempt."
     )
-    created_at = graphene.DateTime(
+    created_at = DateTime(
         description="Event delivery creation date and time.", required=True
     )
     task_id = graphene.String(description="Task id for delivery attempt.")
@@ -109,7 +110,7 @@ class EventDeliveryAttemptCountableConnection(CountableConnection):
 
 class EventDelivery(ModelObjectType[core_models.EventDelivery]):
     id = graphene.GlobalID(required=True, description="The ID of an event delivery.")
-    created_at = graphene.DateTime(
+    created_at = DateTime(
         required=True, description="Creation time of an event delivery."
     )
     status = EventDeliveryStatusEnum(
@@ -133,7 +134,9 @@ class EventDelivery(ModelObjectType[core_models.EventDelivery]):
         qs = core_models.EventDeliveryAttempt.objects.using(
             get_database_connection_name(info.context)
         ).filter(delivery=root)
-        qs = filter_connection_queryset(qs, kwargs)
+        qs = filter_connection_queryset(
+            qs, kwargs, allow_replica=info.context.allow_replica
+        )
         return create_connection_slice(
             qs, info, kwargs, EventDeliveryAttemptCountableConnection
         )
@@ -246,7 +249,9 @@ class Webhook(ModelObjectType[models.Webhook]):
         qs = core_models.EventDelivery.objects.using(
             get_database_connection_name(info.context)
         ).filter(webhook_id=root.pk)
-        qs = filter_connection_queryset(qs, kwargs)
+        qs = filter_connection_queryset(
+            qs, kwargs, allow_replica=info.context.allow_replica
+        )
         return create_connection_slice(
             qs, info, kwargs, EventDeliveryCountableConnection
         )

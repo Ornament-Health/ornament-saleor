@@ -12,10 +12,10 @@ from saleor.ornament.vendors.models import Vendor
 
 from ....attribute import AttributeType
 from ....core.tracing import traced_atomic_transaction
+from ....discount.utils.promotion import mark_active_catalogue_promotion_rules_as_dirty
 from ....permission.enums import ProductPermissions
 from ....product import models
 from ....product.error_codes import ProductVariantBulkErrorCode
-from ....product.tasks import update_products_discounted_prices_for_promotion_task
 from ....warehouse import models as warehouse_models
 from ....webhook.event_types import WebhookEventAsyncType
 from ....webhook.utils import get_webhooks_for_event
@@ -40,7 +40,7 @@ from ...core.mutations import (
     ModelMutation,
     validation_error_to_error_type,
 )
-from ...core.scalars import Date
+from ...core.scalars import Date, DateTime
 from ...core.types import (
     BaseInputObjectType,
     BaseObjectType,
@@ -193,7 +193,7 @@ class BulkAttributeValueInput(BaseInputObjectType):
     date = Date(
         required=False, description=AttributeValueDescriptions.DATE + ADDED_IN_312
     )
-    date_time = graphene.DateTime(
+    date_time = DateTime(
         required=False, description=AttributeValueDescriptions.DATE_TIME + ADDED_IN_312
     )
 
@@ -940,8 +940,15 @@ class ProductVariantBulkCreate(BaseMutation):
 
     @classmethod
     def post_save_actions(cls, info, instances, product):
-        # Recalculate the "discounted price" for the parent product
-        update_products_discounted_prices_for_promotion_task.delay([product.pk])
+        variant_ids = set([instance.node.id for instance in instances])
+        channel_ids = set(
+            models.ProductVariantChannelListing.objects.filter(
+                variant_id__in=variant_ids
+            ).values_list("channel_id", flat=True)
+        )
+        # This will finally recalculate discounted prices for products.
+        cls.call_event(mark_active_catalogue_promotion_rules_as_dirty, channel_ids)
+
         product.search_index_dirty = True
         product.save(update_fields=["search_index_dirty"])
 

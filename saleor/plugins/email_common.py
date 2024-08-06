@@ -122,9 +122,9 @@ DEFAULT_EMAIL_CONFIG_STRUCTURE = {
 def format_address(this, address, include_phone=True, inline=False, latin=False):
     address["name"] = f"{address.get('first_name', '')} {address.get('last_name', '')}"
     address["country_code"] = address["country"]
-    address[
-        "street_address"
-    ] = f"{address.get('street_address_1','')}\n {address.get('street_address_2','')}"
+    address["street_address"] = (
+        f"{address.get('street_address_1','')}\n {address.get('street_address_2','')}"
+    )
     address_lines = i18naddress.format_address(address, latin).split("\n")
     phone = address.get("phone")
     if include_phone and phone:
@@ -264,6 +264,7 @@ def validate_default_email_configuration(
                 ),
             }
         )
+
     config = EmailConfig(
         host=configuration["host"],
         port=configuration["port"],
@@ -275,15 +276,16 @@ def validate_default_email_configuration(
         use_ssl=configuration["use_ssl"],
     )
 
-    if not config.sender_address:
-        raise ValidationError(
-            {
-                "sender_address": ValidationError(
-                    "Missing sender address value.",
-                    code=PluginErrorCode.PLUGIN_MISCONFIGURED.value,
-                )
-            }
-        )
+    errors = {}
+    for field in ("host", "port", "sender_address"):
+        if not getattr(config, field):
+            errors[field] = ValidationError(
+                f"Missing {field.replace('_', ' ')} value.",
+                code=PluginErrorCode.PLUGIN_MISCONFIGURED.value,
+            )
+
+    if errors:
+        raise ValidationError(errors)
 
     EmailValidator(
         message={  # type: ignore[arg-type] # the code below is a hack
