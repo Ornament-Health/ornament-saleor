@@ -120,7 +120,7 @@ class ProductsQueryset(models.QuerySet):
         if not channel:
             return self.none()
         # @cf::ornament.saleor.product
-        return self.published_with_variants(channel_slug, channel, requestor)
+        return self.published_with_variants(channel, requestor)
 
     def annotate_publication_info(self, channel: Channel):
         return self.annotate_is_published(channel).annotate_published_at(channel)
