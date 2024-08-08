@@ -1,4 +1,7 @@
+from typing import Optional
 import graphene
+
+from saleor.graphql.channel import ChannelContext
 
 from ...attribute import models as attribute_models
 from ...page import models
@@ -148,10 +151,19 @@ class Page(ModelObjectType[models.Page]):
         required=True,
     )
     translation = TranslationField(PageTranslation, type_name="page")
+    attribute = graphene.Field(
+        SelectedAttribute,
+        slug=graphene.Argument(
+            graphene.String,
+            description="Slug of the attribute",
+            required=True,
+        ),
+        description=(f"Get a single attribute attached to page by attribute slug."),
+    )
     attributes = NonNullList(
         SelectedAttribute,
         required=True,
-        description="List of attributes assigned to this product.",
+        description="List of attributes assigned to this page.",
     )
 
     class Meta:
@@ -178,6 +190,34 @@ class Page(ModelObjectType[models.Page]):
     def resolve_content_json(root: models.Page, _info: ResolveInfo):
         content = root.content
         return content if content is not None else {}
+
+    @staticmethod
+    def resolve_attribute(root: ChannelContext[models.Page], info, slug):
+        def get_selected_attribute_by_slug(
+            attributes: list[SelectedAttribute],
+        ) -> Optional[SelectedAttribute]:
+            return next(
+                (atr for atr in attributes if atr["attribute"].slug == slug),
+                None,
+            )
+
+        requestor = get_user_or_app_from_context(info.context)
+        if (
+            requestor
+            and requestor.is_active
+            and requestor.has_perm(PagePermissions.MANAGE_PAGES)
+        ):
+            return (
+                SelectedAttributesAllByPageIdLoader(info.context)
+                .load(root.id)
+                .then(get_selected_attribute_by_slug)
+            )
+        else:
+            return (
+                SelectedAttributesVisibleInStorefrontPageIdLoader(info.context)
+                .load(root.id)
+                .then(get_selected_attribute_by_slug)
+            )
 
     @staticmethod
     def resolve_attributes(root: models.Page, info: ResolveInfo):
