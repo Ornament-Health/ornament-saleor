@@ -82,6 +82,7 @@ class Address(AutoNowUpdateFieldsMixin, ModelWithMetadata):
     country = CountryField()
     country_area = models.CharField(max_length=128, blank=True)
     phone = PossiblePhoneNumberField(blank=True, default="", db_index=True)
+    validation_skipped = models.BooleanField(default=False)
 
     # @cf::ornament.saleor.account
     created = models.DateTimeField(auto_now_add=True, editable=False)
@@ -129,7 +130,7 @@ class Address(AutoNowUpdateFieldsMixin, ModelWithMetadata):
         data = model_to_dict(self, exclude=["id", "user"])
         if isinstance(data["country"], Country):
             data["country"] = data["country"].code
-        if isinstance(data["phone"], PhoneNumber):
+        if isinstance(data["phone"], PhoneNumber) and not data["validation_skipped"]:
             data["phone"] = data["phone"].as_e164
         return data
 

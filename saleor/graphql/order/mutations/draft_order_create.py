@@ -10,8 +10,13 @@ from ....core.taxes import TaxError
 from ....core.tracing import traced_atomic_transaction
 from ....core.utils.url import validate_storefront_url
 from ....discount.models import Voucher, VoucherCode
-from ....discount.utils import get_voucher_code_instance, increase_voucher_usage
+from ....discount.utils.voucher import (
+    get_active_voucher_code,
+    get_voucher_code_instance,
+    increase_voucher_usage,
+)
 from ....order import OrderOrigin, OrderStatus, events, models
+from ....order.actions import call_order_event
 from ....order.error_codes import OrderErrorCode
 from ....order.search import update_order_search_vector
 from ....order.utils import (
@@ -22,6 +27,7 @@ from ....order.utils import (
 )
 from ....permission.enums import OrderPermissions
 from ....shipping.utils import convert_to_shipping_method_data
+from ....webhook.event_types import WebhookEventAsyncType
 from ...account.i18n import I18nMixin
 from ...account.mixins import AddressMetadataMixin
 from ...account.types import AddressInput
@@ -193,7 +199,8 @@ class DraftOrderCreate(
         shipping_method_input = {}
         if "shipping_method" in data:
             shipping_method_input["shipping_method"] = get_shipping_model_by_object_id(
-                object_id=data.pop("shipping_method", None), raise_error=False
+                object_id=data.pop("shipping_method", None),
+                error_field="shipping_method",
             )
 
         if email := data.get("user_email", None):
@@ -272,11 +279,23 @@ class DraftOrderCreate(
         if voucher is None:
             cleaned_input["voucher_code"] = None
             return
+
+        if isinstance(voucher, VoucherCode):
+            raise ValidationError(
+                {
+                    "voucher": ValidationError(
+                        "You cannot use voucherCode in the voucher input. "
+                        "Please use voucherCode input instead with a valid voucher code.",
+                        code=OrderErrorCode.INVALID_VOUCHER.value,
+                    )
+                }
+            )
+
         code_instance = None
         if channel.include_draft_order_in_voucher_usage:
             # Validate voucher when it's included in voucher usage calculation
             try:
-                code_instance = get_voucher_code_instance(voucher.code, channel.slug)
+                code_instance = get_active_voucher_code(voucher, channel.slug)
             except ValidationError:
                 raise ValidationError(
                     {
@@ -330,6 +349,7 @@ class DraftOrderCreate(
             voucher = code_instance.voucher
             cls.clean_voucher_listing(voucher, channel, "voucher_code")
         cleaned_input["voucher"] = voucher
+        cleaned_input["voucher_code"] = voucher_code
         cleaned_input["voucher_code_instance"] = code_instance
 
     @classmethod
@@ -481,7 +501,7 @@ class DraftOrderCreate(
             )
 
     @classmethod
-    def should_invalidate_prices(cls, instance, cleaned_input, is_new_instance) -> bool:
+    def should_invalidate_prices(cls, cleaned_input, is_new_instance) -> bool:
         # Force price recalculation for all new instances
         return is_new_instance
 
@@ -542,6 +562,12 @@ class DraftOrderCreate(
                     cls._update_shipping_price(instance, shipping_channel_listing)
                 updated_fields.extend(SHIPPING_METHOD_UPDATE_FIELDS)
 
+            if instance.undiscounted_base_shipping_price_amount is None:
+                instance.undiscounted_base_shipping_price_amount = (
+                    instance.base_shipping_price_amount
+                )
+                updated_fields.append("undiscounted_base_shipping_price_amount")
+
             # Save any changes create/update the draft
             cls._commit_changes(info, instance, cleaned_input, is_new_instance, app)
 
@@ -549,12 +575,6 @@ class DraftOrderCreate(
                 cls.handle_order_voucher(cleaned_input, instance, voucher)
 
             update_order_display_gross_prices(instance)
-
-            if is_new_instance:
-                cls.call_event(manager.draft_order_created, instance)
-
-            else:
-                cls.call_event(manager.draft_order_updated, instance)
 
             # Post-process the results
             updated_fields.extend(
@@ -565,13 +585,27 @@ class DraftOrderCreate(
                     "display_gross_prices",
                 ]
             )
-            if cls.should_invalidate_prices(instance, cleaned_input, is_new_instance):
+            if cls.should_invalidate_prices(cleaned_input, is_new_instance):
                 invalidate_order_prices(instance)
                 updated_fields.extend(["should_refresh_prices"])
             recalculate_order_weight(instance)
             update_order_search_vector(instance, save=False)
 
             instance.save(update_fields=updated_fields)
+            if is_new_instance:
+                call_order_event(
+                    manager,
+                    manager.draft_order_created,
+                    WebhookEventAsyncType.DRAFT_ORDER_CREATED,
+                    instance,
+                )
+            else:
+                call_order_event(
+                    manager,
+                    manager.draft_order_updated,
+                    WebhookEventAsyncType.DRAFT_ORDER_UPDATED,
+                    instance,
+                )
 
     @classmethod
     def handle_order_voucher(cls, cleaned_input, instance, voucher):
@@ -581,6 +615,6 @@ class DraftOrderCreate(
             increase_voucher_usage(
                 voucher,
                 code_instance,
-                instance.user_email or instance.user.email,
+                instance.user_email or instance.user and instance.user.email,
                 increase_voucher_customer_usage=False,
             )

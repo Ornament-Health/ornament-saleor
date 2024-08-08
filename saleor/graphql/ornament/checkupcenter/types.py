@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db.models import Prefetch
 
 from saleor.graphql.channel import ChannelContext
+from saleor.graphql.core.scalars import DateTime
 from saleor.graphql.ornament.checkupcenter.translations import (
     CheckUpCategoryTranslation,
     CheckUpProductCategoryTranslation,
@@ -252,8 +253,8 @@ class CheckUpStateMetaItemStatus(graphene.ObjectType):
 
 
 class CheckUpStateMetaItemBase(graphene.ObjectType):
-    date_from = graphene.DateTime()
-    date_to = graphene.DateTime()
+    date_from = DateTime()
+    date_to = DateTime()
     biomarkers = graphene.List(CheckUpStateMetaItemStatus)
     medical_exams = graphene.List(CheckUpStateMetaItemStatus)
     progress = graphene.Float()
@@ -298,8 +299,8 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
         description="CheckUp state approvement value."
     )
     status = graphene.String(description="CheckUp state status.")
-    date_from = graphene.DateTime(description="CheckUp state date from.")
-    date_to = graphene.DateTime(description="CheckUp state date to.")
+    date_from = DateTime(description="CheckUp state date from.")
+    date_to = DateTime(description="CheckUp state date to.")
 
     class Meta:
         model = models.CheckUpState

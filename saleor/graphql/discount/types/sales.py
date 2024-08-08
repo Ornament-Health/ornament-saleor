@@ -1,7 +1,7 @@
 import graphene
 from graphene import relay
 
-from ....discount import models
+from ....discount import DiscountValueType, models
 from ....permission.enums import DiscountPermissions
 from ....product.models import Category, Collection, Product, ProductVariant
 from ...channel import ChannelQsContext
@@ -18,6 +18,7 @@ from ...core.context import get_database_connection_name
 from ...core.descriptions import ADDED_IN_31, DEPRECATED_IN_3X_TYPE
 from ...core.doc_category import DOC_CATEGORY_DISCOUNTS
 from ...core.fields import ConnectionField, PermissionsField
+from ...core.scalars import DateTime
 from ...core.types import BaseObjectType, ModelObjectType, NonNullList
 from ...meta.types import ObjectWithMetadata
 from ...product.types import (
@@ -67,14 +68,14 @@ class Sale(ChannelContextTypeWithMetadata, ModelObjectType[models.Promotion]):
     id = graphene.GlobalID(required=True, description="The ID of the sale.")
     name = graphene.String(required=True, description="The name of the sale.")
     type = SaleType(required=True, description="Type of the sale, fixed or percentage.")
-    start_date = graphene.DateTime(
+    start_date = DateTime(
         required=True, description="The start date and time of the sale."
     )
-    end_date = graphene.DateTime(description="The end date and time of the sale.")
-    created = graphene.DateTime(
+    end_date = DateTime(description="The end date and time of the sale.")
+    created = DateTime(
         required=True, description="The date and time when the sale was created."
     )
-    updated_at = graphene.DateTime(
+    updated_at = DateTime(
         required=True, description="The date and time when the sale was updated."
     )
     categories = ConnectionField(
@@ -141,7 +142,7 @@ class Sale(ChannelContextTypeWithMetadata, ModelObjectType[models.Promotion]):
     def resolve_type(root: ChannelContext[models.Promotion], info: ResolveInfo):
         def _get_type(rules):
             # We ensure, that old sales have at least one rule associated.
-            return rules[0].reward_value_type
+            return rules[0].reward_value_type or DiscountValueType.FIXED
 
         return (
             PromotionRulesByPromotionIdLoader(info.context)

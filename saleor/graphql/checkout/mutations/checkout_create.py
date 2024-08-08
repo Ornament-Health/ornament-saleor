@@ -4,6 +4,7 @@ import graphene
 from django.conf import settings
 
 from ....checkout import AddressType, models
+from ....checkout.actions import call_checkout_event_for_checkout
 from ....checkout.error_codes import CheckoutErrorCode
 from ....checkout.utils import add_variants_to_checkout
 from ....core.tracing import traced_atomic_transaction
@@ -35,6 +36,7 @@ from ...product.types import ProductVariant
 from ...site.dataloaders import get_site_promise
 from ..types import Checkout
 from .utils import (
+    apply_gift_reward_if_applicable_on_checkout_creation,
     check_lines_quantity,
     check_permissions_for_custom_prices,
     get_variants_and_total_quantities,
@@ -148,10 +150,16 @@ class CheckoutCreateInput(BaseInputObjectType):
         description=(
             "The mailing address to where the checkout will be shipped. "
             "Note: the address will be ignored if the checkout "
-            "doesn't contain shippable items."
+            "doesn't contain shippable items. `skipValidation` requires "
+            "HANDLE_CHECKOUTS and AUTHENTICATED_APP permissions."
         )
     )
-    billing_address = AddressInput(description="Billing address of the customer.")
+    billing_address = AddressInput(
+        description=(
+            "Billing address of the customer. `skipValidation` requires "
+            "HANDLE_CHECKOUTS and AUTHENTICATED_APP permissions."
+        )
+    )
     language_code = graphene.Argument(
         LanguageCodeEnum, required=False, description="Checkout language code."
     )
@@ -184,7 +192,10 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         )
 
     class Meta:
-        description = "Create a new checkout."
+        description = (
+            "Create a new checkout.\n\n`skipValidation` field requires "
+            "HANDLE_CHECKOUTS and AUTHENTICATED_APP permissions."
+        )
         doc_category = DOC_CATEGORY_CHECKOUT
         model = models.Checkout
         object_type = Checkout
@@ -243,10 +254,11 @@ class CheckoutCreate(ModelMutation, I18nMixin):
 
     @classmethod
     def retrieve_shipping_address(
-        # @cf::ornament.saleor.checkout
         cls,
         user,
         data: dict,
+        info: ResolveInfo,
+        # @cf::ornament.saleor.checkout
         variants: list[product_models.ProductVariant],
     ) -> Optional["Address"]:
         address_validation_rules = data.get("validation_rules", {}).get(
@@ -269,15 +281,17 @@ class CheckoutCreate(ModelMutation, I18nMixin):
                 enable_normalization=address_validation_rules.get(
                     "enable_fields_normalization", True
                 ),
+                info=info,
             )
         return None
 
     @classmethod
     def retrieve_billing_address(
-        # @cf::ornament.saleor.checkout
         cls,
         user,
         data: dict,
+        info: ResolveInfo,
+        # @cf::ornament.saleor.checkout
         variants: list[product_models.ProductVariant],
     ) -> Optional["Address"]:
         address_validation_rules = data.get("validation_rules", {}).get(
@@ -300,6 +314,7 @@ class CheckoutCreate(ModelMutation, I18nMixin):
                 enable_normalization=address_validation_rules.get(
                     "enable_fields_normalization", True
                 ),
+                info=info,
             )
         return None
 
@@ -321,6 +336,7 @@ class CheckoutCreate(ModelMutation, I18nMixin):
             if data.get("billing_address")
             else None
         )
+
         # @cf::ornament.saleor.checkout
         variant_ids = [line["variant_id"] for line in data.get("lines", [])]
         variants = (
@@ -328,9 +344,9 @@ class CheckoutCreate(ModelMutation, I18nMixin):
             if variant_ids
             else []
         )
-        shipping_address = cls.retrieve_shipping_address(user, data, variants)
-        billing_address = cls.retrieve_billing_address(user, data, variants)
 
+        shipping_address = cls.retrieve_shipping_address(user, data, info, variants)
+        billing_address = cls.retrieve_billing_address(user, data, info, variants)
         if shipping_address:
             cls.update_metadata(shipping_address, shipping_address_metadata)
         if billing_address:
@@ -418,11 +434,20 @@ class CheckoutCreate(ModelMutation, I18nMixin):
         cls, _root, info: ResolveInfo, /, *, input
     ):
         channel_input = input.get("channel")
-        channel = clean_channel(channel_input, error_class=CheckoutErrorCode)
+        channel = clean_channel(
+            channel_input, error_class=CheckoutErrorCode, allow_replica=False
+        )
         if channel:
             input["channel"] = channel
         response = super().perform_mutation(_root, info, input=input)
+        checkout = response.checkout
+        apply_gift_reward_if_applicable_on_checkout_creation(response.checkout)
         manager = get_plugin_manager_promise(info.context).get()
-        cls.call_event(manager.checkout_created, response.checkout)
+        call_checkout_event_for_checkout(
+            manager,
+            event_func=manager.checkout_created,
+            event_name=WebhookEventAsyncType.CHECKOUT_CREATED,
+            checkout=checkout,
+        )
         response.created = True
         return response

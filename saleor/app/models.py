@@ -31,6 +31,12 @@ class AppQueryset(models.QuerySet["App"]):
             **permissions,
         )
 
+    def not_removed(self):
+        return self.filter(removed_at__isnull=True)
+
+    def marked_to_be_removed(self):
+        return self.filter(removed_at__isnull=False)
+
 
 AppManager = models.Manager.from_queryset(AppQueryset)
 
@@ -44,7 +50,7 @@ class App(ModelWithMetadata):
     type = models.CharField(
         choices=AppType.CHOICES, default=AppType.LOCAL, max_length=60
     )
-    identifier = models.CharField(blank=True, null=True, max_length=256)
+    identifier = models.CharField(max_length=256, blank=True)
     permissions = models.ManyToManyField(
         Permission,
         blank=True,

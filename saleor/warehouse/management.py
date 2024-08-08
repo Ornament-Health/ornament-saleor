@@ -18,6 +18,7 @@ from ..core.exceptions import (
     PreorderAllocationError,
 )
 from ..core.tracing import traced_atomic_transaction
+from ..core.utils.country import get_active_country
 from ..order.fetch import OrderLineInfo
 from ..order.models import OrderLine
 from ..plugins.manager import PluginsManager
@@ -433,9 +434,13 @@ def increase_allocations(
     Allocation.objects.filter(pk__in=allocation_pks_to_delete).delete()
     Stock.objects.bulk_update(stocks_to_update, ["quantity_allocated"])
 
+    order = lines_info[0].line.order  # type: ignore[index]
+    country_code = get_active_country(
+        channel, order.shipping_address, order.billing_address
+    )
     allocate_stocks(
         lines_info,
-        lines_info[0].line.order.shipping_address.country.code,  # type: ignore
+        country_code,
         channel,
         manager,
     )
@@ -486,9 +491,9 @@ def decrease_stock(
 
     variant_and_warehouse_to_stock: dict[int, dict[UUID, Stock]] = defaultdict(dict)
     for stock in stocks:
-        variant_and_warehouse_to_stock[stock.product_variant_id][
-            stock.warehouse_id
-        ] = stock
+        variant_and_warehouse_to_stock[stock.product_variant_id][stock.warehouse_id] = (
+            stock
+        )
 
     quantity_allocation_list = list(
         Allocation.objects.filter(
@@ -703,17 +708,17 @@ def allocate_preorders(
         )
         listings_reservations: dict = defaultdict(int)
         for reservation in quantity_reservation_list:
-            listings_reservations[
-                reservation["product_variant_channel_listing"]
-            ] += reservation["quantity_reserved_sum"]
+            listings_reservations[reservation["product_variant_channel_listing"]] += (
+                reservation["quantity_reserved_sum"]
+            )
     else:
         listings_reservations = defaultdict(int)
 
     variants_global_allocations: dict[int, int] = defaultdict(int)
     for channel_listing in all_variants_channel_listings:
-        variants_global_allocations[
-            channel_listing["variant_id"]
-        ] += quantity_allocation_for_channel[channel_listing["id"]]
+        variants_global_allocations[channel_listing["variant_id"]] += (
+            quantity_allocation_for_channel[channel_listing["id"]]
+        )
 
     insufficient_stocks: list[InsufficientStockData] = []
     allocations: list[PreorderAllocation] = []
@@ -809,9 +814,13 @@ def deactivate_preorder_for_variant(product_variant: ProductVariant):
         variant_id=product_variant.pk
     )
     channel_listings_pk = (channel_listing.id for channel_listing in channel_listings)
-    preorder_allocations = PreorderAllocation.objects.filter(
-        product_variant_channel_listing_id__in=channel_listings_pk
-    ).select_related("order_line", "order_line__order")
+    preorder_allocations = (
+        PreorderAllocation.objects.filter(
+            product_variant_channel_listing_id__in=channel_listings_pk
+        )
+        .select_for_update(of=("self",))
+        .select_related("order_line", "order_line__order")
+    )
 
     allocations_to_create = []
     stocks_to_create = []
@@ -876,6 +885,7 @@ def _get_stock_for_preorder_allocation(
     """
     order = preorder_allocation.order_line.order
     shipping_method_id = order.shipping_method_id
+
     if shipping_method_id is not None:
         warehouse = Warehouse.objects.filter(
             shipping_zones__id=order.shipping_method.shipping_zone_id  # type: ignore

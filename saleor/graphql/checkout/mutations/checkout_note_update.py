@@ -11,6 +11,8 @@ from ...plugins.dataloaders import get_plugin_manager_promise
 from ..types import Checkout
 from .utils import get_checkout
 
+from saleor.checkout.actions import call_checkout_event_for_checkout
+
 
 # @cf:ornament.saleor.checkout
 class CheckoutNoteUpdate(BaseMutation):
@@ -47,10 +49,17 @@ class CheckoutNoteUpdate(BaseMutation):
         id=None,
         note,
     ):
-        checkout = get_checkout(cls, info, id=id)
-        manager = get_plugin_manager_promise(info.context).get()
+        checkout = cls.get_node_or_error(info, id, only_type=Checkout)
+
         checkout.note = note
-        checkout.save(update_fields=["note"])
-        cls.call_event(manager.checkout_updated, checkout)
+        cls.clean_instance(info, checkout)
+        checkout.save(update_fields=["note", "last_change"])
+        manager = get_plugin_manager_promise(info.context).get()
+        call_checkout_event_for_checkout(
+            manager,
+            event_func=manager.checkout_updated,
+            event_name=WebhookEventAsyncType.CHECKOUT_UPDATED,
+            checkout=checkout,
+        )
 
         return CheckoutNoteUpdate(checkout=checkout)

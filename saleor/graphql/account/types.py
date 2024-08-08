@@ -16,7 +16,12 @@ from ...graphql.meta.inputs import MetadataInput
 from ...order import OrderStatus
 from ...payment.interface import ListStoredPaymentMethodsRequestData
 from ...permission.auth_filters import AuthorizationFilters
-from ...permission.enums import AccountPermissions, AppPermission, OrderPermissions
+from ...permission.enums import (
+    AccountPermissions,
+    AppPermission,
+    OrderPermissions,
+)
+from ...plugins.manager import PluginsManager
 from ...thumbnail.utils import (
     get_image_or_proxy_url,
     get_thumbnail_format,
@@ -37,6 +42,7 @@ from ..core.descriptions import (
     ADDED_IN_310,
     ADDED_IN_314,
     ADDED_IN_315,
+    ADDED_IN_319,
     DEPRECATED_IN_3X_FIELD,
     PREVIEW_FEATURE,
 )
@@ -44,7 +50,7 @@ from ..core.doc_category import DOC_CATEGORY_USERS
 from ..core.enums import LanguageCodeEnum
 from ..core.federation import federated_entity, resolve_federation_references
 from ..core.fields import ConnectionField, PermissionsField
-from ..core.scalars import UUID
+from ..core.scalars import UUID, DateTime
 from ..core.tracing import traced_resolver
 from ..core.types import (
     BaseInputObjectType,
@@ -66,6 +72,7 @@ from ..utils import format_permissions_for_display, get_user_or_app_from_context
 from .dataloaders import (
     AccessibleChannelsByGroupIdLoader,
     AccessibleChannelsByUserIdLoader,
+    AddressByIdLoader,
     CustomerEventsByUserLoader,
     RestrictedChannelAccessByUserIdLoader,
     ThumbnailByUserIdSizeAndFormatLoader,
@@ -109,6 +116,20 @@ class AddressInput(BaseInputObjectType):
     metadata = graphene.List(
         graphene.NonNull(MetadataInput),
         description="Address public metadata." + ADDED_IN_315,
+        required=False,
+    )
+    skip_validation = graphene.Boolean(
+        description=(
+            "Determine if the address should be validated. "
+            "By default, Saleor accepts only address inputs matching ruleset from "
+            "[Google Address Data]{https://chromium-i18n.appspot.com/ssl-address), "
+            "using [i18naddress](https://github.com/mirumee/google-i18n-address) "
+            "library. Some mutations may require additional permissions to use the "
+            "the field. More info about permissions can be found in relevant mutation."
+        )
+        + ADDED_IN_319
+        + PREVIEW_FEATURE,
+        default_value=False,
         required=False,
     )
 
@@ -221,9 +242,7 @@ class Address(ModelObjectType[models.Address]):
 
 class CustomerEvent(ModelObjectType[models.CustomerEvent]):
     id = graphene.GlobalID(required=True, description="The ID of the customer event.")
-    date = graphene.types.datetime.DateTime(
-        description="Date when event happened at in ISO 8601 format."
-    )
+    date = DateTime(description="Date when event happened at in ISO 8601 format.")
     type = CustomerEventsEnum(description="Customer event type.")
     user = graphene.Field(lambda: User, description="User who performed the action.")
     app = graphene.Field(App, description="App that performed the action.")
@@ -439,13 +458,13 @@ class User(ModelObjectType[models.User]):
         description=f"External ID of this user. {ADDED_IN_310}", required=False
     )
 
-    last_login = graphene.DateTime(
+    last_login = DateTime(
         description="The date when the user last time log in to the system."
     )
-    date_joined = graphene.DateTime(
+    date_joined = DateTime(
         required=True, description="The data when the user create account."
     )
-    updated_at = graphene.DateTime(
+    updated_at = DateTime(
         required=True,
         description="The data when the user last update the account information.",
     )
@@ -511,8 +530,11 @@ class User(ModelObjectType[models.User]):
         return settings.DEFAULT_CHANNEL_CURRENCY
 
     @staticmethod
-    def resolve_checkout(root: models.User, _info: ResolveInfo):
-        return get_user_checkout(root)
+    def resolve_checkout(root: models.User, info: ResolveInfo):
+        database_connection_name = get_database_connection_name(info.context)
+        return get_user_checkout(
+            root, database_connection_name=database_connection_name
+        )
 
     @staticmethod
     @traced_resolver
@@ -589,18 +611,19 @@ class User(ModelObjectType[models.User]):
         )
 
     @staticmethod
-    def resolve_user_permissions(root: models.User, _info: ResolveInfo):
+    def resolve_user_permissions(root: models.User, info: ResolveInfo):
         from .resolvers import resolve_permissions
 
-        return resolve_permissions(root)
+        return resolve_permissions(root, info)
 
     @staticmethod
     def resolve_permission_groups(root: models.User, info: ResolveInfo):
         return root.groups.using(get_database_connection_name(info.context)).all()
 
     @staticmethod
-    def resolve_editable_groups(root: models.User, _info: ResolveInfo):
-        return get_groups_which_user_can_manage(root)
+    def resolve_editable_groups(root: models.User, info: ResolveInfo):
+        database_connection_name = get_database_connection_name(info.context)
+        return get_groups_which_user_can_manage(root, database_connection_name)
 
     @staticmethod
     def resolve_accessible_channels(root: models.Group, info: ResolveInfo):
@@ -748,7 +771,7 @@ class User(ModelObjectType[models.User]):
         if not requestor or requestor.id != root.id:
             return []
 
-        def get_stored_payment_methods(data):
+        def get_stored_payment_methods(data: tuple[Channel, "PluginsManager"]):
             channel_obj, manager = data
             request_data = ListStoredPaymentMethodsRequestData(
                 user=root,
@@ -762,6 +785,20 @@ class User(ModelObjectType[models.User]):
                 get_plugin_manager_promise(info.context),
             ]
         ).then(get_stored_payment_methods)
+
+    @staticmethod
+    def resolve_default_billing_address(root: models.User, info: ResolveInfo):
+        if root.default_billing_address_id:
+            return AddressByIdLoader(info.context).load(root.default_billing_address_id)
+        return None
+
+    @staticmethod
+    def resolve_default_shipping_address(root: models.User, info: ResolveInfo):
+        if root.default_shipping_address_id:
+            return AddressByIdLoader(info.context).load(
+                root.default_shipping_address_id
+            )
+        return None
 
 
 class UserCountableConnection(CountableConnection):
@@ -779,7 +816,7 @@ FORMAT_FILED_DESCRIPTION = (
     "\n\nMany fields in the JSON refer to address fields by one-letter "
     "abbreviations. These are defined as follows:\n\n"
     "- `N`: Name\n"
-    "- `O`: Organisation\n"
+    "- `O`: Organization\n"
     "- `A`: Street Address Line(s)\n"
     "- `D`: Dependent locality (may be an inner-city district or a suburb)\n"
     "- `C`: City or Locality\n"
@@ -1019,13 +1056,17 @@ class Group(ModelObjectType[models.Group]):
         doc_category = DOC_CATEGORY_USERS
 
     @staticmethod
-    def resolve_users(root: models.Group, _info: ResolveInfo):
-        return root.user_set.all()  # type: ignore[attr-defined]
+    def resolve_users(root: models.Group, info: ResolveInfo):
+        database_connection_name = get_database_connection_name(info.context)
+        return root.user_set.using(database_connection_name).all()  # type: ignore[attr-defined]
 
     @staticmethod
-    def resolve_permissions(root: models.Group, _info: ResolveInfo):
-        permissions = root.permissions.prefetch_related("content_type").order_by(
-            "codename"
+    def resolve_permissions(root: models.Group, info: ResolveInfo):
+        database_connection_name = get_database_connection_name(info.context)
+        permissions = (
+            root.permissions.using(database_connection_name)
+            .prefetch_related("content_type")
+            .order_by("codename")
         )
         return format_permissions_for_display(permissions)
 

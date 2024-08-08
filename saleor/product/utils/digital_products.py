@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.contrib.sites.models import Site
 
 from ...account import events as account_events
+from ...core.db.connection import allow_writer
 from ..models import DigitalContentUrl
 
 
@@ -42,6 +43,7 @@ def digital_content_url_is_valid(content_url: DigitalContentUrl) -> bool:
     return True
 
 
+@allow_writer()
 def increment_download_count(content_url: DigitalContentUrl):
     content_url.download_num += 1
     content_url.save(update_fields=["download_num"])

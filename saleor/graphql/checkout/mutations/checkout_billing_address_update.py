@@ -1,11 +1,9 @@
 import graphene
 
 from ....checkout import AddressType
+from ....checkout.actions import call_checkout_event_for_checkout_info
 from ....checkout.fetch import fetch_checkout_info, fetch_checkout_lines
-from ....checkout.utils import (
-    change_billing_address_in_checkout,
-    invalidate_checkout_prices,
-)
+from ....checkout.utils import change_billing_address_in_checkout, invalidate_checkout
 from ....core.tracing import traced_atomic_transaction
 from ....webhook.event_types import WebhookEventAsyncType
 from ...account.types import AddressInput
@@ -109,7 +107,7 @@ class CheckoutBillingAddressUpdate(CheckoutShippingAddressUpdate):
             )
             lines, _ = fetch_checkout_lines(checkout)
             checkout_info = fetch_checkout_info(checkout, lines, manager)
-            invalidate_prices_updated_fields = invalidate_checkout_prices(
+            invalidate_prices_updated_fields = invalidate_checkout(
                 checkout_info,
                 lines,
                 manager,
@@ -121,6 +119,11 @@ class CheckoutBillingAddressUpdate(CheckoutShippingAddressUpdate):
                 + invalidate_prices_updated_fields
             )
 
-            cls.call_event(manager.checkout_updated, checkout)
-
+        call_checkout_event_for_checkout_info(
+            manager=manager,
+            event_func=manager.checkout_updated,
+            event_name=WebhookEventAsyncType.CHECKOUT_UPDATED,
+            checkout_info=checkout_info,
+            lines=lines,
+        )
         return CheckoutBillingAddressUpdate(checkout=checkout)

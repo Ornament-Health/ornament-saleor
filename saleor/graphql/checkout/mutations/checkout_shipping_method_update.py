@@ -3,12 +3,13 @@ from typing import Optional
 import graphene
 from django.core.exceptions import ValidationError
 
+from ....checkout.actions import call_checkout_event_for_checkout_info
 from ....checkout.error_codes import CheckoutErrorCode
 from ....checkout.fetch import fetch_checkout_info, fetch_checkout_lines
 from ....checkout.utils import (
     delete_external_shipping_id,
     get_checkout_metadata,
-    invalidate_checkout_prices,
+    invalidate_checkout,
     is_shipping_required,
     set_external_shipping_id,
 )
@@ -212,7 +213,7 @@ class CheckoutShippingMethodUpdate(BaseMutation):
 
         delete_external_shipping_id(checkout=checkout)
         checkout.shipping_method = shipping_method
-        invalidate_prices_updated_fields = invalidate_checkout_prices(
+        invalidate_prices_updated_fields = invalidate_checkout(
             checkout_info, lines, manager, save=False
         )
         checkout.save(
@@ -223,7 +224,13 @@ class CheckoutShippingMethodUpdate(BaseMutation):
         )
         get_checkout_metadata(checkout).save()
 
-        cls.call_event(manager.checkout_updated, checkout)
+        call_checkout_event_for_checkout_info(
+            manager,
+            event_func=manager.checkout_updated,
+            event_name=WebhookEventAsyncType.CHECKOUT_UPDATED,
+            checkout_info=checkout_info,
+            lines=lines,
+        )
         return CheckoutShippingMethodUpdate(checkout=checkout)
 
     @classmethod
@@ -248,7 +255,7 @@ class CheckoutShippingMethodUpdate(BaseMutation):
 
         set_external_shipping_id(checkout=checkout, app_shipping_id=delivery_method.id)
         checkout.shipping_method = None
-        invalidate_prices_updated_fields = invalidate_checkout_prices(
+        invalidate_prices_updated_fields = invalidate_checkout(
             checkout_info, lines, manager, save=False
         )
         checkout.save(
@@ -258,7 +265,13 @@ class CheckoutShippingMethodUpdate(BaseMutation):
             + invalidate_prices_updated_fields
         )
         get_checkout_metadata(checkout).save()
-        cls.call_event(manager.checkout_updated, checkout)
+        call_checkout_event_for_checkout_info(
+            manager,
+            event_func=manager.checkout_updated,
+            event_name=WebhookEventAsyncType.CHECKOUT_UPDATED,
+            checkout_info=checkout_info,
+            lines=lines,
+        )
 
         return CheckoutShippingMethodUpdate(checkout=checkout)
 
@@ -266,7 +279,7 @@ class CheckoutShippingMethodUpdate(BaseMutation):
     def remove_shipping_method(cls, checkout, checkout_info, lines, manager):
         checkout.shipping_method = None
         delete_external_shipping_id(checkout=checkout)
-        invalidate_prices_updated_fields = invalidate_checkout_prices(
+        invalidate_prices_updated_fields = invalidate_checkout(
             checkout_info, lines, manager, save=False
         )
         checkout.save(
@@ -277,5 +290,11 @@ class CheckoutShippingMethodUpdate(BaseMutation):
         )
         get_checkout_metadata(checkout).save()
 
-        cls.call_event(manager.checkout_updated, checkout)
+        call_checkout_event_for_checkout_info(
+            manager,
+            event_func=manager.checkout_updated,
+            event_name=WebhookEventAsyncType.CHECKOUT_UPDATED,
+            checkout_info=checkout_info,
+            lines=lines,
+        )
         return CheckoutShippingMethodUpdate(checkout=checkout)

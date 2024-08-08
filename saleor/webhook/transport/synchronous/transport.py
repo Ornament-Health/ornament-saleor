@@ -4,12 +4,12 @@ from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from urllib.parse import urlparse
 
-from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.core.cache import cache
 
 from ....celeryconf import app
 from ....core import EventDeliveryStatus
+from ....core.db.connection import allow_writer
 from ....core.models import EventDelivery, EventPayload
 from ....core.tracing import webhooks_opentracing_trace
 from ....core.utils import get_domain
@@ -48,7 +48,6 @@ R = TypeVar("R")
 
 
 logger = logging.getLogger(__name__)
-task_logger = get_task_logger(__name__)
 
 
 @app.task(
@@ -56,6 +55,7 @@ task_logger = get_task_logger(__name__)
     retry_backoff=10,
     retry_kwargs={"max_retries": 5},
 )
+@allow_writer()
 def handle_transaction_request_task(self, delivery_id, request_event_id):
     request_event = TransactionEvent.objects.filter(id=request_event_id).first()
     if not request_event:
@@ -174,6 +174,7 @@ def trigger_webhook_sync_if_not_cached(
     request_timeout=None,
     cache_timeout=None,
     request=None,
+    requestor=None,
 ) -> Optional[dict]:
     """Get response for synchronous webhook.
 
@@ -194,6 +195,7 @@ def trigger_webhook_sync_if_not_cached(
             subscribable_object=subscribable_object,
             timeout=request_timeout,
             request=request,
+            requestor=requestor,
         )
         if response_data is not None:
             cache.set(
@@ -252,13 +254,15 @@ def create_delivery_for_subscription_sync_event(
         # Return None so if subscription query returns no data Saleor will not crash but
         # log the issue and continue without creating a delivery.
         return None
-    event_payload = EventPayload.objects.create(payload=json.dumps({**data}))
-    event_delivery = EventDelivery.objects.create(
-        status=EventDeliveryStatus.PENDING,
-        event_type=event_type,
-        payload=event_payload,
-        webhook=webhook,
-    )
+
+    with allow_writer():
+        event_payload = EventPayload.objects.create(payload=json.dumps({**data}))
+        event_delivery = EventDelivery.objects.create(
+            status=EventDeliveryStatus.PENDING,
+            event_type=event_type,
+            payload=event_payload,
+            webhook=webhook,
+        )
     return event_delivery
 
 
@@ -270,6 +274,7 @@ def trigger_webhook_sync(
     subscribable_object=None,
     timeout=None,
     request=None,
+    requestor=None,
 ) -> Optional[dict[Any, Any]]:
     """Send a synchronous webhook request."""
     if webhook.subscription_query:
@@ -277,19 +282,21 @@ def trigger_webhook_sync(
             event_type=event_type,
             subscribable_object=subscribable_object,
             webhook=webhook,
+            requestor=requestor,
             request=request,
             allow_replica=allow_replica,
         )
         if not delivery:
             return None
     else:
-        event_payload = EventPayload.objects.create(payload=payload)
-        delivery = EventDelivery.objects.create(
-            status=EventDeliveryStatus.PENDING,
-            event_type=event_type,
-            payload=event_payload,
-            webhook=webhook,
-        )
+        with allow_writer():
+            event_payload = EventPayload.objects.create(payload=payload)
+            delivery = EventDelivery.objects.create(
+                status=EventDeliveryStatus.PENDING,
+                event_type=event_type,
+                payload=event_payload,
+                webhook=webhook,
+            )
 
     kwargs = {}
     if timeout:
@@ -337,14 +344,17 @@ def trigger_all_webhooks_sync(
             if not delivery:
                 return None
         else:
-            if event_payload is None:
-                event_payload = EventPayload.objects.create(payload=generate_payload())
-            delivery = EventDelivery.objects.create(
-                status=EventDeliveryStatus.PENDING,
-                event_type=event_type,
-                payload=event_payload,
-                webhook=webhook,
-            )
+            with allow_writer():
+                if event_payload is None:
+                    event_payload = EventPayload.objects.create(
+                        payload=generate_payload()
+                    )
+                delivery = EventDelivery.objects.create(
+                    status=EventDeliveryStatus.PENDING,
+                    event_type=event_type,
+                    payload=event_payload,
+                    webhook=webhook,
+                )
 
         response_data = send_webhook_request_sync(delivery)
         if parsed_response := parse_response(response_data):

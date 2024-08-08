@@ -8,7 +8,8 @@ from django.conf import settings
 from django.db.models import Exists, F, OuterRef, Q, QuerySet
 
 from ..celeryconf import app
-from ..graphql.discount.utils import get_variants_for_predicate
+from ..core.db.connection import allow_writer
+from ..graphql.discount.utils import get_variants_for_catalogue_predicate
 from ..order import OrderStatus
 from ..order.models import Order, OrderLine
 from ..plugins.manager import get_plugins_manager
@@ -18,7 +19,7 @@ from ..product.models import (
     ProductVariantChannelListing,
     VariantChannelListingPromotionRule,
 )
-from ..product.tasks import update_products_discounted_prices_for_promotion_task
+from ..product.utils.product import mark_products_in_channels_as_dirty_based_on_rules
 from ..product.utils.variant_prices import update_discounted_prices_for_promotion
 from ..webhook.event_types import WebhookEventAsyncType
 from ..webhook.utils import get_webhooks_for_event
@@ -30,6 +31,7 @@ from .models import (
     PromotionRule,
     VoucherCode,
 )
+from .utils.promotion import mark_catalogue_promotion_rules_as_dirty
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -43,6 +45,7 @@ PROMOTION_TOGGLE_BATCH_SIZE = 100
 
 
 @app.task
+@allow_writer()
 def handle_promotion_toggle():
     """Send the notification about promotion toggle and recalculate discounted prices.
 
@@ -94,16 +97,9 @@ def handle_promotion_toggle():
     if ending_promotions:
         clear_promotion_rule_variants_task.delay()
 
-    rule_ids = list(
-        PromotionRule.objects.filter(
-            Exists(promotions.filter(id=OuterRef("promotion_id")))
-        ).values_list("pk", flat=True)
+    mark_catalogue_promotion_rules_as_dirty(
+        set(promotions.values_list("id", flat=True))
     )
-    if product_ids:
-        # Recalculate discounts of affected products
-        update_products_discounted_prices_for_promotion_task.delay(
-            product_ids, rule_ids=rule_ids
-        )
 
     starting_promotion_ids = ", ".join(
         [str(staring_promo.id) for staring_promo in starting_promotions]
@@ -175,7 +171,7 @@ def get_ending_promotions(batch=False):
 
 def fetch_promotion_variants_and_product_ids(promotions: "QuerySet[Promotion]"):
     """Fetch products that are included in the given promotions."""
-    promotion_id_to_variants: dict[UUID, "QuerySet"] = defaultdict(
+    promotion_id_to_variants: dict[UUID, QuerySet] = defaultdict(
         lambda: ProductVariant.objects.none()
     )
     variants = ProductVariant.objects.none()
@@ -183,7 +179,7 @@ def fetch_promotion_variants_and_product_ids(promotions: "QuerySet[Promotion]"):
         Exists(promotions.filter(id=OuterRef("promotion_id")))
     )
     for rule in rules:
-        rule_variants = get_variants_for_predicate(rule.catalogue_predicate)
+        rule_variants = get_variants_for_catalogue_predicate(rule.catalogue_predicate)
         variants |= rule_variants
         promotion_id_to_variants[rule.promotion_id] |= rule_variants
     products = Product.objects.filter(
@@ -193,6 +189,7 @@ def fetch_promotion_variants_and_product_ids(promotions: "QuerySet[Promotion]"):
 
 
 @app.task
+@allow_writer()
 def clear_promotion_rule_variants_task():
     """Clear all promotion rule variants."""
     promotions = Promotion.objects.using(
@@ -210,21 +207,29 @@ def clear_promotion_rule_variants_task():
         .values_list("pk", flat=True)
     )
     if rule_variants_id:
+        mark_products_in_channels_as_dirty_based_on_rules(rules, allow_replica=True)
         PromotionRuleVariant.objects.filter(pk__in=rule_variants_id).delete()
         clear_promotion_rule_variants_task.delay()
 
 
 def decrease_voucher_code_usage_of_draft_orders(channel_id: int):
-    codes = Order.objects.filter(
-        channel_id=channel_id, status=OrderStatus.DRAFT, voucher_code__isnull=False
-    ).values_list("voucher_code", flat=True)
-    voucher_code_ids = VoucherCode.objects.filter(code__in=codes).values_list(
-        "pk", flat=True
+    codes = (
+        Order.objects.using(settings.DATABASE_CONNECTION_REPLICA_NAME)
+        .filter(
+            channel_id=channel_id, status=OrderStatus.DRAFT, voucher_code__isnull=False
+        )
+        .values_list("voucher_code", flat=True)
+    )
+    voucher_code_ids = (
+        VoucherCode.objects.using(settings.DATABASE_CONNECTION_REPLICA_NAME)
+        .filter(code__in=codes)
+        .values_list("pk", flat=True)
     )
     decrease_voucher_codes_usage_task.delay(list(voucher_code_ids))
 
 
 @app.task
+@allow_writer()
 def decrease_voucher_codes_usage_task(voucher_code_ids):
     # Batch of size 1000 takes ~1sec and consumes ~20mb at peak
     BATCH_SIZE = 1000
@@ -245,13 +250,18 @@ def decrease_voucher_codes_usage_task(voucher_code_ids):
 
 
 def disconnect_voucher_codes_from_draft_orders(channel_id: int):
-    order_ids = Order.objects.filter(
-        channel_id=channel_id, status=OrderStatus.DRAFT, voucher_code__isnull=False
-    ).values_list("pk", flat=True)
+    order_ids = (
+        Order.objects.using(settings.DATABASE_CONNECTION_REPLICA_NAME)
+        .filter(
+            channel_id=channel_id, status=OrderStatus.DRAFT, voucher_code__isnull=False
+        )
+        .values_list("pk", flat=True)
+    )
     disconnect_voucher_codes_from_draft_orders_task.delay(list(order_ids))
 
 
 @app.task
+@allow_writer()
 def disconnect_voucher_codes_from_draft_orders_task(order_ids):
     # Batch of size 1000 takes ~1sec and consumes ~20mb at peak
     BATCH_SIZE = 1000
@@ -276,6 +286,7 @@ def disconnect_voucher_codes_from_draft_orders_task(order_ids):
 @app.task(
     name="saleor.discount.migrations.tasks.saleor3_17.update_discounted_prices_task"
 )
+@allow_writer()
 def update_discounted_prices_task():
     """Recalculate discounted prices during sale to promotion migration."""
     # WARNING: this function is run during `0047_migrate_sales_to_promotions` migration,
@@ -307,12 +318,12 @@ def update_discounted_prices_task():
     if products_ids:
         products = Product.objects.filter(id__in=products_ids)
         update_discounted_prices_for_promotion(products)
-        update_discounted_prices_task.delay()
 
 
 @app.task(
     name="saleor.discount.migrations.tasks.saleor3_17.set_promotion_rule_variants"
 )
+@allow_writer()
 def set_promotion_rule_variants_task(start_id=None):
     # WARNING: this function is run during `0067_fulfill_promotionrule_variants`
     # migration, be careful while updating.

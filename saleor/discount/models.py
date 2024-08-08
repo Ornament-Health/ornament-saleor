@@ -26,6 +26,8 @@ from . import (
     DiscountType,
     DiscountValueType,
     PromotionEvents,
+    PromotionType,
+    RewardType,
     RewardValueType,
     VoucherType,
 )
@@ -56,8 +58,10 @@ class VoucherQueryset(models.QuerySet["Voucher"]):
     def active(self, date):
         subquery = (
             VoucherCode.objects.filter(voucher_id=OuterRef("pk"))
+            .order_by()
+            .values("voucher_id")
             .annotate(total_used=Sum("used"))
-            .values("total_used")[:1]
+            .values("total_used")
         )
         return self.filter(
             Q(usage_limit__isnull=True) | Q(usage_limit__gt=Subquery(subquery)),
@@ -80,8 +84,10 @@ class VoucherQueryset(models.QuerySet["Voucher"]):
     def expired(self, date):
         subquery = (
             VoucherCode.objects.filter(voucher_id=OuterRef("pk"))
+            .order_by()
+            .values("voucher_id")
             .annotate(total_used=Sum("used"))
-            .values("total_used")[:1]
+            .values("total_used")
         )
         return self.filter(
             Q(usage_limit__lte=Subquery(subquery)) | Q(end_date__lt=date),
@@ -138,6 +144,10 @@ class Voucher(ModelWithMetadata):
         code_instance = self.codes.last()
         return code_instance.code if code_instance else None
 
+    @property
+    def promo_codes(self):
+        return list(self.codes.values_list("code", flat=True))
+
     def get_discount(self, channel: Channel):
         """Return proper discount amount for given channel.
 
@@ -165,7 +175,7 @@ class Voucher(ModelWithMetadata):
             )
         raise NotImplementedError("Unknown discount type")
 
-    def get_discount_amount_for(self, price: Money, channel: Channel):
+    def get_discount_amount_for(self, price: Money, channel: Channel) -> Money:
         discount = self.get_discount(channel)
         after_discount = discount(price)
         if after_discount.amount < 0:
@@ -317,6 +327,11 @@ PromotionManager = models.Manager.from_queryset(PromotionQueryset)
 class Promotion(ModelWithMetadata):
     id = models.UUIDField(primary_key=True, editable=False, unique=True, default=uuid4)
     name = models.CharField(max_length=255)
+    type = models.CharField(
+        max_length=255,
+        choices=PromotionType.CHOICES,
+        default=PromotionType.CATALOGUE,
+    )
     description = SanitizedJSONField(blank=True, null=True, sanitizer=clean_editor_js)
     old_sale_id = models.IntegerField(blank=True, null=True, unique=True)
     start_date = models.DateTimeField(default=timezone.now)
@@ -380,7 +395,12 @@ class PromotionRule(models.Model):
     catalogue_predicate = models.JSONField(
         blank=True, default=dict, encoder=CustomJsonEncoder
     )
-    variants = models.ManyToManyField("product.ProductVariant", blank=True)
+    order_predicate = models.JSONField(
+        blank=True, default=dict, encoder=CustomJsonEncoder
+    )
+    variants = models.ManyToManyField(  # type: ignore[var-annotated]
+        "product.ProductVariant", blank=True, through="PromotionRule_Variants"
+    )
     reward_value_type = models.CharField(
         max_length=255, choices=RewardValueType.CHOICES, blank=True, null=True
     )
@@ -390,7 +410,14 @@ class PromotionRule(models.Model):
         null=True,
         blank=True,
     )
+    reward_type = models.CharField(
+        max_length=255, choices=RewardType.CHOICES, blank=True, null=True
+    )
+    gifts = models.ManyToManyField(
+        "product.ProductVariant", blank=True, related_name="+"
+    )
     old_channel_listing_id = models.IntegerField(blank=True, null=True, unique=True)
+    variants_dirty = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("name", "pk")
@@ -419,6 +446,18 @@ class PromotionRule(models.Model):
             return cursor.fetchall()
 
 
+class PromotionRule_Variants(models.Model):
+    id = models.BigAutoField(primary_key=True, editable=False, unique=True)
+    promotionrule = models.ForeignKey(
+        PromotionRule,
+        on_delete=models.CASCADE,
+    )
+    productvariant = models.ForeignKey(
+        "product.ProductVariant",
+        on_delete=models.CASCADE,
+    )
+
+
 class PromotionRuleTranslation(Translation):
     name = models.CharField(max_length=255, null=True, blank=True)
     description = SanitizedJSONField(blank=True, null=True, sanitizer=clean_editor_js)
@@ -440,7 +479,7 @@ class BaseDiscount(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, unique=True, default=uuid4)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     type = models.CharField(
-        max_length=10,
+        max_length=64,
         choices=DiscountType.CHOICES,
         default=DiscountType.MANUAL,
     )
@@ -515,6 +554,13 @@ class OrderLineDiscount(BaseDiscount):
         null=True,
         on_delete=models.CASCADE,
     )
+    # Saleor in version 3.19 and below, doesn't have any unique constraint applied on
+    # discounts for checkout/order. To not have an impact on existing DB objects,
+    # the new field `unique_type` will be used for new discount records.
+    # This will ensure that we always apply a single specific discount type.
+    unique_type = models.CharField(
+        max_length=64, null=True, blank=True, choices=DiscountType.CHOICES
+    )
 
     class Meta:
         indexes = [
@@ -524,6 +570,32 @@ class OrderLineDiscount(BaseDiscount):
             GinIndex(fields=["voucher_code"], name="orderlinedisc_voucher_code_idx"),
         ]
         ordering = ("created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["line_id", "unique_type"],
+                name="unique_orderline_discount_type",
+            ),
+        ]
+
+
+class CheckoutDiscount(BaseDiscount):
+    checkout = models.ForeignKey(
+        "checkout.Checkout",
+        related_name="discounts",
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        indexes = [
+            BTreeIndex(fields=["promotion_rule"], name="checkoutdiscount_rule_idx"),
+            # Orders searching index
+            GinIndex(fields=["name", "translated_name"]),
+            GinIndex(fields=["voucher_code"], name="checkoutdiscount_voucher_idx"),
+        ]
+        ordering = ("created_at", "id")
+        unique_together = ("checkout_id", "promotion_rule_id")
 
 
 class CheckoutLineDiscount(BaseDiscount):
@@ -534,6 +606,13 @@ class CheckoutLineDiscount(BaseDiscount):
         null=True,
         on_delete=models.CASCADE,
     )
+    # Saleor in version 3.19 and below, doesn't have any unique constraint applied on
+    # discounts for checkout/order. To not have an impact on existing DB objects,
+    # the new field `unique_type` will be used for new discount records.
+    # This will ensure that we always apply a single specific discount type.
+    unique_type = models.CharField(
+        max_length=64, null=True, blank=True, choices=DiscountType.CHOICES
+    )
 
     class Meta:
         indexes = [
@@ -543,6 +622,12 @@ class CheckoutLineDiscount(BaseDiscount):
             GinIndex(fields=["voucher_code"], name="checklinedisc_voucher_code_idx"),
         ]
         ordering = ("created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["line_id", "unique_type"],
+                name="unique_checkoutline_discount_type",
+            ),
+        ]
 
 
 class PromotionEvent(models.Model):

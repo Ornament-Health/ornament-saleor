@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from dateutil.relativedelta import relativedelta
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models.expressions import Exists, OuterRef
 
+from ..checkout.error_codes import CheckoutErrorCode
 from ..checkout.models import Checkout
 from ..core.exceptions import GiftCardNotApplicable
 from ..core.tracing import traced_atomic_transaction
@@ -52,16 +54,19 @@ def add_gift_card_code_to_checkout(
     checkout.save(update_fields=["last_change"])
 
 
-def remove_gift_card_code_from_checkout(checkout: Checkout, gift_card_code: str):
-    """Remove gift card data from checkout by code.
+def remove_gift_card_code_from_checkout_or_error(
+    checkout: Checkout, gift_card_code: str
+) -> None:
+    """Remove gift card data from checkout by code or raise an error."""
 
-    Return information whether promo code was removed.
-    """
     if gift_card := checkout.gift_cards.filter(code=gift_card_code).first():
         checkout.gift_cards.remove(gift_card)
         checkout.save(update_fields=["last_change"])
-        return True
-    return False
+    else:
+        raise ValidationError(
+            "Cannot remove a gift card not attached to this checkout.",
+            code=CheckoutErrorCode.INVALID.value,
+        )
 
 
 def deactivate_gift_card(gift_card: GiftCard):
@@ -115,9 +120,9 @@ def fulfill_gift_card_lines(
     settings: "SiteSettings",
     manager: "PluginsManager",
 ):
-    lines_for_warehouses: defaultdict[
-        UUID, list[OrderFulfillmentLineInfo]
-    ] = defaultdict(list)
+    lines_for_warehouses: defaultdict[UUID, list[OrderFulfillmentLineInfo]] = (
+        defaultdict(list)
+    )
     channel_slug = order.channel.slug
     for line in gift_card_lines.prefetch_related(
         "allocations__stock", "variant__stocks"

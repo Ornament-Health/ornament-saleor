@@ -4,14 +4,14 @@ import graphene
 
 from ... import RewardValueType
 from ...models import PromotionRule
-from ...utils import update_rule_variant_relation
+from ...utils.promotion import update_rule_variant_relation
 
 
 def test_update_rule_variant_relation(
-    promotion_without_rules, channel_USD, product_variant_list
+    catalogue_promotion_without_rules, channel_USD, product_variant_list
 ):
     # given
-    promotion = promotion_without_rules
+    promotion = catalogue_promotion_without_rules
     variants = product_variant_list
     PromotionRuleVariant = PromotionRule.variants.through
 

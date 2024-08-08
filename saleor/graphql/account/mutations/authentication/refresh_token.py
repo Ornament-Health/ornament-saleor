@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import graphene
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from .....account.error_codes import AccountErrorCode
@@ -58,14 +59,13 @@ class RefreshToken(BaseMutation):
         cls, info: ResolveInfo, refresh_token: Optional[str] = None
     ) -> Optional[str]:
         request = info.context
-        refresh_token = refresh_token or request.COOKIES.get(
-            JWT_REFRESH_TOKEN_COOKIE_NAME, None
-        )
+        if refresh_token is None:
+            refresh_token = request.COOKIES.get(JWT_REFRESH_TOKEN_COOKIE_NAME, None)
         return refresh_token
 
     @classmethod
     def clean_refresh_token(cls, refresh_token):
-        if not refresh_token:
+        if refresh_token is None:
             raise ValidationError(
                 {
                     "refresh_token": ValidationError(
@@ -129,13 +129,17 @@ class RefreshToken(BaseMutation):
         if need_csrf:
             cls.clean_csrf_token(csrf_token, payload)
 
-        user = get_user(payload)
         additional_payload = {}
         if audience := payload.get("aud"):
             additional_payload["aud"] = audience
+        user = get_user(payload)
         token = create_access_token(user, additional_payload=additional_payload)
         if user and not user.is_anonymous:
-            # @cf::ornament:CORE-2283
-            user.last_login = datetime.now()
-            user.save(update_fields=["last_login", "updated_at"])
+            time_now = datetime.now()
+            threshold_delta = timedelta(
+                seconds=settings.TOKEN_UPDATE_LAST_LOGIN_THRESHOLD
+            )
+            if not user.last_login or user.last_login + threshold_delta < time_now:
+                user.last_login = time_now
+                user.save(update_fields=["last_login", "updated_at"])
         return cls(errors=[], user=user, token=token)

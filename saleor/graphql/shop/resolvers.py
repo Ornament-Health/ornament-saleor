@@ -14,13 +14,14 @@ from .utils import get_countries_codes_list
 @traced_resolver
 def resolve_available_shipping_methods(info, *, channel_slug: str, address):
     instances = []
-    available = ShippingMethod.objects.for_channel(channel_slug).using(
+    available = ShippingMethod.objects.using(
         get_database_connection_name(info.context)
-    )
+    ).for_channel(channel_slug)
     if address and address.country:
         available = available.filter(
             shipping_zone__countries__contains=address.country,
         )
+        address.pop("skip_validation", None)
         available = filter_shipping_methods_by_postal_code_rules(
             available, Address(**address)
         )
@@ -39,7 +40,10 @@ def resolve_countries(info, **kwargs):
     countries_filter = kwargs.get("filter", {})
     attached_to_shipping_zones = countries_filter.get("attached_to_shipping_zones")
     language_code = kwargs.get("language_code")
-    codes_list = get_countries_codes_list(attached_to_shipping_zones)
+    database_connection_name = get_database_connection_name(info.context)
+    codes_list = get_countries_codes_list(
+        attached_to_shipping_zones, database_connection_name=database_connection_name
+    )
     # DEPRECATED: translation.override will be dropped in Saleor 4.0
     with translation.override(language_code):
         return [
