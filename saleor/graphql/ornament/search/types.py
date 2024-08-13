@@ -16,6 +16,7 @@ class SearchProductChannelPrice(graphene.ObjectType):
     channel = graphene.String(description="Price channel")
     vendor = graphene.String(description="Price vendor")
     amount = graphene.String(description="Price amount")
+    amount_undiscounted = graphene.String(description="Price undiscounted amount")
     currency = graphene.String(description="Price currency")
     variant_id = graphene.String(description="Variant ID")
 
@@ -116,7 +117,8 @@ class SearchProduct(ModelObjectType[product_models.Product]):
         return [
             SearchProductChannelPrice(
                 channel=p["channel__slug"],
-                amount=float(p["price_amount"]),
+                amount=float(p["discounted_price_amount"]),
+                amount_undiscounted=float(p["price_amount"]),
                 currency=p["currency"],
                 vendor=p["vendor"],
                 variant_id=graphene.Node.to_global_id(
