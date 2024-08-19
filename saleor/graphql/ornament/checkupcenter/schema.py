@@ -5,8 +5,12 @@ from saleor.graphql.core.connection import (
     filter_connection_queryset,
 )
 from saleor.graphql.core.enums import LanguageCodeEnum
-from saleor.graphql.core.fields import FilterConnectionField
+from saleor.graphql.core.fields import (
+    ConnectionField,
+    FilterConnectionField,
+)
 from saleor.graphql.utils import login_required
+from saleor.permission.enums import InternalAPIPermissions
 
 from . import filters, mutations, resolvers, types
 
@@ -75,6 +79,38 @@ class CheckUpCenterQueries(graphene.ObjectType):
     @login_required
     def resolve_fsm_variable_sku_matches(self, info, **kwargs):
         return resolvers.resolve_fsm_variable_sku_matches(info, **kwargs)
+
+
+class CheckUpCenterInternalQueries(graphene.ObjectType):
+    checkups_internal = ConnectionField(
+        types.CheckUpCountableConnection,
+        description="List of the checkups.",
+        pid=graphene.Argument(
+            graphene.String, description="Checkup pid.", required=True
+        ),
+        is_personalized=graphene.Argument(
+            graphene.Boolean, description="Checkup is_personalized.", required=True
+        ),
+        permissions=[InternalAPIPermissions.MANAGE_CHECKUPS],
+    )
+    checkup_states_internal = ConnectionField(
+        types.CheckUpStateCountableConnection,
+        description="List of the checkup states related to CheckUp.",
+        checkup_id=graphene.Argument(graphene.ID, required=False),
+        permissions=[InternalAPIPermissions.MANAGE_CHECKUPS],
+    )
+
+    def resolve_checkups_internal(self, info, **kwargs):
+        qs = resolvers.resolve_checkups_internal(info, **kwargs)
+        return create_connection_slice(
+            qs, info, kwargs, types.CheckUpCountableConnection
+        )
+
+    def resolve_checkup_states_internal(self, info, **kwargs):
+        qs = resolvers.resolve_checkup_states_internal(info, **kwargs)
+        return create_connection_slice(
+            qs, info, kwargs, types.CheckUpStateCountableConnection
+        )
 
 
 class CheckUpCenterMutations(graphene.ObjectType):
