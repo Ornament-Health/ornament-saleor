@@ -1,8 +1,13 @@
+import os
 import re
 from re import Pattern
 from typing import Union
 
 from django.utils.functional import SimpleLazyObject
+
+# Disable Jaeger tracing should be done before importing settings.
+# without this line pytest will start sending traces to Jaeger agent.
+os.environ["JAEGER_AGENT_HOST"] = ""
 
 from ..settings import *  # noqa
 
@@ -88,7 +93,14 @@ FdkAmFzQhgLtnEtnb+eBI7DNOJEuPLD52Jwnq2pGnJ/LxlqjjWJ5FsQQVSoDHGfM
 8yodVX6OCKwHYrgleLjVWs5ZmaGfGpqcy1YgquiYGVF4x8qBe5bpwHw=
 -----END RSA PRIVATE KEY-----"""
 
-DATABASE_CONNECTION_REPLICA_NAME = DATABASE_CONNECTION_DEFAULT_NAME  # noqa: F405
-
 HTTP_IP_FILTER_ENABLED = False
 HTTP_IP_FILTER_ALLOW_LOOPBACK_IPS = True
+
+MIDDLEWARE.insert(0, "saleor.core.db.connection.restrict_writer_middleware")  # noqa: F405
+
+CHECKOUT_WEBHOOK_EVENTS_CELERY_QUEUE_NAME = "checkout_events_queue"
+ORDER_WEBHOOK_EVENTS_CELERY_QUEUE_NAME = "order_events_queue"
+
+# Raise error when using writer DB in Celery tasks, without explicit "allow_writer"
+# context manager.
+CELERY_RESTRICT_WRITER_METHOD = "saleor.core.db.connection.restrict_writer"

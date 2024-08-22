@@ -174,16 +174,25 @@ class ProcessedImage:
 
         # Ensuring image is properly rotated
         if hasattr(image, "_getexif"):
-            exif_datadict = image._getexif()  # returns None if no EXIF data
+            try:
+                # validation of the exif data was added in separate PR:
+                # https://github.com/saleor/saleor/pull/11224, it means that there is a
+                # possibility that we could have the file with corrupted exif data.
+                # exif data is only used to apply some optional action on the image,
+                # but without it, we are still able to create a thumbnail.
+                exif_datadict = image._getexif()  # returns None if no EXIF data
+            except SyntaxError:
+                exif_datadict = None
+
             if exif_datadict is not None:
                 exif = dict(exif_datadict.items())
                 orientation = exif.get(self.EXIF_ORIENTATION_KEY, None)
                 if orientation == 3:
-                    image = image.transpose(Image.ROTATE_180)
+                    image = image.transpose(Image.Transpose.ROTATE_180)
                 elif orientation == 6:
-                    image = image.transpose(Image.ROTATE_270)
+                    image = image.transpose(Image.Transpose.ROTATE_270)
                 elif orientation == 8:
-                    image = image.transpose(Image.ROTATE_90)
+                    image = image.transpose(Image.Transpose.ROTATE_90)
 
         # Ensure any embedded ICC profile is preserved
         save_kwargs["icc_profile"] = image.info.get("icc_profile")

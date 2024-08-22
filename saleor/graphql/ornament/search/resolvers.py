@@ -42,7 +42,7 @@ def resolve_search_products(info):
             product_deal_types.append({"vendor": vendor.name, "deal_type": deal_type})
 
             variant_prices = variant.channel_listings.select_related("channel").values(
-                "channel__slug", "price_amount", "currency"
+                "channel__slug", "price_amount", "discounted_price_amount", "currency"
             )
             variant_prices = [
                 {**v, "vendor": variant.name, "variant_id": variant.pk}

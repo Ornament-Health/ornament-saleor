@@ -12,6 +12,7 @@ from freezegun import freeze_time
 from .....checkout import CheckoutAuthorizeStatus, CheckoutChargeStatus
 from .....checkout.calculations import fetch_checkout_data
 from .....checkout.fetch import fetch_checkout_info, fetch_checkout_lines
+from .....order import OrderGrantedRefundStatus, OrderStatus
 from .....payment import TransactionEventType
 from .....payment.models import TransactionEvent
 from .....payment.transaction_item_calculations import recalculate_transaction_amounts
@@ -99,7 +100,7 @@ def test_transaction_event_report_by_app(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -110,6 +111,84 @@ def test_transaction_event_report_by_app(
     ) {
         transactionEventReport(
             id: $id
+            type: $type
+            amount: $amount
+            pspReference: $pspReference
+            time: $time
+            externalUrl: $externalUrl
+            message: $message
+            availableActions: $availableActions
+        ) {
+            ...TransactionEventData
+        }
+    }
+    """
+    )
+    # when
+    response = app_api_client.post_graphql(
+        query, variables, permissions=[permission_manage_payments]
+    )
+
+    # then
+    response = get_graphql_content(response)
+    transaction_report_data = response["data"]["transactionEventReport"]
+    assert transaction_report_data["alreadyProcessed"] is False
+
+    event = TransactionEvent.objects.filter(
+        type=TransactionEventType.CHARGE_SUCCESS
+    ).first()
+    assert event
+    assert event.psp_reference == psp_reference
+    assert event.type == TransactionEventTypeEnum.CHARGE_SUCCESS.value
+    assert event.amount_value == amount
+    assert event.currency == transaction.currency
+    assert event.created_at == event_time
+    assert event.external_url == external_url
+    assert event.transaction == transaction
+    assert event.app_identifier == app_api_client.app.identifier
+    assert event.app == app_api_client.app
+    assert event.user is None
+
+
+def test_transaction_event_report_by_app_via_token(
+    transaction_item_generator,
+    app_api_client,
+    permission_manage_payments,
+):
+    # given
+    transaction = transaction_item_generator(
+        app=app_api_client.app, authorized_value=Decimal("10")
+    )
+    event_time = timezone.now()
+    external_url = f"http://{TEST_SERVER_DOMAIN}/external-url"
+    message = "Sucesfull charge"
+    psp_reference = "111-abc"
+    amount = Decimal("11.00")
+    variables = {
+        "token": transaction.token,
+        "type": TransactionEventTypeEnum.CHARGE_SUCCESS.name,
+        "amount": amount,
+        "pspReference": psp_reference,
+        "time": event_time.isoformat(),
+        "externalUrl": external_url,
+        "message": message,
+        "availableActions": [TransactionActionEnum.REFUND.name],
+    }
+    query = (
+        MUTATION_DATA_FRAGMENT
+        + """
+    mutation TransactionEventReport(
+        $token: UUID
+        $type: TransactionEventTypeEnum!
+        $amount: PositiveDecimal!
+        $pspReference: String!
+        $time: DateTime
+        $externalUrl: String
+        $message: String
+        $availableActions: [TransactionActionEnum!]!
+    ) {
+        transactionEventReport(
+            token: $token
             type: $type
             amount: $amount
             pspReference: $pspReference
@@ -177,7 +256,7 @@ def test_transaction_event_report_by_user(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -250,7 +329,7 @@ def test_transaction_event_report_by_another_user(
         MUTATION_DATA_FRAGMENT
         + """
        mutation TransactionEventReport(
-           $id: ID!
+           $id: ID
            $type: TransactionEventTypeEnum!
            $amount: PositiveDecimal!
            $pspReference: String!
@@ -298,6 +377,85 @@ def test_transaction_event_report_by_another_user(
     assert transaction.available_actions == [TransactionActionEnum.CANCEL.value]
 
 
+def test_transaction_event_report_amount_with_lot_of_decimal_places(
+    transaction_item_generator,
+    app_api_client,
+    permission_manage_payments,
+):
+    # given
+    transaction = transaction_item_generator(
+        app=app_api_client.app, authorized_value=Decimal("10")
+    )
+    event_time = timezone.now()
+    external_url = f"http://{TEST_SERVER_DOMAIN}/external-url"
+    message = "Sucesfull charge"
+    psp_reference = "111-abc"
+    amount = Decimal("10.454657657")
+    transaction_id = graphene.Node.to_global_id("TransactionItem", transaction.token)
+    variables = {
+        "id": transaction_id,
+        "type": TransactionEventTypeEnum.CHARGE_SUCCESS.name,
+        "amount": amount,
+        "pspReference": psp_reference,
+        "time": event_time.isoformat(),
+        "externalUrl": external_url,
+        "message": message,
+        "availableActions": [TransactionActionEnum.REFUND.name],
+    }
+    query = (
+        MUTATION_DATA_FRAGMENT
+        + """
+    mutation TransactionEventReport(
+        $id: ID
+        $type: TransactionEventTypeEnum!
+        $amount: PositiveDecimal!
+        $pspReference: String!
+        $time: DateTime
+        $externalUrl: String
+        $message: String
+        $availableActions: [TransactionActionEnum!]!
+    ) {
+        transactionEventReport(
+            id: $id
+            type: $type
+            amount: $amount
+            pspReference: $pspReference
+            time: $time
+            externalUrl: $externalUrl
+            message: $message
+            availableActions: $availableActions
+        ) {
+            ...TransactionEventData
+        }
+    }
+    """
+    )
+    # when
+    response = app_api_client.post_graphql(
+        query, variables, permissions=[permission_manage_payments]
+    )
+
+    # then
+    response = get_graphql_content(response)
+    transaction_report_data = response["data"]["transactionEventReport"]
+    assert transaction_report_data["alreadyProcessed"] is False
+
+    event = TransactionEvent.objects.filter(
+        type=TransactionEventType.CHARGE_SUCCESS
+    ).first()
+    assert event
+    assert event.psp_reference == psp_reference
+    assert event.type == TransactionEventTypeEnum.CHARGE_SUCCESS.value
+    assert event.amount_value == round(amount, 2)
+    assert event.currency == transaction.currency
+    assert event.created_at == event_time
+    assert event.external_url == external_url
+    assert event.transaction == transaction
+    assert event.app_identifier == app_api_client.app.identifier
+    assert event.app == app_api_client.app
+    assert event.user is None
+
+
 def test_transaction_event_report_no_permission(
     transaction_item_created_by_app,
     app_api_client,
@@ -316,7 +474,7 @@ def test_transaction_event_report_no_permission(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -368,7 +526,7 @@ def test_transaction_event_report_called_by_non_app_owner(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -410,7 +568,7 @@ def test_transaction_event_report_called_by_non_user_owner(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -469,7 +627,7 @@ def test_transaction_event_report_event_already_exists(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -704,7 +862,7 @@ def test_transaction_event_report_incorrect_amount_for_already_existing(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -784,7 +942,7 @@ def test_transaction_event_report_calls_amount_recalculations(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -847,7 +1005,7 @@ def test_transaction_event_updates_order_total_charged(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -903,7 +1061,7 @@ def test_transaction_event_updates_order_total_authorized(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -959,7 +1117,7 @@ def test_transaction_event_updates_search_vector(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1020,7 +1178,7 @@ def test_transaction_event_report_authorize_event_already_exists(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1097,7 +1255,7 @@ def test_transaction_event_updates_checkout_payment_statuses(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1159,7 +1317,7 @@ def test_transaction_event_updates_checkout_last_transaction_modified_at(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1223,7 +1381,7 @@ def test_transaction_event_updates_checkout_full_paid_with_charged_amount(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1287,7 +1445,7 @@ def test_transaction_event_updates_checkout_full_paid_with_pending_charge_amount
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1345,7 +1503,7 @@ def test_transaction_event_report_with_info_event(
         MUTATION_DATA_FRAGMENT
         + """
      mutation TransactionEventReport(
-         $id: ID!
+         $id: ID
          $type: TransactionEventTypeEnum!
          $amount: PositiveDecimal!
          $pspReference: String!
@@ -1419,7 +1577,7 @@ def test_transaction_event_report_accepts_old_id_for_old_transaction(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1500,7 +1658,7 @@ def test_transaction_event_report_doesnt_accept_old_id_for_new_transaction(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1540,6 +1698,13 @@ def test_transaction_event_report_doesnt_accept_old_id_for_new_transaction(
     assert error["field"] == "id"
 
 
+@pytest.mark.parametrize(
+    ("auto_order_confirmation", "excpected_order_status"),
+    [
+        (True, OrderStatus.UNFULFILLED),
+        (False, OrderStatus.UNCONFIRMED),
+    ],
+)
 @patch("saleor.plugins.manager.PluginsManager.order_paid")
 @patch("saleor.plugins.manager.PluginsManager.order_updated")
 @patch("saleor.plugins.manager.PluginsManager.order_fully_paid")
@@ -1547,13 +1712,17 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_fully_paid(
     mock_order_fully_paid,
     mock_order_updated,
     mock_order_paid,
+    auto_order_confirmation,
+    excpected_order_status,
     transaction_item_generator,
     app_api_client,
     permission_manage_payments,
-    order_with_lines,
+    unconfirmed_order_with_lines,
 ):
     # given
-    order = order_with_lines
+    order = unconfirmed_order_with_lines
+    order.channel.automatically_confirm_all_new_orders = auto_order_confirmation
+    order.channel.save(update_fields=["automatically_confirm_all_new_orders"])
     psp_reference = "111-abc"
     transaction = transaction_item_generator(app=app_api_client.app, order_id=order.pk)
     transaction_id = graphene.Node.to_global_id("TransactionItem", transaction.token)
@@ -1567,7 +1736,7 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_fully_paid(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1592,6 +1761,73 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_fully_paid(
     get_graphql_content(response)
     order.refresh_from_db()
 
+    assert order.status == excpected_order_status
+    assert order.charge_status == OrderChargeStatusEnum.FULL.value
+    mock_order_fully_paid.assert_called_once_with(order)
+    mock_order_updated.assert_called_once_with(order)
+    mock_order_paid.assert_called_once_with(order)
+
+
+@pytest.mark.parametrize(
+    ("auto_order_confirmation"),
+    [True, False],
+)
+@patch("saleor.plugins.manager.PluginsManager.order_paid")
+@patch("saleor.plugins.manager.PluginsManager.order_updated")
+@patch("saleor.plugins.manager.PluginsManager.order_fully_paid")
+def test_transaction_event_report_for_draft_order_triggers_webhooks_when_fully_paid(
+    mock_order_fully_paid,
+    mock_order_updated,
+    mock_order_paid,
+    auto_order_confirmation,
+    transaction_item_generator,
+    app_api_client,
+    permission_manage_payments,
+    draft_order,
+):
+    # given
+    order = draft_order
+    order.channel.automatically_confirm_all_new_orders = auto_order_confirmation
+    order.channel.save(update_fields=["automatically_confirm_all_new_orders"])
+    psp_reference = "111-abc"
+    transaction = transaction_item_generator(app=app_api_client.app, order_id=order.pk)
+    transaction_id = graphene.Node.to_global_id("TransactionItem", transaction.token)
+    variables = {
+        "id": transaction_id,
+        "type": TransactionEventTypeEnum.CHARGE_SUCCESS.name,
+        "amount": order.total.gross.amount,
+        "pspReference": psp_reference,
+    }
+    query = (
+        MUTATION_DATA_FRAGMENT
+        + """
+    mutation TransactionEventReport(
+        $id: ID
+        $type: TransactionEventTypeEnum!
+        $amount: PositiveDecimal!
+        $pspReference: String!
+    ) {
+        transactionEventReport(
+            id: $id
+            type: $type
+            amount: $amount
+            pspReference: $pspReference
+        ) {
+            ...TransactionEventData
+        }
+    }
+    """
+    )
+    # when
+    response = app_api_client.post_graphql(
+        query, variables, permissions=[permission_manage_payments]
+    )
+
+    # then
+    get_graphql_content(response)
+    order.refresh_from_db()
+
+    assert order.status == OrderStatus.DRAFT
     assert order.charge_status == OrderChargeStatusEnum.FULL.value
     mock_order_fully_paid.assert_called_once_with(order)
     mock_order_updated.assert_called_once_with(order)
@@ -1623,7 +1859,7 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_partially_pai
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1678,7 +1914,7 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_partially_aut
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1733,7 +1969,7 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_fully_authori
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1790,7 +2026,7 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_fully_refunde
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1847,7 +2083,7 @@ def test_transaction_event_report_for_order_triggers_webhooks_when_partially_ref
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1904,7 +2140,7 @@ def test_transaction_event_report_by_app_assign_app_owner(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -1977,7 +2213,7 @@ def test_transaction_event_report_assign_transaction_psp_reference_if_missing(
         MUTATION_DATA_FRAGMENT
         + """
     mutation TransactionEventReport(
-        $id: ID!
+        $id: ID
         $type: TransactionEventTypeEnum!
         $amount: PositiveDecimal!
         $pspReference: String!
@@ -2008,3 +2244,79 @@ def test_transaction_event_report_assign_transaction_psp_reference_if_missing(
         == expected_transaction_psp_reference
     )
     assert transaction.psp_reference == expected_transaction_psp_reference
+
+
+@pytest.mark.parametrize(
+    ("event_type", "expected_status"),
+    [
+        (TransactionEventTypeEnum.REFUND_SUCCESS, OrderGrantedRefundStatus.SUCCESS),
+        (TransactionEventTypeEnum.REFUND_FAILURE, OrderGrantedRefundStatus.FAILURE),
+        (TransactionEventTypeEnum.REFUND_REVERSE, OrderGrantedRefundStatus.NONE),
+    ],
+)
+def test_transaction_event_report_updates_granted_refund_status_when_needed(
+    event_type,
+    expected_status,
+    transaction_item_generator,
+    app_api_client,
+    permission_manage_payments,
+    order,
+):
+    # given
+    amount = Decimal("11.00")
+    transaction = transaction_item_generator(
+        app=app_api_client.app, charged_value=Decimal("10"), order_id=order.pk
+    )
+    granted_refund = order.granted_refunds.create(
+        amount_value=amount, currency=order.currency, transaction_item=transaction
+    )
+    psp_reference = "111-abc"
+
+    transaction.events.create(
+        psp_reference=psp_reference,
+        amount_value=amount,
+        currency=transaction.currency,
+        type=TransactionEventType.REFUND_REQUEST,
+        include_in_calculations=True,
+        related_granted_refund=granted_refund,
+    )
+
+    transaction_id = graphene.Node.to_global_id("TransactionItem", transaction.token)
+    variables = {
+        "id": transaction_id,
+        "type": event_type.name,
+        "amount": amount,
+        "pspReference": psp_reference,
+        "availableActions": [],
+    }
+    query = (
+        MUTATION_DATA_FRAGMENT
+        + """
+    mutation TransactionEventReport(
+        $id: ID
+        $type: TransactionEventTypeEnum!
+        $amount: PositiveDecimal!
+        $pspReference: String!
+        $availableActions: [TransactionActionEnum!]!
+    ) {
+        transactionEventReport(
+            id: $id
+            type: $type
+            amount: $amount
+            pspReference: $pspReference
+            availableActions: $availableActions
+        ) {
+            ...TransactionEventData
+        }
+    }
+    """
+    )
+    # when
+    response = app_api_client.post_graphql(
+        query, variables, permissions=[permission_manage_payments]
+    )
+
+    # then
+    response = get_graphql_content(response)
+    granted_refund.refresh_from_db()
+    assert granted_refund.status == expected_status
