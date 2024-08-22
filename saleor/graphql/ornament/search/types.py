@@ -6,7 +6,7 @@ from saleor.graphql.attribute.types import SelectedAttribute
 from saleor.graphql.core.fields import JSONString
 from saleor.graphql.core.types import ModelObjectType
 from saleor.graphql.product.dataloaders.attributes import (
-    SelectedAttributesByProductIdLoader,
+    SelectedAttributesVisibleInStorefrontByProductIdLoader,
 )
 from saleor.product import models as product_models
 from saleor.graphql.core.connection import CountableConnection
@@ -16,6 +16,7 @@ class SearchProductChannelPrice(graphene.ObjectType):
     channel = graphene.String(description="Price channel")
     vendor = graphene.String(description="Price vendor")
     amount = graphene.String(description="Price amount")
+    amount_undiscounted = graphene.String(description="Price undiscounted amount")
     currency = graphene.String(description="Price currency")
     variant_id = graphene.String(description="Variant ID")
 
@@ -98,7 +99,7 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     @classmethod
     def resolve_biomarkers(cls, root: product_models.Product, info):
         return (
-            SelectedAttributesByProductIdLoader(info.context)
+            SelectedAttributesVisibleInStorefrontByProductIdLoader(info.context)
             .load(root.id)
             .then(lambda attributes: cls._get_attributes(attributes, "biomarkers"))
         )
@@ -106,7 +107,7 @@ class SearchProduct(ModelObjectType[product_models.Product]):
     @classmethod
     def resolve_medical_exams(cls, root: product_models.Product, info):
         return (
-            SelectedAttributesByProductIdLoader(info.context)
+            SelectedAttributesVisibleInStorefrontByProductIdLoader(info.context)
             .load(root.id)
             .then(lambda attributes: cls._get_attributes(attributes, "medical_exams"))
         )
@@ -116,7 +117,8 @@ class SearchProduct(ModelObjectType[product_models.Product]):
         return [
             SearchProductChannelPrice(
                 channel=p["channel__slug"],
-                amount=float(p["price_amount"]),
+                amount=float(p["discounted_price_amount"]),
+                amount_undiscounted=float(p["price_amount"]),
                 currency=p["currency"],
                 vendor=p["vendor"],
                 variant_id=graphene.Node.to_global_id(

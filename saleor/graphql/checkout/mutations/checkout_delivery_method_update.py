@@ -4,6 +4,7 @@ from typing import Optional
 import graphene
 from django.core.exceptions import ValidationError
 
+from ....checkout.actions import call_checkout_event_for_checkout_info
 from ....checkout.error_codes import CheckoutErrorCode
 from ....checkout.fetch import (
     CheckoutInfo,
@@ -14,7 +15,7 @@ from ....checkout.fetch import (
 from ....checkout.utils import (
     delete_external_shipping_id,
     get_or_create_checkout_metadata,
-    invalidate_checkout_prices,
+    invalidate_checkout,
     is_shipping_required,
     set_external_shipping_id,
 )
@@ -59,7 +60,9 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
     class Meta:
         description = (
             "Updates the delivery method (shipping method or pick up point) "
-            "of the checkout." + ADDED_IN_31
+            "of the checkout. "
+            "Updates the checkout shipping_address for click and collect delivery "
+            "for a warehouse address. " + ADDED_IN_31
         )
         doc_category = DOC_CATEGORY_CHECKOUT
         error_type_class = CheckoutError
@@ -156,6 +159,16 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
             checkout_info, lines, shipping_method=delivery_method, collection_point=None
         )
 
+        if delivery_method and delivery_method.price.currency != checkout.currency:
+            raise ValidationError(
+                {
+                    "delivery_method_id": ValidationError(
+                        "Cannot choose shipping method with different currency than the checkout.",
+                        code=CheckoutErrorCode.DELIVERY_METHOD_NOT_APPLICABLE.value,
+                    )
+                }
+            )
+
         cls._update_delivery_method(
             manager,
             checkout_info,
@@ -169,20 +182,12 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
     @classmethod
     def perform_on_collection_point(
         cls,
-        info: ResolveInfo,
-        collection_point_id,
+        collection_point,
         checkout_info,
         lines,
         checkout,
         manager,
     ):
-        collection_point = cls.get_node_or_error(
-            info,
-            collection_point_id,
-            only_type=Warehouse,
-            field="delivery_method_id",
-            qs=warehouse_models.Warehouse.objects.select_related("address"),
-        )
         cls._check_delivery_method(
             checkout_info,
             lines,
@@ -238,6 +243,7 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
         external_shipping_method: Optional[shipping_interface.ShippingMethodData],
         collection_point: Optional[Warehouse],
     ) -> None:
+        checkout_fields_to_update = ["shipping_method", "collection_point"]
         checkout = checkout_info.checkout
         if external_shipping_method:
             set_external_shipping_id(
@@ -245,20 +251,32 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
             )
         else:
             delete_external_shipping_id(checkout=checkout)
+
+        # Clear checkout shipping address if it was switched from C&C.
+        if checkout.collection_point_id and not collection_point:
+            checkout.shipping_address = None
+            checkout_fields_to_update += ["shipping_address"]
+
         checkout.shipping_method = shipping_method
         checkout.collection_point = collection_point
-        invalidate_prices_updated_fields = invalidate_checkout_prices(
+        if collection_point is not None:
+            checkout.shipping_address = collection_point.address.get_copy()
+            checkout_info.shipping_address = checkout.shipping_address
+            checkout_fields_to_update += ["shipping_address"]
+        invalidate_prices_updated_fields = invalidate_checkout(
             checkout_info, lines, manager, save=False
         )
         checkout.save(
-            update_fields=[
-                "shipping_method",
-                "collection_point",
-            ]
-            + invalidate_prices_updated_fields
+            update_fields=checkout_fields_to_update + invalidate_prices_updated_fields
         )
         get_or_create_checkout_metadata(checkout).save()
-        cls.call_event(manager.checkout_updated, checkout)
+        call_checkout_event_for_checkout_info(
+            manager,
+            event_func=manager.checkout_updated,
+            event_name=WebhookEventAsyncType.CHECKOUT_UPDATED,
+            checkout_info=checkout_info,
+            lines=lines,
+        )
 
     @staticmethod
     def _resolve_delivery_method_type(id_) -> Optional[str]:
@@ -280,6 +298,18 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
             )
 
         return str_type
+
+    @staticmethod
+    def validate_collection_point(checkout_info, collection_point):
+        if collection_point not in checkout_info.valid_pick_up_points:
+            raise ValidationError(
+                {
+                    "delivery_method_id": ValidationError(
+                        "This pick up point is not applicable.",
+                        code=CheckoutErrorCode.DELIVERY_METHOD_NOT_APPLICABLE.value,
+                    )
+                }
+            )
 
     @classmethod
     def perform_mutation(
@@ -324,11 +354,18 @@ class CheckoutDeliveryMethodUpdate(BaseMutation):
                 }
             )
         type_name = cls._resolve_delivery_method_type(delivery_method_id)
-
         checkout_info = fetch_checkout_info(checkout, lines, manager)
         if type_name == "Warehouse":
+            collection_point = cls.get_node_or_error(
+                info,
+                delivery_method_id,
+                only_type=Warehouse,
+                field="delivery_method_id",
+                qs=warehouse_models.Warehouse.objects.select_related("address"),
+            )
+            cls.validate_collection_point(checkout_info, collection_point)
             return cls.perform_on_collection_point(
-                info, delivery_method_id, checkout_info, lines, checkout, manager
+                collection_point, checkout_info, lines, checkout, manager
             )
         if type_name == "ShippingMethod":
             return cls.perform_on_shipping_method(

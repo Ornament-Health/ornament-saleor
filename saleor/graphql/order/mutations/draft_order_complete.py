@@ -10,7 +10,7 @@ from ....core.postgres import FlatConcatSearchVector
 from ....core.taxes import zero_taxed_money
 from ....core.tracing import traced_atomic_transaction
 from ....discount.models import VoucherCode
-from ....discount.utils import add_voucher_usage_by_customer
+from ....discount.utils.voucher import add_voucher_usage_by_customer
 from ....order import OrderStatus, models
 from ....order.actions import order_created
 from ....order.calculations import fetch_order_prices_if_expired
@@ -99,14 +99,27 @@ class DraftOrderComplete(BaseMutation):
             qs=models.Order.objects.prefetch_related("lines__variant"),
         )
         cls.check_channel_permissions(info, [order.channel_id])
-        order, _ = fetch_order_prices_if_expired(order, manager)
+        force_update = order.tax_error is not None
+        order, _ = fetch_order_prices_if_expired(
+            order, manager, force_update=force_update
+        )
+        if order.tax_error is not None:
+            raise ValidationError(
+                "Configured Tax App didn't responded.",
+                code=OrderErrorCode.TAX_ERROR.value,
+            )
         cls.validate_order(order)
 
         country = get_order_country(order)
-        validate_draft_order(order, country, manager)
+        validate_draft_order(order, order.lines.all(), country, manager)
         with traced_atomic_transaction():
             cls.update_user_fields(order)
-            order.status = OrderStatus.UNFULFILLED
+            channel = order.channel
+            order.status = (
+                OrderStatus.UNFULFILLED
+                if channel.automatically_confirm_all_new_orders
+                else OrderStatus.UNCONFIRMED
+            )
 
             if not order.is_shipping_required():
                 order.shipping_method_name = None
@@ -121,7 +134,6 @@ class DraftOrderComplete(BaseMutation):
             update_order_display_gross_prices(order)
             order.save()
 
-            channel = order.channel
             cls.setup_voucher_customer(order, channel)
             order_lines_info = []
             for line in order.lines.all():

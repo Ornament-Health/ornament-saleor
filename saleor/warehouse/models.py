@@ -1,3 +1,4 @@
+from datetime import datetime
 import itertools
 import uuid
 from collections.abc import Iterable
@@ -15,7 +16,6 @@ from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Sum
 from django.db.models.expressions import Subquery
 from django.db.models.functions import Coalesce
 from django.db.models.query import QuerySet
-from django.utils import timezone
 from django_stubs_ext import WithAnnotations
 
 from ..account.models import Address
@@ -127,7 +127,8 @@ class WarehouseQueryset(models.QuerySet["Warehouse"]):
         )
 
         stocks_qs = (
-            Stock.objects.annotate_available_quantity()
+            Stock.objects.using(self.db)
+            .annotate_available_quantity()
             .annotate(line_quantity=F("available_quantity") - Subquery(lines_quantity))
             .order_by("line_quantity")
             .filter(
@@ -250,7 +251,7 @@ class StockQuerySet(models.QuerySet["Stock"]):
             reserved_quantity=Coalesce(
                 Sum(
                     "reservations__quantity_reserved",
-                    filter=Q(reservations__reserved_until__gt=timezone.now()),
+                    filter=Q(reservations__reserved_until__gt=datetime.now()),
                 ),
                 0,
             )
@@ -470,7 +471,7 @@ T = TypeVar("T", bound=models.Model)
 
 class ReservationQuerySet(models.QuerySet[T]):
     def not_expired(self):
-        return self.filter(reserved_until__gt=timezone.now())
+        return self.filter(reserved_until__gt=datetime.now())
 
     def exclude_checkout_lines(self, checkout_lines: Optional[Iterable[CheckoutLine]]):
         if checkout_lines:

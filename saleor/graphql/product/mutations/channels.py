@@ -18,7 +18,7 @@ from ....product.models import (
 )
 from ....product.models import Product as ProductModel
 from ....product.models import ProductVariant as ProductVariantModel
-from ....product.tasks import update_discounted_prices_task
+from ....product.utils.product import mark_products_in_channels_as_dirty
 from ...channel import ChannelContext
 from ...channel.mutations import BaseChannelListingMutation
 from ...channel.types import Channel
@@ -31,7 +31,7 @@ from ...core.descriptions import (
 )
 from ...core.doc_category import DOC_CATEGORY_PRODUCTS
 from ...core.mutations import BaseMutation
-from ...core.scalars import Date, PositiveDecimal
+from ...core.scalars import Date, DateTime, PositiveDecimal
 from ...core.types import (
     BaseInputObjectType,
     CollectionChannelListingError,
@@ -66,7 +66,7 @@ class PublishableChannelListingInput(BaseInputObjectType):
             "Use `publishedAt` field instead."
         )
     )
-    published_at = graphene.types.datetime.DateTime(
+    published_at = DateTime(
         description="Publication date time. ISO 8601 standard." + ADDED_IN_33
     )
 
@@ -96,7 +96,7 @@ class ProductChannelListingAddInput(PublishableChannelListingInput):
             "Use `availableForPurchaseAt` field instead."
         )
     )
-    available_for_purchase_at = graphene.DateTime(
+    available_for_purchase_at = DateTime(
         description=(
             "A start date time from which a product will be available "
             "for purchase. When not set and `isAvailable` is set to True, "
@@ -354,10 +354,23 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
         with traced_atomic_transaction():
             cls.update_channels(product, cleaned_input.get("update_channels", []))
             cls.remove_channels(product, cleaned_input.get("remove_channels", []))
-            product = ProductModel.objects.prefetched_for_webhook().get(pk=product.pk)
-            update_discounted_prices_task.delay([product.id])
-            manager = get_plugin_manager_promise(info.context).get()
-            cls.call_event(manager.product_updated, product)
+
+    @classmethod
+    def post_save_actions(
+        cls, info: ResolveInfo, product: "ProductModel", cleaned_input: dict
+    ):
+        modified_channel_ids = [
+            update_channel["channel"].id
+            for update_channel in cleaned_input.get("update_channels", [])
+        ]
+        modified_channel_ids.extend(cleaned_input.get("remove_channels", []))
+        cls.call_event(
+            mark_products_in_channels_as_dirty,
+            {channel_id: {product.pk} for channel_id in modified_channel_ids},
+        )
+        product = ProductModel.objects.get(pk=product.pk)
+        manager = get_plugin_manager_promise(info.context).get()
+        cls.call_event(manager.product_updated, product)
 
     @classmethod
     def perform_mutation(  # type: ignore[override]
@@ -384,6 +397,7 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
             raise ValidationError(errors)
 
         cls.save(info, product, cleaned_input)
+        cls.post_save_actions(info, product, cleaned_input)
         return ProductChannelListingUpdate(
             product=ChannelContext(node=product, channel_slug=None)
         )
@@ -456,7 +470,7 @@ class ProductVariantChannelListingUpdate(BaseMutation):
                 )
             )
         else:
-            channels: list["ChannelModel"] = []
+            channels: list[ChannelModel] = []
             if add_channels_ids:
                 channels = cls.get_nodes_or_error(
                     add_channels_ids, "channel_id", Channel
@@ -547,9 +561,20 @@ class ProductVariantChannelListingUpdate(BaseMutation):
                     channel=channel,
                     defaults=defaults,
                 )
-            update_discounted_prices_task.delay([variant.product_id])
-            manager = get_plugin_manager_promise(info.context).get()
-            cls.call_event(manager.product_variant_updated, variant)
+
+    @classmethod
+    def post_save_actions(
+        cls, info, variant: "ProductVariantModel", cleaned_input: list[dict]
+    ):
+        channel_ids = [
+            channel_listing_data["channel"].id for channel_listing_data in cleaned_input
+        ]
+        cls.call_event(
+            mark_products_in_channels_as_dirty,
+            {channel_id: {variant.product_id} for channel_id in channel_ids},
+        )
+        manager = get_plugin_manager_promise(info.context).get()
+        cls.call_event(manager.product_variant_updated, variant)
 
     @classmethod
     def perform_mutation(  # type: ignore[override]
@@ -568,7 +593,7 @@ class ProductVariantChannelListingUpdate(BaseMutation):
             "sku", sku, "id", id, "external_reference", external_reference
         )
 
-        qs = ProductVariantModel.objects.prefetched_for_webhook()
+        qs = ProductVariantModel.objects.all()
         if id:
             variant = cls.get_node_or_error(
                 info, id, only_type=ProductVariant, field="id", qs=qs
@@ -606,7 +631,7 @@ class ProductVariantChannelListingUpdate(BaseMutation):
             raise ValidationError(errors)
 
         cls.save(info, variant, cleaned_input)
-
+        cls.post_save_actions(info, variant, cleaned_input)
         return ProductVariantChannelListingUpdate(
             variant=ChannelContext(node=variant, channel_slug=None)
         )

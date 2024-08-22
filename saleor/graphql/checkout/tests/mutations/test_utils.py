@@ -1,6 +1,8 @@
 import graphene
 
-from .....checkout.fetch import fetch_checkout_lines
+from .....checkout.fetch import (
+    fetch_checkout_lines,
+)
 from ...mutations.utils import (
     CheckoutLineData,
     group_lines_input_data_on_update,

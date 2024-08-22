@@ -1,11 +1,9 @@
 import datetime
-from typing import Optional, Union
-
-# @cf::ornament.saleor.product
 from functools import reduce
 from operator import or_
+from typing import Optional, Union
 
-from django.conf import settings
+import pytz
 from django.contrib.postgres.aggregates import StringAgg
 from django.db import models
 from django.db.models import (
@@ -32,114 +30,136 @@ from ..permission.utils import has_one_of_permissions
 
 
 class ProductsQueryset(models.QuerySet):
-    def published(self, channel_slug: str):
+    def published(self, channel: Channel):
         from .models import ProductChannelListing
 
-        # @cf::ornament:CORE-2283
-        today = datetime.datetime.now()
-        if channel := (
-            Channel.objects.using(settings.DATABASE_CONNECTION_REPLICA_NAME)
-            .filter(slug=str(channel_slug), is_active=True)
-            .first()
-        ):
-            channel_listings = ProductChannelListing.objects.filter(
+        if not channel.is_active:
+            return self.none()
+        today = datetime.datetime.now(pytz.UTC)
+        channel_listings = (
+            ProductChannelListing.objects.using(self.db)
+            .filter(
                 Q(published_at__lte=today) | Q(published_at__isnull=True),
                 channel_id=channel.id,
                 is_published=True,
-            ).values("id")
-            return self.filter(
-                Exists(channel_listings.filter(product_id=OuterRef("pk")))
             )
-        return self.none()
+            .values("id")
+        )
+        return self.filter(Exists(channel_listings.filter(product_id=OuterRef("pk"))))
 
-    def not_published(self, channel_slug: str):
-        # @cf::ornament:CORE-2283
-        today = datetime.datetime.now()
-        return self.annotate_publication_info(channel_slug).filter(
+    def not_published(self, channel: Channel):
+        today = datetime.datetime.now(pytz.UTC)
+        return self.annotate_publication_info(channel).filter(
             Q(published_at__gt=today) & Q(is_published=True)
             | Q(is_published=False)
             | Q(is_published__isnull=True)
         )
 
-    # @cf::ornament.saleor.product
-    def published_with_variants(self, channel_slug: str, requestor):
+    def published_with_variants(
+        self, channel: Channel, requestor: Union["User", "App", None]
+    ):
         from .models import ProductVariant, ProductVariantChannelListing
 
-        if channel := (
-            Channel.objects.filter(slug=str(channel_slug), is_active=True).first()
-        ):
-            variant_channel_listings = ProductVariantChannelListing.objects.filter(
+        if not channel.is_active:
+            return self.none()
+        variant_channel_listings = (
+            ProductVariantChannelListing.objects.using(self.db)
+            .filter(
                 channel_id=channel.id,
                 price_amount__isnull=False,
-            ).values("id")
-            variants = ProductVariant.objects.filter(
-                Exists(variant_channel_listings.filter(variant_id=OuterRef("pk")))
             )
+            .values("id")
+        )
+        variants = ProductVariant.objects.using(self.db).filter(
+            Exists(variant_channel_listings.filter(variant_id=OuterRef("pk")))
+        )
 
-            # @cf::ornament.saleor.product
-            variants = variants.available_by_rules(requestor)
-            return self.published(channel_slug).filter(
-                Exists(variants.filter(product_id=OuterRef("pk")))
-            )
-        return self.none()
+        # @cf::ornament.saleor.product
+        variants = variants.available_by_rules(requestor)
+
+        return self.published(channel).filter(
+            Exists(variants.filter(product_id=OuterRef("pk")))
+        )
 
     def visible_to_user(
-        self, requestor: Union["User", "App", None], channel_slug: Optional[str]
+        self,
+        requestor: Union["User", "App", None],
+        channel: Optional[Channel],
+        limited_channel_access: bool,
     ):
+        """Determine which products should be visible to user.
+
+        For user without permission we require channel to be passed to determine which
+        products are visible to user.
+        For user with permission we can return:
+        - all products if the channel is not passed and the query is not limited
+          to the provided channel.
+            (channel=None, limited_channel_access=False)
+        - no products if the channel is not passed and the query is limited
+          to the provided channel.
+            (channel=None, limited_channel_access=True)
+        - all products assigned to the channel if the channel is passed and
+          the query is limited to the provided channel.
+            (channel=Channel, limited_channel_access=True)
+        """
         from .models import ALL_PRODUCTS_PERMISSIONS, ProductChannelListing
 
         if has_one_of_permissions(requestor, ALL_PRODUCTS_PERMISSIONS):
-            if channel_slug:
-                if channel := Channel.objects.filter(slug=str(channel_slug)).first():
-                    channel_listings = ProductChannelListing.objects.filter(
-                        channel_id=channel.id
-                    ).values("id")
+            if limited_channel_access:
+                if channel:
+                    channel_listings = (
+                        ProductChannelListing.objects.using(self.db)
+                        .filter(channel_id=channel.id)
+                        .values("id")
+                    )
                     return self.filter(
                         Exists(channel_listings.filter(product_id=OuterRef("pk")))
                     )
                 return self.none()
             return self.all()
-        if not channel_slug:
+        if not channel:
             return self.none()
         # @cf::ornament.saleor.product
-        return self.published_with_variants(channel_slug, requestor)
+        return self.published_with_variants(channel, requestor)
 
-    def annotate_publication_info(self, channel_slug: str):
-        return self.annotate_is_published(channel_slug).annotate_published_at(
-            channel_slug
-        )
+    def annotate_publication_info(self, channel: Channel):
+        return self.annotate_is_published(channel).annotate_published_at(channel)
 
-    def annotate_is_published(self, channel_slug: str):
+    def annotate_is_published(self, channel: Channel):
         from .models import ProductChannelListing
 
         query = Subquery(
-            ProductChannelListing.objects.filter(
-                product_id=OuterRef("pk"), channel__slug=str(channel_slug)
-            ).values_list("is_published")[:1]
+            ProductChannelListing.objects.using(self.db)
+            .filter(product_id=OuterRef("pk"), channel_id=channel.id)
+            .values_list("is_published")[:1]
         )
         return self.annotate(
             is_published=ExpressionWrapper(query, output_field=BooleanField())
         )
 
-    def annotate_published_at(self, channel_slug: str):
+    def annotate_published_at(self, channel: Channel):
         from .models import ProductChannelListing
 
         query = Subquery(
-            ProductChannelListing.objects.filter(
-                product_id=OuterRef("pk"), channel__slug=str(channel_slug)
-            ).values_list("published_at")[:1]
+            ProductChannelListing.objects.using(self.db)
+            .filter(product_id=OuterRef("pk"), channel_id=channel.id)
+            .values_list("published_at")[:1]
         )
         return self.annotate(
             published_at=ExpressionWrapper(query, output_field=DateTimeField())
         )
 
-    def annotate_visible_in_listings(self, channel_slug):
+    def annotate_visible_in_listings(self, channel: Optional[Channel]):
         from .models import ProductChannelListing
 
+        if not channel:
+            return self.annotate(
+                visible_in_listings=Value(False, output_field=BooleanField())
+            )
         query = Subquery(
-            ProductChannelListing.objects.filter(
-                product_id=OuterRef("pk"), channel__slug=str(channel_slug)
-            ).values_list("visible_in_listings")[:1]
+            ProductChannelListing.objects.using(self.db)
+            .filter(product_id=OuterRef("pk"), channel_id=channel.id)
+            .values_list("visible_in_listings")[:1]
         )
         return self.annotate(
             visible_in_listings=ExpressionWrapper(query, output_field=BooleanField())
@@ -180,13 +200,13 @@ class ProductsQueryset(models.QuerySet):
                 # then consider the concatenated values as empty (non-null).
                 When(
                     Exists(
-                        AttributeProduct.objects.filter(
+                        AttributeProduct.objects.using(self.db).filter(
                             product_type_id=OuterRef("product_type_id"),
                             attribute_id=attribute_pk,
                         )
                     )
                     & ~Exists(
-                        AssignedProductAttributeValue.objects.filter(
+                        AssignedProductAttributeValue.objects.using(self.db).filter(
                             product_id=OuterRef("id"), value__attribute_id=attribute_pk
                         )
                     ),
@@ -237,7 +257,6 @@ class ProductsQueryset(models.QuerySet):
             "variants__stocks__allocations",
             "variants__channel_listings__channel",
             "channel_listings__channel",
-            "product_type__product_attributes__values",
             "product_type__attributeproduct",
         )
         if single_object:
@@ -263,7 +282,8 @@ class ProductVariantQueryset(models.QuerySet):
         from saleor.warehouse.models import Allocation
 
         allocations_subquery = (
-            Allocation.objects.filter(stock__product_variant=OuterRef("pk"))
+            Allocation.objects.using(self.db)
+            .filter(stock__product_variant=OuterRef("pk"))
             .values("stock__product_variant")
             .annotate(total_allocated=Coalesce(Sum("quantity_allocated"), 0))
             .values("total_allocated")
@@ -286,11 +306,17 @@ class ProductVariantQueryset(models.QuerySet):
             ),
         )
 
-    def available_in_channel(self, channel_slug):
-        return self.filter(
-            channel_listings__price_amount__isnull=False,
-            channel_listings__channel__slug=str(channel_slug),
+    def available_in_channel(self, channel: Optional[Channel]):
+        from .models import ProductVariantChannelListing
+
+        if not channel:
+            return self.none()
+        channel_listings = (
+            ProductVariantChannelListing.objects.using(self.db)
+            .filter(price_amount__isnull=False, channel_id=channel.id)
+            .values("id")
         )
+        return self.filter(Exists(channel_listings.filter(variant_id=OuterRef("pk"))))
 
     def prefetched_for_webhook(self):
         return self.prefetch_related(
@@ -298,6 +324,48 @@ class ProductVariantQueryset(models.QuerySet):
             "attributes__assignment__attribute",
             "variant_media__media",
         )
+
+    def visible_to_user(
+        self,
+        requestor: Union["User", "App", None],
+        channel: Optional[Channel],
+        limited_channel_access: bool,
+    ):
+        from .models import ALL_PRODUCTS_PERMISSIONS
+
+        # User with product permissions can see all variants. If channel is given,
+        # filter variants with product channel listings for this channel.
+        if has_one_of_permissions(requestor, ALL_PRODUCTS_PERMISSIONS):
+            if limited_channel_access:
+                if channel:
+                    return self.filter(product__channel_listings__channel_id=channel.id)
+                return self.none()
+            return self.all()
+
+        # If user has no permissions (customer) and channel is not given or is inactive,
+        # return no variants.
+        if not channel or not channel.is_active:
+            return self.none()
+
+        # If user has no permissions (customer) and channel is given, return variants
+        # that:
+        # - have a variant channel listing for this channel and the price is not null
+        # - have a product channel listing for this channel and the product is published
+        #  and visible in listings
+        variants = self.filter(
+            channel_listings__channel_id=channel.id,
+            channel_listings__price_amount__isnull=False,
+        )
+
+        today = datetime.datetime.now(pytz.UTC)
+        variants = variants.filter(
+            Q(product__channel_listings__published_at__lte=today)
+            | Q(product__channel_listings__published_at__isnull=True),
+            product__channel_listings__is_published=True,
+            product__channel_listings__channel_id=channel.id,
+            product__channel_listings__visible_in_listings=True,
+        )
+        return variants
 
     # @cf::ornament.saleor.product
     def available_by_rules(self, requestor):

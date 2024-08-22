@@ -3,6 +3,7 @@ from typing import Optional
 
 from django.db.models import Q
 from i18naddress import get_validation_rules, ValidationRules
+from graphql import GraphQLError
 
 from ...account import Sex, models
 from ...core.exceptions import PermissionDenied
@@ -159,6 +160,10 @@ def resolve_address_validation_rules(
         "city": city,
         "city_area": city_area,
     }
+    # EU is available as a country code in CountryCode enum but it's not valid for
+    # the address validation
+    if country_code.upper() == "EU":
+        raise GraphQLError("Cannot validate address for EU country code.")
     rules = get_validation_rules(params)
     return AddressValidationData(
         country_code=rules.country_code,
@@ -277,11 +282,13 @@ def resolve_ornament_validation_rules(
 
 
 @traced_resolver
-def resolve_payment_sources(_info, user: models.User, manager, channel_slug: str):
-    stored_customer_accounts = (
+def resolve_payment_sources(
+    _info, user: models.User, manager, channel_slug: Optional[str]
+):
+    stored_customer_accounts = [
         (gtw.id, fetch_customer_id(user, gtw.id))
         for gtw in gateway.list_gateways(manager, channel_slug)
-    )
+    ]
     return list(
         chain(
             *[
@@ -349,7 +356,8 @@ def resolve_addresses(info, ids, app):
     return models.Address.objects.none()
 
 
-def resolve_permissions(root: models.User):
-    permissions = get_user_permissions(root)
+def resolve_permissions(root: models.User, info: ResolveInfo):
+    database_connection_name = get_database_connection_name(info.context)
+    permissions = get_user_permissions(root).using(database_connection_name)
     permissions = permissions.order_by("codename")
     return format_permissions_for_display(permissions)

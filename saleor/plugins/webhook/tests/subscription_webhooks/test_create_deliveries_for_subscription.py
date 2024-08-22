@@ -1669,14 +1669,17 @@ def test_sale_toggle(promotion_converted_from_sale, subscription_sale_toggle_web
     assert deliveries[0].webhook == webhooks[0]
 
 
-def test_promotion_created(promotion, subscription_promotion_created_webhook):
+def test_promotion_created(catalogue_promotion, subscription_promotion_created_webhook):
     # given
+    promotion = catalogue_promotion
     webhooks = [subscription_promotion_created_webhook]
     event_type = WebhookEventAsyncType.PROMOTION_CREATED
     expected_payload = generate_promotion_payload(promotion)
 
     # when
-    deliveries = create_deliveries_for_subscriptions(event_type, promotion, webhooks)
+    deliveries = create_deliveries_for_subscriptions(
+        event_type, catalogue_promotion, webhooks
+    )
 
     # then
     assert deliveries[0].payload.payload == json.dumps(expected_payload)
@@ -1684,8 +1687,9 @@ def test_promotion_created(promotion, subscription_promotion_created_webhook):
     assert deliveries[0].webhook == webhooks[0]
 
 
-def test_promotion_updated(promotion, subscription_promotion_updated_webhook):
+def test_promotion_updated(catalogue_promotion, subscription_promotion_updated_webhook):
     # given
+    promotion = catalogue_promotion
     webhooks = [subscription_promotion_updated_webhook]
     event_type = WebhookEventAsyncType.PROMOTION_UPDATED
     expected_payload = generate_promotion_payload(promotion)
@@ -1699,8 +1703,9 @@ def test_promotion_updated(promotion, subscription_promotion_updated_webhook):
     assert deliveries[0].webhook == webhooks[0]
 
 
-def test_promotion_deleted(promotion, subscription_promotion_deleted_webhook):
+def test_promotion_deleted(catalogue_promotion, subscription_promotion_deleted_webhook):
     # given
+    promotion = catalogue_promotion
     webhooks = [subscription_promotion_deleted_webhook]
     event_type = WebhookEventAsyncType.PROMOTION_DELETED
     expected_payload = generate_promotion_payload(promotion)
@@ -1714,8 +1719,9 @@ def test_promotion_deleted(promotion, subscription_promotion_deleted_webhook):
     assert deliveries[0].webhook == webhooks[0]
 
 
-def test_promotion_started(promotion, subscription_promotion_started_webhook):
+def test_promotion_started(catalogue_promotion, subscription_promotion_started_webhook):
     # given
+    promotion = catalogue_promotion
     webhooks = [subscription_promotion_started_webhook]
     event_type = WebhookEventAsyncType.PROMOTION_STARTED
     expected_payload = generate_promotion_payload(promotion)
@@ -1729,8 +1735,9 @@ def test_promotion_started(promotion, subscription_promotion_started_webhook):
     assert deliveries[0].webhook == webhooks[0]
 
 
-def test_promotion_ended(promotion, subscription_promotion_ended_webhook):
+def test_promotion_ended(catalogue_promotion, subscription_promotion_ended_webhook):
     # given
+    promotion = catalogue_promotion
     webhooks = [subscription_promotion_ended_webhook]
     event_type = WebhookEventAsyncType.PROMOTION_ENDED
     expected_payload = generate_promotion_payload(promotion)
@@ -2931,7 +2938,7 @@ def test_create_deliveries_for_subscriptions_document_executed_with_error(
     deliveries = create_deliveries_for_subscriptions(event_type, product, webhooks)
     # then
     mocked_task_logger.assert_called_with(
-        f"No payload was generated with subscription for event: {event_type}"
+        "No payload was generated with subscription for event: %s", event_type
     )
     assert len(deliveries) == 0
 
@@ -3016,6 +3023,52 @@ def test_generate_payload_from_subscription_return_permission_errors_in_payload(
     assert payload["errors"][0]["extensions"]["exception"]["code"] == error_code
     assert len(deliveries) == len(webhooks)
     assert deliveries[0].webhook == webhooks[0]
+
+
+def test_generate_payload_from_subscription_circular_subscription_sync_event_error(
+    checkout, subscription_webhook, permission_handle_taxes
+):
+    # given
+    query = """
+    subscription {
+      event {
+        ... on CalculateTaxes {
+          taxBase {
+            sourceObject {
+              ...on Checkout{
+                totalPrice {
+                  gross {
+                    amount
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    invalid_subscription_webhook = subscription_webhook(
+        query,
+        WebhookEventSyncType.CHECKOUT_CALCULATE_TAXES,
+    )
+
+    # when
+    deliveries = create_deliveries_for_subscriptions(
+        WebhookEventSyncType.CHECKOUT_CALCULATE_TAXES,
+        checkout,
+        [invalid_subscription_webhook],
+    )
+
+    # then
+    payload = json.loads(deliveries[0].payload.payload)
+    error_code = "CircularSubscriptionSyncEvent"
+
+    assert "event" not in payload
+    assert payload["errors"][0]["extensions"]["exception"]["code"] == error_code
+    assert len(deliveries) == 1
+    assert deliveries[0].webhook == invalid_subscription_webhook
 
 
 def test_thumbnail_created_product_media(
