@@ -789,7 +789,7 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             continue
         cproduct, rules = checkup_products.get(sku), match["rules"]
         if not cproduct:
-            if user.city.channel:
+            if user.city and user.city.channel:
                 channel = user.city.channel
             else:
                 channel = Channel.objects.get(slug=settings.DEFAULT_CHANNEL_SLUG)
