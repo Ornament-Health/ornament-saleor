@@ -9,6 +9,7 @@ from requests.exceptions import RequestException
 
 from saleor.account.models import User
 from saleor.celeryconf import app
+from saleor.channel.models import Channel
 from saleor.ornament.utils.fsm_api import FSMApi
 from saleor.product.models import Product
 from saleor.utils.locks import RedisBlockingCounterManager
@@ -788,13 +789,12 @@ def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
             continue
         cproduct, rules = checkup_products.get(sku), match["rules"]
         if not cproduct:
-            channel_slug = (
-                user.city.channel.slug if user.city else settings.DEFAULT_CHANNEL_SLUG
-            )
+            if user.city and user.city.channel:
+                channel = user.city.channel
+            else:
+                channel = Channel.objects.get(slug=settings.DEFAULT_CHANNEL_SLUG)
             product = (
-                Product.objects.published(channel_slug=channel_slug)  # FIXME
-                .filter(name=sku)
-                .first()
+                Product.objects.published(channel=channel).filter(name=sku).first()
             )
             if not product:
                 continue
