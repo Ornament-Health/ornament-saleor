@@ -88,7 +88,7 @@ class Command(BaseCommand):
         for value in sheet_1.iter_rows(min_row=header1_row + 1, values_only=True):
             price = value[8]
             sku = self.make_kdl_sku(str(value[0])) if value[0] else None
-            if price:
+            if price and isinstance(price, int):
                 prices[sku] = price
             elif sku:
                 product_variant_channel_listings_to_delete.add(sku)
@@ -96,7 +96,7 @@ class Command(BaseCommand):
         for value in sheet_2.iter_rows(min_row=header2_row + 1, values_only=True):
             price = value[10]
             sku = self.make_kdl_sku(str(value[0])) if value[0] else None
-            if price:
+            if price and isinstance(price, int):
                 prices[sku] = price
             elif sku:
                 product_variant_channel_listings_to_delete.add(sku)
