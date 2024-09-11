@@ -17,6 +17,7 @@ from saleor.graphql.ornament.vendors.types import VendorDealType
 from saleor.order.fetch import OrderLineInfo
 from saleor.order.models import Order
 from saleor.ornament.vendors.kdl import tasks as kdl_tasks
+from saleor.ornament.vendors.gettested import tasks as gettested_tasks
 from saleor.ornament.vendors.models import Vendor
 from saleor.product.models import ProductVariant
 
@@ -176,6 +177,10 @@ def apply_kdl_order_notification(order: Order):
     kdl_tasks.send_order_confirmation.delay(order_id=order.pk)
 
 
+def apply_gettested_order_created_user_notification(payload: dict):
+    gettested_tasks.send_order_confirmation.delay(payload)
+
+
 def apply_kdl_vendor_address_augmentation(address_data: dict) -> dict:
     address_data["postal_code"] = settings.DEFAULT_KDL_POSTAL_CODE
     address_data["country_area"] = settings.DEFAULT_KDL_COUNTRY_AREA
@@ -225,6 +230,22 @@ def apply_vendors_notification(
     return
 
 
+def apply_order_created_user_notification(
+    order_lines_info: list[OrderLineInfo], payload: dict
+) -> None:
+    vendors = set([l.variant.name for l in order_lines_info if l.variant])
+    vendor_name = get_vendor_name(vendors)
+
+    if vendor_name:
+        vendor_notification = vendor_order_created_user_notification_map.get(
+            vendor_name
+        )
+        if vendor_notification:
+            vendor_notification(payload)
+
+    return
+
+
 def apply_vendor_address_augmentation(
     variants: list[ProductVariant], address_data: dict
 ) -> dict:
@@ -241,4 +262,7 @@ def apply_vendor_address_augmentation(
 
 vendor_order_logic_map = {"KDL": apply_kdl_order_logic}
 vendor_order_notification_map = {"KDL": apply_kdl_order_notification}
+vendor_order_created_user_notification_map = {
+    "GetTested": apply_gettested_order_created_user_notification
+}
 vendor_address_augmentation_map = {"KDL": apply_kdl_vendor_address_augmentation}

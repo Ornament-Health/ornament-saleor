@@ -324,7 +324,10 @@ def prepare_order_details_url(order: Order, redirect_url: str) -> str:
 
 def send_order_confirmation(order_info, redirect_url, manager):
     # @cf:ornament.saleor.notifications
-    from saleor.ornament.vendors.utils import apply_vendors_notification
+    from saleor.ornament.vendors.utils import (
+        apply_vendors_notification,
+        apply_order_created_user_notification,
+    )
 
     apply_vendors_notification(order_info.order, order_info.lines_data)
 
@@ -334,6 +337,10 @@ def send_order_confirmation(order_info, redirect_url, manager):
         "recipient_email": order_info.customer_email,
         **get_site_context(),
     }
+
+    # @cf:ornament.saleor.notifications
+    apply_order_created_user_notification(order_info.lines_data, payload)
+
     manager.notify(
         NotifyEventType.ORDER_CONFIRMATION,
         payload,
