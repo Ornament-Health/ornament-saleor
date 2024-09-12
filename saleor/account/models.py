@@ -216,7 +216,7 @@ class User(
     uuid = models.UUIDField(default=uuid4, unique=True)
 
     # @cf::ornament.saleor.account
-    sso_id = models.UUIDField(default=None, unique=True, editable=False, null=True)
+    sso_id = models.UUIDField(default=None, unique=True, editable=True, null=True)
     city = models.ForeignKey(
         "geo.City", on_delete=models.SET_NULL, null=True, blank=True
     )

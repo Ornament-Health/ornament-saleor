@@ -5,7 +5,7 @@ from ....account.types import User
 from ....core.doc_category import DOC_CATEGORY_USERS
 from ....core.types import AccountError
 from ....core.utils import WebhookEventInfo
-from ..base import BaseCustomerCreate
+from ..base import BaseCustomerCreate, BaseCustomerCreateOrnament
 
 
 class CustomerCreate(BaseCustomerCreate):
@@ -38,3 +38,17 @@ class CustomerCreate(BaseCustomerCreate):
                 description="Setting a new password for the account is requested.",
             ),
         ]
+
+
+class CustomerCreateOrnament(BaseCustomerCreateOrnament):
+    class Meta:
+        description = "Creates a new ornament customer."
+        doc_category = DOC_CATEGORY_USERS
+        exclude = ["password"]
+        model = models.User
+        object_type = User
+        permissions = (AccountPermissions.MANAGE_USERS,)
+        support_meta_field = True
+        support_private_meta_field = True
+        error_type_class = AccountError
+        error_type_field = "account_errors"
