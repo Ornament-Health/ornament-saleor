@@ -94,7 +94,7 @@ class Command(BaseCommand):
 
     def get_medical_attribute_values_ids(self, attribute_name: str) -> dict[int, int]:
         medical_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids[attribute_name]
+            attribute_id=AttributeUtils.attribute_ids[attribute_name]
         ).values_list("pk", "name")
 
         return {int(b[1]): b[0] for b in medical_attribute_values}
@@ -234,7 +234,7 @@ class Command(BaseCommand):
 
                     biomarkers_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "biomarkers"
                             ],
                             product_id=product.pk,
@@ -257,7 +257,7 @@ class Command(BaseCommand):
 
                     medical_exams_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "medical_exams"
                             ],
                             product_id=product.pk,
