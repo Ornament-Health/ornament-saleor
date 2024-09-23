@@ -10,6 +10,7 @@ from requests.exceptions import RequestException
 from saleor.account.models import User
 from saleor.celeryconf import app
 from saleor.channel.models import Channel
+from saleor.core.db.connection import allow_writer
 from saleor.ornament.utils.fsm_api import FSMApi
 from saleor.product.models import Product
 from saleor.utils.locks import RedisBlockingCounterManager
@@ -366,6 +367,7 @@ def calculate_checkup_states_from_history(scheme: dict, history: dict):
 
 # Tasks
 @app.task
+@allow_writer()
 def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
     """
     Handle checkup matching event.
@@ -519,6 +521,7 @@ def handle_checkup_matching_event_task(user_id, profile_uuid, sex, age):
 
 
 @app.task
+@allow_writer()
 def handle_checkup_calculation_event_task(user_id, profile_uuid, history=None):
     """
     Handle checkup calculation event.
@@ -662,6 +665,7 @@ def handle_checkup_calculation_event_task(user_id, profile_uuid, history=None):
 
 
 @app.task
+@allow_writer()
 def handle_checkup_personalization_event_task(user_id, profile_uuid, matches):
     """
     Handle checkup personalization event.
