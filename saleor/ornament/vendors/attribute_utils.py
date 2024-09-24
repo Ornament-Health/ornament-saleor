@@ -1,5 +1,7 @@
+import json
 import logging
 
+from django.conf import settings
 from django.core.management.base import CommandError
 
 from saleor.attribute.models.base import AttributeValue
@@ -10,28 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class AttributeUtils:
-    attrubutes_ids = {
-        "color": 1,
-        "featured": 2,
-        "featured-collection": 3,
-        "icon": 4,
-        "kdl-biomaterials": 5,
-        "kdl-preparation": 6,
-        "kdl-max_duration": 7,
-        "kdl-duration_unit": 8,
-        "sex": 9,
-        "age-from": 10,
-        "age-to": 11,
-        "biomarkers": 12,
-        "medical_exams": 13,
-        "gettested_test-method": 14,
-    }
+    attribute_ids = json.loads(settings.ATTRIBUTE_IDS)
 
     @staticmethod
     def add_biomaterial_attribute_data(
         product_id: int, biomaterial: str
     ) -> AssignedProductAttributeValue:
-        attribute_id = AttributeUtils.attrubutes_ids["kdl-biomaterials"]
+        attribute_id = AttributeUtils.attribute_ids["kdl-biomaterials"]
         name = biomaterial.replace("\n", ", ")
         slug = f"{product_id}_{attribute_id}"
 
@@ -54,7 +41,7 @@ class AttributeUtils:
     def add_preparation_attribute_data(
         product_id: int, preparation: str
     ) -> AssignedProductAttributeValue:
-        attribute_id = AttributeUtils.attrubutes_ids["kdl-preparation"]
+        attribute_id = AttributeUtils.attribute_ids["kdl-preparation"]
         name = preparation[:20] + "..."
         rich_text = form_rich_text(preparation)
         slug = f"{product_id}_{attribute_id}"

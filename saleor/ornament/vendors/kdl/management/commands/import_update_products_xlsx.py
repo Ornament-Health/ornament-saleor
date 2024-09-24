@@ -83,7 +83,7 @@ class Command(BaseCommand):
         product_id: int,
         featured_attribute_values: dict[str, AttributeValue],
     ) -> AssignedProductAttributeValue:
-        featured_slug = f"{AttributeUtils.attrubutes_ids['featured']}_true"
+        featured_slug = f"{AttributeUtils.attribute_ids['featured']}_true"
 
         featured_attribute_value = featured_attribute_values.get(featured_slug)
 
@@ -106,7 +106,7 @@ class Command(BaseCommand):
         attribute_name: str,
         known_values: dict[str, AttributeValue],
     ) -> Optional[AttributeValue]:
-        slug = f"{product_id}_{AttributeUtils.attrubutes_ids[attribute_name]}"
+        slug = f"{product_id}_{AttributeUtils.attribute_ids[attribute_name]}"
         return known_values.get(slug)
 
     def should_recreate_attribute_assignment(
@@ -179,34 +179,34 @@ class Command(BaseCommand):
         popular_collection = Collection.objects.filter(name="Популярное").first()
 
         biomaterial_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["kdl-biomaterials"]
+            attribute_id=AttributeUtils.attribute_ids["kdl-biomaterials"]
         )
         biomaterial_attribute_values = {v.slug: v for v in biomaterial_attribute_values}
 
         preparation_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["kdl-preparation"]
+            attribute_id=AttributeUtils.attribute_ids["kdl-preparation"]
         )
         preparation_attribute_values = {v.slug: v for v in preparation_attribute_values}
 
         duration_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["kdl-max_duration"]
+            attribute_id=AttributeUtils.attribute_ids["kdl-max_duration"]
         )
         duration_attribute_values = {v.slug: v for v in duration_attribute_values}
 
         duration_unit_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["kdl-duration_unit"]
+            attribute_id=AttributeUtils.attribute_ids["kdl-duration_unit"]
         )
         duration_unit_attribute_values = {
             v.slug: v for v in duration_unit_attribute_values
         }
 
         featured_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["featured"]
+            attribute_id=AttributeUtils.attribute_ids["featured"]
         )
         featured_attribute_values = {v.slug: v for v in featured_attribute_values}
 
         color_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["color"]
+            attribute_id=AttributeUtils.attribute_ids["color"]
         )
         color_attribute_values = {v.slug: v for v in color_attribute_values}
 
@@ -252,13 +252,13 @@ class Command(BaseCommand):
         now = datetime.now()
 
         biomarkers_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["biomarkers"]
+            attribute_id=AttributeUtils.attribute_ids["biomarkers"]
         ).values_list("pk", "name")
         biomarkers_attribute_values_ids: dict[int, int] = {
             int(b[1]): b[0] for b in biomarkers_attribute_values
         }
         medical_exams_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["medical_exams"]
+            attribute_id=AttributeUtils.attribute_ids["medical_exams"]
         ).values_list("pk", "name")
         medical_exams_attribute_values_ids: dict[int, int] = {
             int(m[1]): m[0] for m in medical_exams_attribute_values
@@ -319,7 +319,7 @@ class Command(BaseCommand):
                         AttributeUtils.add_numeric_attribute_data(
                             product.pk,
                             int(data_product["duration"]),
-                            AttributeUtils.attrubutes_ids["kdl-max_duration"],
+                            AttributeUtils.attribute_ids["kdl-max_duration"],
                         )
                     )
                     assigned_product_attribute_values.append(
@@ -327,7 +327,7 @@ class Command(BaseCommand):
                             product.pk,
                             # 2 - legacy: duration unit DAYS
                             KdlDurationUnitEnum.DAY.value,
-                            AttributeUtils.attrubutes_ids["kdl-duration_unit"],
+                            AttributeUtils.attribute_ids["kdl-duration_unit"],
                         )
                     )
 
@@ -554,7 +554,7 @@ class Command(BaseCommand):
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
                                 duration,
-                                AttributeUtils.attrubutes_ids["kdl-max_duration"],
+                                AttributeUtils.attribute_ids["kdl-max_duration"],
                             )
                         )
 
@@ -584,7 +584,7 @@ class Command(BaseCommand):
                             AttributeUtils.add_numeric_attribute_data(
                                 product_id,
                                 KdlDurationUnitEnum.DAY.value,
-                                AttributeUtils.attrubutes_ids["kdl-duration_unit"],
+                                AttributeUtils.attribute_ids["kdl-duration_unit"],
                             )
                         )
 
@@ -603,7 +603,7 @@ class Command(BaseCommand):
 
                     biomarkers_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "biomarkers"
                             ],
                             product_id=product_id,
@@ -623,7 +623,7 @@ class Command(BaseCommand):
                 else:
                     biomarkers_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "biomarkers"
                             ],
                             product_id=product_id,
@@ -640,7 +640,7 @@ class Command(BaseCommand):
 
                     medical_exams_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "medical_exams"
                             ],
                             product_id=product_id,
@@ -660,7 +660,7 @@ class Command(BaseCommand):
                 else:
                     medical_exams_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "medical_exams"
                             ],
                             product_id=product_id,
@@ -674,7 +674,7 @@ class Command(BaseCommand):
 
                 color_attribute_assigned_value = (
                     AssignedProductAttributeValue.objects.filter(
-                        value__attribute_id=AttributeUtils.attrubutes_ids["color"],
+                        value__attribute_id=AttributeUtils.attribute_ids["color"],
                         product_id=product_id,
                     ).first()
                 )
@@ -709,16 +709,16 @@ class Command(BaseCommand):
 
                 featured_attribute_assigned_value = (
                     AssignedProductAttributeValue.objects.filter(
-                        value__attribute_id=AttributeUtils.attrubutes_ids["featured"],
+                        value__attribute_id=AttributeUtils.attribute_ids["featured"],
                         product_id=product_id,
                     ).first()
                 )
 
                 is_popular = data_product["is_popular"]
 
-                featured_true_slug = f"{AttributeUtils.attrubutes_ids['featured']}_true"
+                featured_true_slug = f"{AttributeUtils.attribute_ids['featured']}_true"
                 featured_false_slug = (
-                    f"{AttributeUtils.attrubutes_ids['featured']}_false"
+                    f"{AttributeUtils.attribute_ids['featured']}_false"
                 )
 
                 featured_insert = False
