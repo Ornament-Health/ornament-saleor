@@ -260,6 +260,7 @@ class Command(BaseCommand):
                 test_method = product_data.get("test_method")
                 biomarkers = product_data.get("biomarkers")
                 medical_exams = product_data.get("medical_exams")
+                human_parts = product_data.get("human_parts")
                 color_slug = product_data.get("color_slug")
 
                 if test_method:
@@ -282,6 +283,15 @@ class Command(BaseCommand):
                             product.pk,
                             [int(b) for b in medical_exams],
                             medical_exams_attribute_values_ids,
+                        )
+                    )
+
+                if human_parts:
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            [int(hp) for hp in human_parts],
+                            human_parts_attribute_values_ids,
                         )
                     )
 
@@ -388,21 +398,6 @@ class Command(BaseCommand):
                                 )
                             )
 
-                    for (
-                        product_variant_channel_listing
-                    ) in product_variant_channel_listings_to_update:
-                        sku = product_variant_channel_listing.variant.sku
-
-                        if sku:
-                            data_product = data_to_update.get(sku) or {}
-                            price = data_product.get("price")
-
-                            if price:
-                                product_variant_channel_listing.price_amount = price
-                                product_variant_channel_listing.discounted_price_amount = (
-                                    price
-                                )
-
                     color_attribute_assigned_value = (
                         AssignedProductAttributeValue.objects.filter(
                             value__attribute_id=AttributeUtils.attribute_ids["color"],
@@ -412,7 +407,7 @@ class Command(BaseCommand):
 
                     if color_slug:
                         color_attribute_value_for_current_slug = (
-                            color_attribute_values.get(data_product["color_slug"])
+                            color_attribute_values.get(color_slug)
                         )
 
                         if color_attribute_assigned_value:
@@ -540,6 +535,20 @@ class Command(BaseCommand):
                     assigned_product_attribute_values_to_delete += (
                         human_parts_assigned_product_attribute_values
                     )
+
+        if not only_medical_data:
+            for (
+                product_variant_channel_listing
+            ) in product_variant_channel_listings_to_update:
+                sku = product_variant_channel_listing.variant.sku
+
+                if sku:
+                    data_product = data_to_update.get(sku) or {}
+                    price = data_product.get("price")
+
+                    if price:
+                        product_variant_channel_listing.price_amount = price
+                        product_variant_channel_listing.discounted_price_amount = price
 
         # TODO: https://github.com/Ornament-Health/ornament-saleor/pull/7#discussion_r1447222450
         AssignedProductAttributeValue.objects.filter(
