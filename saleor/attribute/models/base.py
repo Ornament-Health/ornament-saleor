@@ -355,6 +355,8 @@ class AttributeValue(ModelWithExternalReference):
     )
     boolean = models.BooleanField(blank=True, null=True)
     date_time = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     reference_product = models.ForeignKey(
         Product,

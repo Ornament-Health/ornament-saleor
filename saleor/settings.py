@@ -1121,3 +1121,24 @@ AUTO_CITY_APPROVED = os.environ.get("AUTO_CITY_APPROVED", False)
 VENDOR_DEAL_TYPE_CACHE_TTL = int(
     os.environ.get("VENDOR_DEAL_TYPE_CACHE_TTL", 60 * 5)  # 5 min
 )
+
+ATTRIBUTE_IDS = os.environ.get(
+    "ATTRIBUTE_IDS",
+    {
+        "color": 1,
+        "featured": 2,
+        "featured-collection": 3,
+        "icon": 4,
+        "kdl-biomaterials": 5,
+        "kdl-preparation": 6,
+        "kdl-max_duration": 7,
+        "kdl-duration_unit": 8,
+        "sex": 9,
+        "age-from": 10,
+        "age-to": 11,
+        "biomarkers": 12,
+        "medical_exams": 13,
+        "gettested_test-method": 14,
+        "human_parts": 15,
+    },
+)

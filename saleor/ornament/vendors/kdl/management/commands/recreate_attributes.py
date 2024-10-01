@@ -63,7 +63,7 @@ class Command(BaseCommand):
         biomarkers_attribute_values = [
             AttributeValue(
                 name=b_id,
-                attribute_id=AttributeUtils.attrubutes_ids["biomarkers"],
+                attribute_id=AttributeUtils.attribute_ids["biomarkers"],
                 slug=b_id,
                 sort_order=b_id,
             )
@@ -73,7 +73,7 @@ class Command(BaseCommand):
         medical_exams_attribute_values = [
             AttributeValue(
                 name=m_id,
-                attribute_id=AttributeUtils.attrubutes_ids["medical_exams"],
+                attribute_id=AttributeUtils.attribute_ids["medical_exams"],
                 slug=m_id,
                 sort_order=m_id,
             )
@@ -146,7 +146,7 @@ class Command(BaseCommand):
                     AttributeUtils.add_numeric_attribute_data(
                         max_duration["product_id"],
                         max_duration["value"],
-                        AttributeUtils.attrubutes_ids["kdl-max_duration"],
+                        AttributeUtils.attribute_ids["kdl-max_duration"],
                     )
                 )
             if duration_unit:
@@ -154,7 +154,7 @@ class Command(BaseCommand):
                     AttributeUtils.add_numeric_attribute_data(
                         duration_unit["product_id"],
                         duration_unit["value"],
-                        AttributeUtils.attrubutes_ids["kdl-duration_unit"],
+                        AttributeUtils.attribute_ids["kdl-duration_unit"],
                     )
                 )
             if age_from:
@@ -162,7 +162,7 @@ class Command(BaseCommand):
                     AttributeUtils.add_numeric_attribute_data(
                         age_from["product_id"],
                         age_from["value"],
-                        AttributeUtils.attrubutes_ids["age-from"],
+                        AttributeUtils.attribute_ids["age-from"],
                     )
                 )
             if age_to:
@@ -170,14 +170,14 @@ class Command(BaseCommand):
                     AttributeUtils.add_numeric_attribute_data(
                         age_to["product_id"],
                         age_to["value"],
-                        AttributeUtils.attrubutes_ids["age-to"],
+                        AttributeUtils.attribute_ids["age-to"],
                     )
                 )
             if sex:
                 assigned_product_attribute_values.append(
                     self.add_sex_attribute_data(
                         sex,
-                        AttributeUtils.attrubutes_ids["sex"],
+                        AttributeUtils.attribute_ids["sex"],
                         sex_attribute_values,
                     )
                 )
