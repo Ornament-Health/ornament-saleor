@@ -20,6 +20,8 @@ class AssignedProductAttributeValue(SortableModel):
         blank=False,
         db_index=False,
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = (("value", "product"),)
