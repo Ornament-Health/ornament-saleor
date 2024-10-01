@@ -29,6 +29,7 @@ DEFAULT_DESCRIPTION_VERSION = "2.24.3"
 class MedicalData:
     biomarker_ids: list[int]
     medical_exams_ids: list[int]
+    human_parts_ids: list[int]
 
 
 def form_slack_error_message(error_text: str) -> dict:
@@ -74,13 +75,17 @@ async def fetch_medical_data() -> MedicalData:
                 f"{settings.THESAURUS_API_URL_1_0}/medical-exams",
                 json={},
             ),
+            session.get(
+                f"{settings.THESAURUS_API_URL_1_0}/health-advisor/human-parts?lang=EN",
+            ),
         ]
         result = await asyncio.gather(*requests)
 
-        biomarkers_response, medical_exams_response = result
+        biomarkers_response, medical_exams_response, human_parts_response = result
 
         biomarkers = await biomarkers_response.json()
         medical_exams = await medical_exams_response.json()
+        human_parts = await human_parts_response.json()
 
         biomarker_ids = [b["id"] for b in biomarkers["biomarkers"]]
         medical_exams_ids = [
@@ -89,9 +94,12 @@ async def fetch_medical_data() -> MedicalData:
                 [exam["objects"] for exam in medical_exams["exams"]]
             )
         ]
+        human_parts_ids = [hp["partId"] for hp in human_parts["common"]]
 
         return MedicalData(
-            biomarker_ids=biomarker_ids, medical_exams_ids=medical_exams_ids
+            biomarker_ids=biomarker_ids,
+            medical_exams_ids=medical_exams_ids,
+            human_parts_ids=human_parts_ids,
         )
 
 

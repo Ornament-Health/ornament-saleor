@@ -41,6 +41,7 @@ class Command(BaseCommand):
         "medical_exam_type_object",
         "is_hidden",
         "color slug",
+        "human parts",
     ]
     vendor_name = "GetTested"
     vendor_currency = "GBP"
@@ -48,6 +49,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("filename", help="Path to XLSX file with target data")
+        parser.add_argument(
+            "--only_medical_data", action="store_true", help="Only update medical data"
+        )
 
     def check_sheet_header_cols(self, sheet: Worksheet) -> None:
         sheet_header_cols: set = set(
@@ -65,7 +69,7 @@ class Command(BaseCommand):
     def add_test_method_attribute_data(
         self, product_id: int, test_method: str
     ) -> AssignedProductAttributeValue:
-        attribute_id = AttributeUtils.attrubutes_ids["gettested_test-method"]
+        attribute_id = AttributeUtils.attribute_ids["gettested_test-method"]
         name = test_method.replace("\n", ", ")
         slug = f"{product_id}_{attribute_id}"
 
@@ -113,6 +117,9 @@ class Command(BaseCommand):
                 "medical_exams": self.get_medical_data_ids(
                     str(s[8]), medical_data.medical_exams_ids
                 ),
+                "human_parts": self.get_medical_data_ids(
+                    str(s[13]), medical_data.human_parts_ids
+                ),
                 "is_hidden": True if s[10] == 1 else False,
                 "color_slug": s[11],
             }
@@ -126,19 +133,20 @@ class Command(BaseCommand):
 
     def get_medical_attribute_values_ids(self, attribute_name: str) -> dict[int, int]:
         medical_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids[attribute_name]
+            attribute_id=AttributeUtils.attribute_ids[attribute_name]
         ).values_list("pk", "name")
 
         return {int(b[1]): b[0] for b in medical_attribute_values}
 
     def get_attribute_values(self, attribute_name: str) -> dict[str, AttributeValue]:
         attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids[attribute_name]
+            attribute_id=AttributeUtils.attribute_ids[attribute_name]
         )
         return {v.slug: v for v in attribute_values}
 
     def handle(self, *args, **options):
         filename = options.get("filename")
+        only_medical_data = options.get("only_medical_data")
 
         if not filename or not os.path.isfile(filename):
             raise CommandError(f'Source file "{filename}" does not exist.')
@@ -173,38 +181,11 @@ class Command(BaseCommand):
         }
 
         test_method_attribute_values = AttributeValue.objects.filter(
-            attribute_id=AttributeUtils.attrubutes_ids["gettested_test-method"]
+            attribute_id=AttributeUtils.attribute_ids["gettested_test-method"]
         )
         test_method_attribute_values = {v.slug: v for v in test_method_attribute_values}
 
         new_products = []
-
-        for d in data_to_insert.values():
-            new_product_category = categories.get(d["subcategory"])
-
-            if not new_product_category:
-                raise CommandError(f'Category not found: {d["subcategory"]}')
-
-            new_products.append(
-                Product(
-                    product_type_id=1,
-                    name=d["sku"],
-                    slug=slugify(d["sku"], lowercase=True, max_length=100),
-                    description=form_description(d["name"], d["description"]),
-                    description_plaintext=d["description"],
-                    category=new_product_category,
-                    search_index_dirty=True,
-                )
-            )
-
-        inserted_products = Product.objects.bulk_create(
-            new_products, ignore_conflicts=False
-        )
-
-        product_variants = []
-        product_channel_listings = []
-
-        now = datetime.now()
 
         assigned_product_attribute_values_to_insert: list[
             AssignedProductAttributeValue
@@ -220,105 +201,146 @@ class Command(BaseCommand):
         medical_exams_attribute_values_ids = self.get_medical_attribute_values_ids(
             "medical_exams"
         )
-
-        color_attribute_values = self.get_attribute_values("color")
-
-        for product in inserted_products:
-            product_variants.append(
-                ProductVariant(
-                    sku=product.name,
-                    name=self.vendor_name,
-                    product=product,
-                    track_inventory=False,
-                )
-            )
-            product_channel_listings.append(
-                ProductChannelListing(
-                    channel=gettested_channel,
-                    product=product,
-                    visible_in_listings=True,
-                    available_for_purchase_at=now,
-                    currency=self.vendor_currency,
-                    is_published=True,
-                    published_at=now,
-                )
-            )
-
-            product_data = data_to_insert.get(product.name) or {}
-            test_method = product_data.get("test_method")
-            biomarkers = product_data.get("biomarkers")
-            medical_exams = product_data.get("medical_exams")
-            color_slug = product_data.get("color_slug")
-
-            if test_method:
-                assigned_product_attribute_values_to_insert.append(
-                    self.add_test_method_attribute_data(product.pk, test_method)
-                )
-
-            if biomarkers:
-                assigned_product_attribute_values_to_insert += (
-                    AttributeUtils.add_medical_attributes_data(
-                        product.pk,
-                        [int(b) for b in biomarkers],
-                        biomarkers_attribute_values_ids,
-                    )
-                )
-
-            if medical_exams:
-                assigned_product_attribute_values_to_insert += (
-                    AttributeUtils.add_medical_attributes_data(
-                        product.pk,
-                        [int(b) for b in medical_exams],
-                        medical_exams_attribute_values_ids,
-                    )
-                )
-
-            if color_slug:
-                assigned_product_attribute_values_to_insert.append(
-                    AttributeUtils.add_color_attribute_data(
-                        product.pk,
-                        color_slug,
-                        color_attribute_values,
-                    )
-                )
-
-        inserted_variants = ProductVariant.objects.bulk_create(product_variants)
-        ProductChannelListing.objects.bulk_create(product_channel_listings)
-
-        new_product_variant_channel_listings = []
-        new_warehouse_stocks = []
-
-        for variant in inserted_variants:
-            if variant.sku:
-                product_data = data_to_insert.get(variant.sku) or {}
-                price = product_data.get("price")
-
-                if price:
-                    new_product_variant_channel_listings.append(
-                        ProductVariantChannelListing(
-                            variant=variant,
-                            channel=gettested_channel,
-                            currency=self.vendor_currency,
-                            price_amount=price,
-                            discounted_price_amount=price,
-                        )
-                    )
-                    new_warehouse_stocks.append(
-                        Stock(
-                            warehouse_id=self.vendor_warehouse_id,
-                            product_variant=variant,
-                            quantity=1,
-                            quantity_allocated=0,
-                        )
-                    )
-
-        # create new product variants listings
-        ProductVariantChannelListing.objects.bulk_create(
-            new_product_variant_channel_listings
+        human_parts_attribute_values_ids = self.get_medical_attribute_values_ids(
+            "human_parts"
         )
 
-        # create new stock for product variants listings
-        Stock.objects.bulk_create(new_warehouse_stocks)
+        if not only_medical_data:
+            for d in data_to_insert.values():
+                new_product_category = categories.get(d["subcategory"])
+
+                if not new_product_category:
+                    raise CommandError(f'Category not found: {d["subcategory"]}')
+
+                new_products.append(
+                    Product(
+                        product_type_id=1,
+                        name=d["sku"],
+                        slug=slugify(d["sku"], lowercase=True, max_length=100),
+                        description=form_description(d["name"], d["description"]),
+                        description_plaintext=d["description"],
+                        category=new_product_category,
+                        search_index_dirty=True,
+                    )
+                )
+
+            inserted_products = Product.objects.bulk_create(
+                new_products, ignore_conflicts=False
+            )
+
+            product_variants = []
+            product_channel_listings = []
+
+            now = datetime.now()
+
+            color_attribute_values = self.get_attribute_values("color")
+
+            for product in inserted_products:
+                product_variants.append(
+                    ProductVariant(
+                        sku=product.name,
+                        name=self.vendor_name,
+                        product=product,
+                        track_inventory=False,
+                    )
+                )
+                product_channel_listings.append(
+                    ProductChannelListing(
+                        channel=gettested_channel,
+                        product=product,
+                        visible_in_listings=True,
+                        available_for_purchase_at=now,
+                        currency=self.vendor_currency,
+                        is_published=True,
+                        published_at=now,
+                    )
+                )
+
+                product_data = data_to_insert.get(product.name) or {}
+                test_method = product_data.get("test_method")
+                biomarkers = product_data.get("biomarkers")
+                medical_exams = product_data.get("medical_exams")
+                human_parts = product_data.get("human_parts")
+                color_slug = product_data.get("color_slug")
+
+                if test_method:
+                    assigned_product_attribute_values_to_insert.append(
+                        self.add_test_method_attribute_data(product.pk, test_method)
+                    )
+
+                if biomarkers:
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            [int(b) for b in biomarkers],
+                            biomarkers_attribute_values_ids,
+                        )
+                    )
+
+                if medical_exams:
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            [int(b) for b in medical_exams],
+                            medical_exams_attribute_values_ids,
+                        )
+                    )
+
+                if human_parts:
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            [int(hp) for hp in human_parts],
+                            human_parts_attribute_values_ids,
+                        )
+                    )
+
+                if color_slug:
+                    assigned_product_attribute_values_to_insert.append(
+                        AttributeUtils.add_color_attribute_data(
+                            product.pk,
+                            color_slug,
+                            color_attribute_values,
+                        )
+                    )
+
+            inserted_variants = ProductVariant.objects.bulk_create(product_variants)
+            ProductChannelListing.objects.bulk_create(product_channel_listings)
+
+            new_product_variant_channel_listings = []
+            new_warehouse_stocks = []
+
+            for variant in inserted_variants:
+                if variant.sku:
+                    product_data = data_to_insert.get(variant.sku) or {}
+                    price = product_data.get("price")
+
+                    if price:
+                        new_product_variant_channel_listings.append(
+                            ProductVariantChannelListing(
+                                variant=variant,
+                                channel=gettested_channel,
+                                currency=self.vendor_currency,
+                                price_amount=price,
+                                discounted_price_amount=price,
+                            )
+                        )
+                        new_warehouse_stocks.append(
+                            Stock(
+                                warehouse_id=self.vendor_warehouse_id,
+                                product_variant=variant,
+                                quantity=1,
+                                quantity_allocated=0,
+                            )
+                        )
+
+            # create new product variants listings
+            ProductVariantChannelListing.objects.bulk_create(
+                new_product_variant_channel_listings
+            )
+
+            # create new stock for product variants listings
+            Stock.objects.bulk_create(new_warehouse_stocks)
 
         # UPDATE
         products_to_update = Product.objects.filter(name__in=data_to_update.keys())
@@ -340,6 +362,7 @@ class Command(BaseCommand):
                 test_method = data_product.get("test_method")
                 biomarkers = data_product.get("biomarkers")
                 medical_exams = data_product.get("medical_exams")
+                human_parts = data_product.get("human_parts")
                 subcategory = data_product["subcategory"]
                 color_slug = data_product["color_slug"]
 
@@ -348,36 +371,72 @@ class Command(BaseCommand):
                 if not product_category:
                     raise CommandError(f"Category not found: {subcategory}")
 
-                product.category = product_category
+                if not only_medical_data:
+                    product.category = product_category
 
-                if sku:
-                    product.name = sku
-                    product.search_index_dirty = True
+                    if sku:
+                        product.name = sku
+                        product.search_index_dirty = True
 
-                if name and description:
-                    product.description = form_description(name, description)
-                    product.description_plaintext = description
-                    product.search_index_dirty = True
+                    if name and description:
+                        product.description = form_description(name, description)
+                        product.description_plaintext = description
+                        product.search_index_dirty = True
 
-                if test_method:
-                    slug = f"{product.pk}_{AttributeUtils.attrubutes_ids['gettested_test-method']}"
-                    db_attribute_value = test_method_attribute_values.get(slug)
+                    if test_method:
+                        slug = f"{product.pk}_{AttributeUtils.attribute_ids['gettested_test-method']}"
+                        db_attribute_value = test_method_attribute_values.get(slug)
 
-                    if db_attribute_value:
-                        db_attribute_value.name = test_method
-                        db_attribute_value.plain_text = name
-                        attribute_values_to_update.append(db_attribute_value)
-                    else:
-                        assigned_product_attribute_values_to_insert.append(
-                            self.add_test_method_attribute_data(product.pk, test_method)
+                        if db_attribute_value:
+                            db_attribute_value.name = test_method
+                            db_attribute_value.plain_text = name
+                            attribute_values_to_update.append(db_attribute_value)
+                        else:
+                            assigned_product_attribute_values_to_insert.append(
+                                self.add_test_method_attribute_data(
+                                    product.pk, test_method
+                                )
+                            )
+
+                    color_attribute_assigned_value = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attribute_ids["color"],
+                            product_id=product.pk,
+                        ).first()
+                    )
+
+                    if color_slug:
+                        color_attribute_value_for_current_slug = (
+                            color_attribute_values.get(color_slug)
                         )
+
+                        if color_attribute_assigned_value:
+                            if (
+                                color_attribute_value_for_current_slug
+                                and color_attribute_assigned_value.value
+                                != color_attribute_value_for_current_slug
+                            ):
+                                color_attribute_assigned_value.value = (
+                                    color_attribute_value_for_current_slug
+                                )
+                                color_attribute_assigned_value.save()
+                        elif color_attribute_value_for_current_slug:
+                            assigned_product_attribute_values_to_insert.append(
+                                AssignedProductAttributeValue(
+                                    value_id=color_attribute_value_for_current_slug.pk,
+                                    product_id=product.pk,
+                                )
+                            )
+                    else:
+                        if color_attribute_assigned_value:
+                            color_attribute_assigned_value.delete()
 
                 if biomarkers:
                     biomarkers = [int(b) for b in biomarkers]
 
                     biomarkers_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "biomarkers"
                             ],
                             product_id=product.pk,
@@ -397,7 +456,7 @@ class Command(BaseCommand):
                 else:
                     biomarkers_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "biomarkers"
                             ],
                             product_id=product.pk,
@@ -412,7 +471,7 @@ class Command(BaseCommand):
 
                     medical_exams_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "medical_exams"
                             ],
                             product_id=product.pk,
@@ -432,7 +491,7 @@ class Command(BaseCommand):
                 else:
                     medical_exams_assigned_product_attribute_values = (
                         AssignedProductAttributeValue.objects.filter(
-                            value__attribute_id=AttributeUtils.attrubutes_ids[
+                            value__attribute_id=AttributeUtils.attribute_ids[
                                 "medical_exams"
                             ],
                             product_id=product.pk,
@@ -442,51 +501,54 @@ class Command(BaseCommand):
                         medical_exams_assigned_product_attribute_values
                     )
 
-                color_attribute_assigned_value = (
-                    AssignedProductAttributeValue.objects.filter(
-                        value__attribute_id=AttributeUtils.attrubutes_ids["color"],
-                        product_id=product.pk,
-                    ).first()
-                )
+                if human_parts:
+                    human_parts = [int(hp) for hp in human_parts]
 
-                if color_slug:
-                    color_attribute_value_for_current_slug = color_attribute_values.get(
-                        data_product["color_slug"]
+                    human_parts_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attribute_ids[
+                                "human_parts"
+                            ],
+                            product_id=product.pk,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        human_parts_assigned_product_attribute_values
                     )
 
-                    if color_attribute_assigned_value:
-                        if (
-                            color_attribute_value_for_current_slug
-                            and color_attribute_assigned_value.value
-                            != color_attribute_value_for_current_slug
-                        ):
-                            color_attribute_assigned_value.value = (
-                                color_attribute_value_for_current_slug
-                            )
-                            color_attribute_assigned_value.save()
-                    elif color_attribute_value_for_current_slug:
-                        assigned_product_attribute_values_to_insert.append(
-                            AssignedProductAttributeValue(
-                                value_id=color_attribute_value_for_current_slug.pk,
-                                product_id=product.pk,
-                            )
+                    assigned_product_attribute_values_to_insert += (
+                        AttributeUtils.add_medical_attributes_data(
+                            product.pk,
+                            human_parts,
+                            human_parts_attribute_values_ids,
                         )
+                    )
                 else:
-                    if color_attribute_assigned_value:
-                        color_attribute_assigned_value.delete()
+                    human_parts_assigned_product_attribute_values = (
+                        AssignedProductAttributeValue.objects.filter(
+                            value__attribute_id=AttributeUtils.attribute_ids[
+                                "human_parts"
+                            ],
+                            product_id=product.pk,
+                        )
+                    )
+                    assigned_product_attribute_values_to_delete += (
+                        human_parts_assigned_product_attribute_values
+                    )
 
-        for (
-            product_variant_channel_listing
-        ) in product_variant_channel_listings_to_update:
-            sku = product_variant_channel_listing.variant.sku
+        if not only_medical_data:
+            for (
+                product_variant_channel_listing
+            ) in product_variant_channel_listings_to_update:
+                sku = product_variant_channel_listing.variant.sku
 
-            if sku:
-                data_product = data_to_update.get(sku) or {}
-                price = data_product.get("price")
+                if sku:
+                    data_product = data_to_update.get(sku) or {}
+                    price = data_product.get("price")
 
-                if price:
-                    product_variant_channel_listing.price_amount = price
-                    product_variant_channel_listing.discounted_price_amount = price
+                    if price:
+                        product_variant_channel_listing.price_amount = price
+                        product_variant_channel_listing.discounted_price_amount = price
 
         # TODO: https://github.com/Ornament-Health/ornament-saleor/pull/7#discussion_r1447222450
         AssignedProductAttributeValue.objects.filter(
