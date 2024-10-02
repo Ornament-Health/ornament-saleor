@@ -133,7 +133,8 @@
             "program": "${workspaceFolder}/manage.py",
             "args": [
                 "gettested_import_update_products_xlsx",
-                "gettested_import_update_products_xlsx.xlsx"
+                "gettested_import_update_products_xlsx.xlsx",
+                "--only_medical_data"
             ],
             "django": true,
             "envFile": "${workspaceFolder}/.env",
