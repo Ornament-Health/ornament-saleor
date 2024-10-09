@@ -250,6 +250,7 @@ class CheckUpCountableConnection(CountableConnection):
 class CheckUpStateMetaItemStatus(graphene.ObjectType):
     id = graphene.Int()
     status = graphene.Boolean()
+    date = DateTime()
 
 
 class CheckUpStateMetaItemBase(graphene.ObjectType):
@@ -376,8 +377,8 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
 
         data["date_from"] = min(dates) if dates else None
         data["date_to"] = max(dates) if dates else None
-        data["biomarkers"] = {k: bool(v) for k, v in biomarkers.items()}
-        data["medical_exams"] = {k: bool(v) for k, v in medical_exams.items()}
+        data["biomarkers"] = biomarkers
+        data["medical_exams"] = medical_exams
         data["progress"] = round((progress.count(True) / len(progress)) * 100.0, 1)
 
     @classmethod
@@ -435,11 +436,11 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
                     date_from=v.get("date_from"),
                     date_to=v.get("date_to"),
                     biomarkers=[
-                        CheckUpStateMetaItemStatus(k_, v_)
+                        CheckUpStateMetaItemStatus(k_, bool(v_), v_)
                         for k_, v_ in v.get("biomarkers", {}).items()
                     ],
                     medical_exams=[
-                        CheckUpStateMetaItemStatus(k_, v_)
+                        CheckUpStateMetaItemStatus(k_, bool(v_), v_)
                         for k_, v_ in v.get("medical_exams", {}).items()
                     ],
                     progress=v.get("progress"),
@@ -450,11 +451,11 @@ class CheckUpState(ModelObjectType[models.CheckUpState]):
                 date_from=meta_total.get("date_from"),
                 date_to=meta_total.get("date_to"),
                 biomarkers=[
-                    CheckUpStateMetaItemStatus(k_, v_)
+                    CheckUpStateMetaItemStatus(k_, bool(v_), v_)
                     for k_, v_ in meta_total.get("biomarkers", {}).items()
                 ],
                 medical_exams=[
-                    CheckUpStateMetaItemStatus(k_, v_)
+                    CheckUpStateMetaItemStatus(k_, bool(v_), v_)
                     for k_, v_ in meta_total.get("medical_exams", {}).items()
                 ],
                 progress=meta_total.get("progress"),

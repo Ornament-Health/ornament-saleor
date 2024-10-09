@@ -27,6 +27,7 @@ from saleor.graphql.ornament.vendors.schema import VendorsQueries
 from saleor.graphql.ornament.checkupcenter.schema import (
     CheckUpCenterMutations,
     CheckUpCenterQueries,
+    CheckUpCenterInternalQueries,
 )
 
 # @cf::ornament.search
@@ -98,6 +99,7 @@ class Query(
     VendorsQueries,
     # @cf::ornament.checkupcenter
     CheckUpCenterQueries,
+    CheckUpCenterInternalQueries,
     # @cf::ornament.search
     SearchProductsQueries,
 ):
