@@ -323,6 +323,8 @@ def login_required(fn):
             info = args[1]
             requester = get_user_or_app_from_context(info.context)
 
+            if requester and isinstance(requester, App) and requester.is_active:
+                return fn(*args, **kwargs)
             if requester and requester.is_authenticated:
                 return fn(*args, **kwargs)
 
