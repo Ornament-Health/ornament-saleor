@@ -22,6 +22,7 @@ from saleor.ornament.utils.notification_api import NotificationApi
 from saleor.utils import get_safe_lxml_parser
 from saleor.order.actions import create_fulfillments_internal
 from saleor.ornament.vendors.kdl.utils import collect_data_for_email
+from saleor.core.db.connection import allow_writer
 
 # from saleor.utils.notifications import slack_send_message_task
 
@@ -51,6 +52,7 @@ IMAGESET_API_SOURCE = "lab@home"
 
 
 @app.task(autoretry_for=[Exception])
+@allow_writer()
 def place_preorder_via_wsdl(order_id: UUID) -> None:
     order = (
         models.Order.objects.select_related("user", "shipping_address")
@@ -88,6 +90,7 @@ def place_preorder_via_wsdl(order_id: UUID) -> None:
 
 
 @app.task(autoretry_for=[Exception])
+@allow_writer()
 def place_xml_order_via_ftp(order_id: int) -> None:
     order = (
         models.Order.objects.select_related("user", "shipping_address")
@@ -128,6 +131,7 @@ def get_default_pid_by_sso_id(sso_id: str) -> Optional[str]:
 
 
 @app.task(autoretry_for=[Exception])
+@allow_writer()
 def upload_pdf_to_imageset_api(
     order_id: UUID, user_id: int, full_path: str, sso_id: UUID
 ) -> None:
