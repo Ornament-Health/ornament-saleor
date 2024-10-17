@@ -87,6 +87,6 @@ ENV PROJECT_VERSION="${PROJECT_VERSION}"
 RUN find / | grep -E "(__pycache__$)" | xargs rm -rf
 
 RUN wget https://secure.globalsign.com/cacert/gsgccr3dvtlsca2020.crt -P /usr/local/share/ca-certificates/
-# RUN update-ca-trust
+RUN update-ca-trust
 
 CMD python manage.py migrate && gunicorn "saleor.asgi:application" -c gunicorn_conf.py
