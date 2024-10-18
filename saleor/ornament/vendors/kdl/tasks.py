@@ -3,6 +3,7 @@ import os
 import re
 import ftplib
 import logging
+import ssl
 from typing import Optional
 from uuid import UUID
 from jinja2 import Template
@@ -12,7 +13,8 @@ from ftplib import FTP
 from lxml import etree
 from datetime import datetime, timedelta
 
-from zeep import Client, Settings as WSDL_Settings
+import requests.adapters
+from zeep import Client, Transport, Settings as WSDL_Settings
 from django.conf import settings
 from django.utils import timezone
 
@@ -51,6 +53,14 @@ PDF_FILENAME_REGEX = re.compile(r"^(\d{9,})_(\d{14}).pdf$", re.I)
 IMAGESET_API_SOURCE = "lab@home"
 
 
+class SSLAdapter(requests.adapters.HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        context = ssl.create_default_context()
+        context.load_verify_locations("/opt/ornament-saleor/gsgccr3dvtlsca2020.pem")
+        kwargs["ssl_context"] = context
+        return super().init_poolmanager(*args, **kwargs)
+
+
 @app.task(autoretry_for=[Exception])
 @allow_writer()
 def place_preorder_via_wsdl(order_id: UUID) -> None:
@@ -59,8 +69,16 @@ def place_preorder_via_wsdl(order_id: UUID) -> None:
         .prefetch_related("lines")
         .get(pk=order_id)
     )
+
     kdl_wsdl_client_settings = WSDL_Settings(strict=False, xml_huge_tree=True)
-    client = Client(settings.KDL_WSDL_URL, settings=kdl_wsdl_client_settings)
+    session = requests.Session()
+    session.mount("https://", SSLAdapter())
+    client = Client(
+        settings.KDL_WSDL_URL,
+        settings=kdl_wsdl_client_settings,
+        transport=Transport(session=session),
+    )
+
     order_data = make_preorder_data(order)
     if order_data is None:
         logger.info(f"WSDL order_data is empty for order #{order.id}")
