@@ -13,6 +13,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.forms import model_to_dict
 
+from saleor.account.models import User, Address
 from saleor.graphql.ornament.vendors.types import VendorDealType
 from saleor.order.fetch import OrderLineInfo
 from saleor.order.models import Order
@@ -190,6 +191,15 @@ def apply_kdl_vendor_address_augmentation(address_data: dict) -> dict:
     return address_data
 
 
+def apply_gettested_vendor_address_augmentation(address_data: dict) -> dict:
+    # Currently we accept empty address orders for gettested channel
+    # if not address_data.get("postal_code"):
+    #     address_data["postal_code"] = settings.DEFAULT_GETTESTED_POSTAL_CODE
+    # if not address_data.get("country_area"):
+    #     address_data["country_area"] = settings.DEFAULT_GETTESTED_COUNTRY_AREA
+    return address_data
+
+
 def get_vendor_name(vendors: set[str]) -> Optional[str]:
     if len(vendors) < 1:
         logger.error("get_vendor_name: no valid Vendor in order lines")
@@ -202,7 +212,7 @@ def get_vendor_name(vendors: set[str]) -> Optional[str]:
     vendor_name = vendors.pop()
 
     if Vendor.objects.filter(name=vendor_name).exists():
-        return vendor_name
+        return vendor_name.lower()
 
     return None
 
@@ -247,6 +257,31 @@ def apply_vendor_address_augmentation(
     return address_data
 
 
-vendor_order_logic_map = {"KDL": apply_kdl_order_logic}
-vendor_order_notification_map = {"KDL": apply_kdl_order_notification}
-vendor_address_augmentation_map = {"KDL": apply_kdl_vendor_address_augmentation}
+def apply_vendor_checkout_address_update(
+    variants: list[ProductVariant],
+    user: User,
+    shipping_address: dict,
+    shipping_address_instance: Address,
+) -> None:
+    vendors = set([v.name for v in variants])
+    vendor_name = get_vendor_name(vendors)
+
+    if vendor_name:
+        vendor_checkout_address_update = vendor_checkout_address_update_map.get(
+            vendor_name.lower()
+        )
+        if vendor_checkout_address_update:
+            return vendor_checkout_address_update(
+                user, shipping_address, shipping_address_instance
+            )
+
+    return
+
+
+vendor_order_logic_map = {"kdl": apply_kdl_order_logic}
+vendor_order_notification_map = {"kdl": apply_kdl_order_notification}
+vendor_address_augmentation_map = {
+    "kdl": apply_kdl_vendor_address_augmentation,
+    "gettested": apply_gettested_vendor_address_augmentation,
+}
+vendor_checkout_address_update_map = {}

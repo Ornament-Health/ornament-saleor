@@ -4,6 +4,8 @@ import graphene
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
+from saleor.ornament.vendors.models import Vendor
+
 from .....attribute import AttributeInputType
 from .....attribute import models as attribute_models
 from .....core.tracing import traced_atomic_transaction
@@ -287,6 +289,18 @@ class ProductVariantCreate(ModelMutation):
                 "global_threshold"
             )
             cleaned_input["preorder_end_date"] = preorder_settings.get("end_date")
+
+        # @cf::ornament.saleor.product
+        name = cleaned_input.get("name")
+        is_vendor_available = (
+            True if name is None else Vendor.objects.filter(name=name).exists()
+        )
+
+        if not is_vendor_available:
+            raise ValidationError(
+                f"Vendor {name} is not available.",
+                ProductErrorCode.INVALID.value,
+            )
 
         return cleaned_input
 
