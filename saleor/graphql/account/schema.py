@@ -1,5 +1,9 @@
 import graphene
 
+from saleor.graphql.account.mutations.staff.customer_create import (
+    CustomerCreateOrnament,
+)
+
 from ...permission.auth_filters import AuthorizationFilters
 from ...permission.enums import AccountPermissions, OrderPermissions
 from ...permission.utils import message_one_of_permissions_required
@@ -330,6 +334,7 @@ class AccountMutations(graphene.ObjectType):
     address_set_default = AddressSetDefault.Field()
 
     customer_create = CustomerCreate.Field()
+    customer_create_ornament = CustomerCreateOrnament.Field()
     customer_update = CustomerUpdate.Field()
     customer_delete = CustomerDelete.Field()
     customer_bulk_delete = CustomerBulkDelete.Field()
