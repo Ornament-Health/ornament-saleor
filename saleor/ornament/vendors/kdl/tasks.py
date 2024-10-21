@@ -56,7 +56,9 @@ IMAGESET_API_SOURCE = "lab@home"
 class SSLAdapter(requests.adapters.HTTPAdapter):
     def init_poolmanager(self, *args, **kwargs):
         context = ssl.create_default_context()
-        context.load_verify_locations("/opt/ornament-saleor/gsgccr3dvtlsca2020.pem")
+        context.load_verify_locations(
+            "/usr/share/ca-certificates/gsgccr3dvtlsca2020.pem"
+        )
         kwargs["ssl_context"] = context
         return super().init_poolmanager(*args, **kwargs)
 
