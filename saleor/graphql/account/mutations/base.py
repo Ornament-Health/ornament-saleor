@@ -1,9 +1,11 @@
 from collections import defaultdict
 from urllib.parse import urlencode
 
+from django.conf import settings
 import graphene
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
+
 
 from ....account import events as account_events
 from ....account.error_codes import AccountErrorCode
@@ -39,6 +41,8 @@ from ..utils import (
     get_not_manageable_permissions_when_deactivate_or_remove_users,
     get_out_of_scope_users,
 )
+from saleor.graphql.core.scalars import UUID
+from saleor.ornament.geo.models import City
 
 BILLING_ADDRESS_FIELD = "default_billing_address"
 SHIPPING_ADDRESS_FIELD = "default_shipping_address"
@@ -192,6 +196,14 @@ class UserInput(BaseInputObjectType):
         ),
         required=False,
     )
+
+    class Meta:
+        doc_category = DOC_CATEGORY_USERS
+
+
+class OrnamentUserInput(BaseInputObjectType):
+    email = graphene.String(description="The unique email address of the user.")
+    sso_id = graphene.Field(UUID, description="Ornament sso id")
 
     class Meta:
         doc_category = DOC_CATEGORY_USERS
@@ -381,6 +393,68 @@ class BaseCustomerCreate(ModelMutation, I18nMixin):
         if cleaned_input.get("first_name") or cleaned_input.get("last_name"):
             if user_gift_cards := get_user_gift_cards(instance):
                 mark_gift_cards_search_index_as_dirty(user_gift_cards)
+
+
+class BaseCustomerCreateOrnament(BaseCustomerCreate):
+    """Base mutation for customer create used by ornament external app."""
+
+    class Arguments:
+        input = OrnamentUserInput(
+            description="Fields required to create a customer.", required=True
+        )
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def clean_input(cls, info: ResolveInfo, instance, data, **kwargs):
+        cleaned_input = super().clean_input(info, instance, data, **kwargs)
+
+        email = cleaned_input.get("email")
+        sso_id = cleaned_input.get("sso_id")
+
+        if not email or not sso_id:
+            raise ValidationError(
+                "Ornament users can not be created with no email or sso_id",
+                code=AccountErrorCode.REQUIRED.value,
+            )
+
+        city = (
+            cleaned_input.get("city")
+            or City.objects.filter(channel__slug=settings.DEFAULT_CHANNEL_SLUG).first()
+        )
+
+        if not city:
+            raise ValidationError(
+                f"Can't set city for user: {city}",
+                code=AccountErrorCode.REQUIRED.value,
+            )
+
+        cleaned_input["email"] = email.lower()
+        cleaned_input["is_confirmed"] = True
+        cleaned_input["city"] = city
+        cleaned_input["city_approved"] = True
+        cleaned_input["sso_id"] = sso_id
+
+        return cleaned_input
+
+    @classmethod
+    @traced_atomic_transaction()
+    def save(cls, info: ResolveInfo, instance, cleaned_input):
+        manager = get_plugin_manager_promise(info.context).get()
+
+        is_creation = instance.pk is None
+        super().save(info, instance, cleaned_input)
+
+        instance.search_document = prepare_user_search_document_value(instance)
+        instance.save(update_fields=["search_document", "updated_at"])
+
+        # The instance is a new object in db, create an event
+        if is_creation:
+            cls.call_event(manager.customer_created, instance)
+            account_events.customer_account_created_event(user=instance)
+        else:
+            manager.customer_updated(instance)
 
 
 class UserDeleteMixin:
