@@ -199,7 +199,10 @@ def get_area_choices(areas: list[tuple]) -> list[ChoiceValue]:
 
 # @cf::ornament.saleor.graphql.account
 def augment_ornament_validation_field(
-    field_name: str, required: bool, rules: ValidationRules
+    field_name: str,
+    required: bool,
+    disable_matchers: bool,
+    rules: ValidationRules,
 ) -> OrnamentValidationFieldData:
     choices = None
     matchers = None
@@ -215,7 +218,10 @@ def augment_ornament_validation_field(
     if field_name == "sex":
         choices = get_area_choices(Sex.CHOICES)
     if field_name == "postal_code":
-        matchers = [compiled.pattern for compiled in rules.postal_code_matchers]
+        if disable_matchers:
+            matchers = None
+        else:
+            matchers = [compiled.pattern for compiled in rules.postal_code_matchers]
         examples = rules.postal_code_examples
         prefix = rules.postal_code_prefix
 
@@ -238,10 +244,13 @@ def get_ornament_validation_fields(
     for field in fields:
         name = field.get("name")
         required = field.get("required", False)
+        disable_matchers = field.get("disable_matchers", False)
 
         if name:
             augmented_fields.append(
-                augment_ornament_validation_field(name, required, rules)
+                augment_ornament_validation_field(
+                    name, required, disable_matchers, rules
+                )
             )
 
     return augmented_fields
