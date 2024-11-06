@@ -2,7 +2,7 @@ import hashlib
 import logging
 import traceback
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Iterable, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 from uuid import UUID
 
 # @cf::ornament.saleor.utils
@@ -315,6 +315,15 @@ def format_error(error, handled_exceptions, query=None):
     return result
 
 
+def check_is_app_or_user(requester: Union[App, User, None]) -> bool:
+    if requester:
+        if (
+            isinstance(requester, App) and requester.is_active
+        ) or requester.is_authenticated:
+            return True
+    return False
+
+
 # @cf::ornament.saleor.utils
 def login_required(fn):
     @wraps(fn)
@@ -323,9 +332,7 @@ def login_required(fn):
             info = args[1]
             requester = get_user_or_app_from_context(info.context)
 
-            if requester and isinstance(requester, App) and requester.is_active:
-                return fn(*args, **kwargs)
-            if requester and requester.is_authenticated:
+            if check_is_app_or_user(requester):
                 return fn(*args, **kwargs)
 
             return PermissionDenied()
