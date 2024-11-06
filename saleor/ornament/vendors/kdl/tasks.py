@@ -3,6 +3,7 @@ import os
 import re
 import ftplib
 import logging
+import ssl
 from typing import Optional
 from uuid import UUID
 from jinja2 import Template
@@ -12,7 +13,8 @@ from ftplib import FTP
 from lxml import etree
 from datetime import datetime, timedelta
 
-from zeep import Client, Settings as WSDL_Settings
+import requests.adapters
+from zeep import Client, Transport, Settings as WSDL_Settings
 from django.conf import settings
 from django.utils import timezone
 
@@ -22,6 +24,7 @@ from saleor.ornament.utils.notification_api import NotificationApi
 from saleor.utils import get_safe_lxml_parser
 from saleor.order.actions import create_fulfillments_internal
 from saleor.ornament.vendors.kdl.utils import collect_data_for_email
+from saleor.core.db.connection import allow_writer
 
 # from saleor.utils.notifications import slack_send_message_task
 
@@ -50,15 +53,34 @@ PDF_FILENAME_REGEX = re.compile(r"^(\d{9,})_(\d{14}).pdf$", re.I)
 IMAGESET_API_SOURCE = "lab@home"
 
 
+class SSLAdapter(requests.adapters.HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        context = ssl.create_default_context()
+        context.load_verify_locations(
+            "/usr/share/ca-certificates/gsgccr3dvtlsca2020.pem"
+        )
+        kwargs["ssl_context"] = context
+        return super().init_poolmanager(*args, **kwargs)
+
+
 @app.task(autoretry_for=[Exception])
+@allow_writer()
 def place_preorder_via_wsdl(order_id: UUID) -> None:
     order = (
         models.Order.objects.select_related("user", "shipping_address")
         .prefetch_related("lines")
         .get(pk=order_id)
     )
+
     kdl_wsdl_client_settings = WSDL_Settings(strict=False, xml_huge_tree=True)
-    client = Client(settings.KDL_WSDL_URL, settings=kdl_wsdl_client_settings)
+    session = requests.Session()
+    session.mount("https://", SSLAdapter())
+    client = Client(
+        settings.KDL_WSDL_URL,
+        settings=kdl_wsdl_client_settings,
+        transport=Transport(session=session),
+    )
+
     order_data = make_preorder_data(order)
     if order_data is None:
         logger.info(f"WSDL order_data is empty for order #{order.id}")
@@ -88,6 +110,7 @@ def place_preorder_via_wsdl(order_id: UUID) -> None:
 
 
 @app.task(autoretry_for=[Exception])
+@allow_writer()
 def place_xml_order_via_ftp(order_id: int) -> None:
     order = (
         models.Order.objects.select_related("user", "shipping_address")
@@ -128,6 +151,7 @@ def get_default_pid_by_sso_id(sso_id: str) -> Optional[str]:
 
 
 @app.task(autoretry_for=[Exception])
+@allow_writer()
 def upload_pdf_to_imageset_api(
     order_id: UUID, user_id: int, full_path: str, sso_id: UUID
 ) -> None:
