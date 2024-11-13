@@ -1149,3 +1149,23 @@ ATTRIBUTE_IDS = os.environ.get(
         "human_parts": 15,
     },
 )
+
+DEFAULT_COUNTRY_CHANNEL = os.environ.get(
+    "DEFAULT_COUNTRY_CHANNEL",
+    {
+        "uk-gettested": ["GB"],
+        "eu-gettested": [
+            "AT",
+            "FR",
+            "DE",
+            "GR",
+            "IE",
+            "IT",
+            "LV",
+            "PL",
+            "PT",
+            "ES",
+            "CZ",
+        ],
+    },
+)
