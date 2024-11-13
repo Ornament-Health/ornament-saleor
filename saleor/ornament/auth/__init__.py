@@ -1,5 +1,4 @@
 from datetime import datetime
-import json
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -30,7 +29,6 @@ class OrnamentSSOAuthBackend(BasePlugin):
     PLUGIN_ID = "saleor.ornament.auth.OrnamentSSOAuthBackend"
     PLUGIN_NAME = "Ornament SSO Auth"
     CONFIGURATION_PER_CHANNEL = False
-    DEFAULT_COUNTRY_CHANNEL: dict = json.loads(settings.DEFAULT_COUNTRY_CHANNEL)
 
     def _get_user_info_from_sso_api(self, token: str) -> tuple[str, str, Optional[str]]:
         try:
@@ -74,7 +72,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
     def _get_default_city_for_country_code(self, country_code: str) -> Optional[City]:
         channel_slug = None
 
-        for channel, countries in self.DEFAULT_COUNTRY_CHANNEL.items():
+        for channel, countries in settings.DEFAULT_COUNTRY_CHANNEL.items():
             if country_code in countries:
                 channel_slug = channel
 

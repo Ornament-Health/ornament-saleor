@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import os.path
@@ -1152,24 +1153,4 @@ ATTRIBUTE_IDS = os.environ.get(
 
 REGION_CITY_CHANGE_ENABLED = os.environ.get("REGION_CITY_CHANGE_ENABLED", False)
 
-DEFAULT_COUNTRY_CHANNEL = os.environ.get(
-    "DEFAULT_COUNTRY_CHANNEL",
-    str(
-        {
-            "uk-gettested": ["GB"],
-            "eu-gettested": [
-                "AT",
-                "FR",
-                "DE",
-                "GR",
-                "IE",
-                "IT",
-                "LV",
-                "PL",
-                "PT",
-                "ES",
-                "CZ",
-            ],
-        }
-    ),
-)
+DEFAULT_COUNTRY_CHANNEL = json.loads(os.environ.get("DEFAULT_COUNTRY_CHANNEL", "{}"))
