@@ -104,7 +104,8 @@ class OrnamentSSOAuthBackend(BasePlugin):
         )
 
         city = None
-        if country_code:
+
+        if settings.REGION_CITY_CHANGE_ENABLED and country_code:
             city = self._get_city_for_country_code(
                 country_code
             ) or self._get_default_city_for_country_code(country_code)
@@ -135,7 +136,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
         access_token = create_access_token(user)
         refresh_token = create_refresh_token(user)
 
-        if city and user.city != city:
+        if settings.REGION_CITY_CHANGE_ENABLED and city and user.city != city:
             update_fields = ["city"]
             user.city = city
 

@@ -1150,6 +1150,8 @@ ATTRIBUTE_IDS = os.environ.get(
     },
 )
 
+REGION_CITY_CHANGE_ENABLED = os.environ.get("REGION_CITY_CHANGE_ENABLED", False)
+
 DEFAULT_COUNTRY_CHANNEL = os.environ.get(
     "DEFAULT_COUNTRY_CHANNEL",
     {
