@@ -797,7 +797,7 @@ BUILTIN_PLUGINS = [
     "saleor.payment.gateways.razorpay.plugin.RazorpayGatewayPlugin",
     "saleor.payment.gateways.adyen.plugin.AdyenGatewayPlugin",
     "saleor.payment.gateways.authorize_net.plugin.AuthorizeNetGatewayPlugin",
-    "saleor.payment.gateways.np_atobarai.plugin.NPAtobaraiGatewayPlugin",
+    # "saleor.payment.gateways.np_atobarai.plugin.NPAtobaraiGatewayPlugin",
     "saleor.plugins.invoicing.plugin.InvoicingPlugin",
     "saleor.plugins.user_email.plugin.UserEmailPlugin",
     "saleor.plugins.admin_email.plugin.AdminEmailPlugin",
@@ -1154,20 +1154,22 @@ REGION_CITY_CHANGE_ENABLED = os.environ.get("REGION_CITY_CHANGE_ENABLED", False)
 
 DEFAULT_COUNTRY_CHANNEL = os.environ.get(
     "DEFAULT_COUNTRY_CHANNEL",
-    {
-        "uk-gettested": ["GB"],
-        "eu-gettested": [
-            "AT",
-            "FR",
-            "DE",
-            "GR",
-            "IE",
-            "IT",
-            "LV",
-            "PL",
-            "PT",
-            "ES",
-            "CZ",
-        ],
-    },
+    str(
+        {
+            "uk-gettested": ["GB"],
+            "eu-gettested": [
+                "AT",
+                "FR",
+                "DE",
+                "GR",
+                "IE",
+                "IT",
+                "LV",
+                "PL",
+                "PT",
+                "ES",
+                "CZ",
+            ],
+        }
+    ),
 )
