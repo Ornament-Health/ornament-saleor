@@ -1151,6 +1151,6 @@ ATTRIBUTE_IDS = os.environ.get(
     },
 )
 
-REGION_CITY_CHANGE_ENABLED = os.environ.get("REGION_CITY_CHANGE_ENABLED", False)
+REGION_CITY_CHANGE_ENABLED = get_bool_from_env("REGION_CITY_CHANGE_ENABLED", False)
 
 DEFAULT_COUNTRY_CHANNEL = json.loads(os.environ.get("DEFAULT_COUNTRY_CHANNEL", "{}"))
