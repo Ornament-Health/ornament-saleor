@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import os.path
@@ -797,7 +798,7 @@ BUILTIN_PLUGINS = [
     "saleor.payment.gateways.razorpay.plugin.RazorpayGatewayPlugin",
     "saleor.payment.gateways.adyen.plugin.AdyenGatewayPlugin",
     "saleor.payment.gateways.authorize_net.plugin.AuthorizeNetGatewayPlugin",
-    "saleor.payment.gateways.np_atobarai.plugin.NPAtobaraiGatewayPlugin",
+    # "saleor.payment.gateways.np_atobarai.plugin.NPAtobaraiGatewayPlugin",
     "saleor.plugins.invoicing.plugin.InvoicingPlugin",
     "saleor.plugins.user_email.plugin.UserEmailPlugin",
     "saleor.plugins.admin_email.plugin.AdminEmailPlugin",
@@ -1149,3 +1150,7 @@ ATTRIBUTE_IDS = os.environ.get(
         "human_parts": 15,
     },
 )
+
+REGION_CITY_CHANGE_ENABLED = get_bool_from_env("REGION_CITY_CHANGE_ENABLED", False)
+
+DEFAULT_COUNTRY_CHANNEL = json.loads(os.environ.get("DEFAULT_COUNTRY_CHANNEL", "{}"))
