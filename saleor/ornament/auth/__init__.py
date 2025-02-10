@@ -86,7 +86,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
         self, data: dict, request: WSGIRequest, previous_value
     ) -> ExternalAccessTokens:
         token = data.get("token")
-        channel = data.get("channel")
+        channel_id = data.get("channel_id")
 
         if not token:
             msg = "Missing required field - token"
@@ -104,10 +104,12 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         city = None
 
-        if settings.REGION_CITY_CHANGE_ENABLED and country_code:
-            city = self._get_city_for_country_code(
-                country_code
-            ) or self._get_default_city_for_country_code(country_code)
+        if settings.REGION_CITY_CHANGE_ENABLED:
+            if channel_id:
+                city = self._get_default_city_for_channel_id(channel_id)
+            elif country_code:
+                city = self._get_city_for_country_code(country_code)
+                city = city or self._get_default_city_for_country_code(country_code)
 
         if created:
             user.set_unusable_password()
