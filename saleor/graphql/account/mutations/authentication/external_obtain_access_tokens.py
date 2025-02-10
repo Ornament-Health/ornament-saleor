@@ -66,9 +66,3 @@ class ExternalObtainAccessTokens(BaseMutation):
             # @cf::ornament.geo
             current_channel=access_tokens_response.current_channel,
         )
-    #
-    # @classmethod
-    # def mutate(  # type: ignore[override]
-    #     cls, root, info: ResolveInfo, /, *, input, plugin_id
-    # ):
-    #     return super().mutate(root, info, input=input, plugin_id=plugin_id)
