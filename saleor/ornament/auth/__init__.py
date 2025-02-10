@@ -86,6 +86,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
         self, data: dict, request: WSGIRequest, previous_value
     ) -> ExternalAccessTokens:
         token = data.get("token")
+        channel = data.get("channel")
 
         if not token:
             msg = "Missing required field - token"
