@@ -23,13 +23,6 @@ class VerifyToken(BaseMutation):
 
     class Arguments:
         token = graphene.String(required=True, description="JWT token to validate.")
-        # channel = graphene.String(
-        #     required=False,  # Back portability (required only for challenges)
-        #     description=(
-        #         "Slug of a channel which will be used to notify users. Optional when "
-        #         "only one channel exists."
-        #     )
-        # )
 
     class Meta:
         description = "Verify JWT token."

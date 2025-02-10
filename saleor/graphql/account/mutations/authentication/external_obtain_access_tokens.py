@@ -34,13 +34,6 @@ class ExternalObtainAccessTokens(BaseMutation):
             required=True,
             description="The data required by plugin to create authentication data.",
         )
-        channel = graphene.String(
-            required=False,  # Back portability (required only for challenges)
-            description=(
-                "Slug of a channel which will be used to notify users. Optional when "
-                "only one channel exists."
-            )
-        )
 
 
     class Meta:
@@ -74,3 +67,9 @@ class ExternalObtainAccessTokens(BaseMutation):
             # @cf::ornament.geo
             current_channel=access_tokens_response.current_channel,
         )
+    #
+    # @classmethod
+    # def mutate(  # type: ignore[override]
+    #     cls, root, info: ResolveInfo, /, *, input, plugin_id
+    # ):
+    #     return super().mutate(root, info, input=input, plugin_id=plugin_id)

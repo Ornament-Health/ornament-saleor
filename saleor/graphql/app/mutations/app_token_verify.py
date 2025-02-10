@@ -17,13 +17,6 @@ class AppTokenVerify(BaseMutation):
 
     class Arguments:
         token = graphene.String(description="App token to verify.", required=True)
-        # channel = graphene.String(
-        #     required=False,  # Back portability (required only for challenges)
-        #     description=(
-        #         "Slug of a channel which will be used to notify users. Optional when "
-        #         "only one channel exists."
-        #     )
-        # )
 
     class Meta:
         description = "Verify provided app token."
