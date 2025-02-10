@@ -34,6 +34,14 @@ class ExternalObtainAccessTokens(BaseMutation):
             required=True,
             description="The data required by plugin to create authentication data.",
         )
+        channel = graphene.String(
+            required=False,  # Back portability (required only for challenges)
+            description=(
+                "Slug of a channel which will be used to notify users. Optional when "
+                "only one channel exists."
+            )
+        )
+
 
     class Meta:
         description = "Obtain external access tokens for user by custom plugin."
