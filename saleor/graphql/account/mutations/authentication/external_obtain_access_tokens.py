@@ -35,7 +35,6 @@ class ExternalObtainAccessTokens(BaseMutation):
             description="The data required by plugin to create authentication data.",
         )
 
-
     class Meta:
         description = "Obtain external access tokens for user by custom plugin."
         doc_category = DOC_CATEGORY_AUTH
