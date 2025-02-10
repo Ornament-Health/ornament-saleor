@@ -69,6 +69,13 @@ class OrnamentSSOAuthBackend(BasePlugin):
             .first()
         )
 
+    def _get_default_city_for_channel_slug(self, channel_slug: str) -> Optional[City]:
+        return (
+            City.objects.select_related("channel")
+            .filter(channel__slug=channel_slug)
+            .first()
+        )
+
     def _get_default_city_for_country_code(self, country_code: str) -> Optional[City]:
         channel_slug = None
 
@@ -86,7 +93,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
         self, data: dict, request: WSGIRequest, previous_value
     ) -> ExternalAccessTokens:
         token = data.get("token")
-        channel_id = data.get("channel_id")
+        input_channel_slug = data.get("channel_slug")
 
         if not token:
             msg = "Missing required field - token"
@@ -105,8 +112,10 @@ class OrnamentSSOAuthBackend(BasePlugin):
         city = None
 
         if settings.REGION_CITY_CHANGE_ENABLED:
-            if channel_id:
-                city = self._get_default_city_for_channel_id(channel_id)
+            if input_channel_slug:
+                city = self._get_default_city_for_channel_slug(input_channel_slug)
+                if not city:
+                    raise Exception("city not found by channel_slug")  # TODO custom
             elif country_code:
                 city = self._get_city_for_country_code(country_code)
                 city = city or self._get_default_city_for_country_code(country_code)
