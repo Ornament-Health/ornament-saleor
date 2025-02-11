@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 from dataclasses import dataclass
+from typing import List
 from typing import Optional
 
 import requests
@@ -62,8 +63,12 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         return sso_id, email, country_code
 
-    def _get_city_for_country_code(self, country_code: str) -> Optional[City]:
-        return (
+    def _get_city_for_country_code(
+        self,
+        country_code: str,
+        exclude_channels: List[str] = None,
+    ) -> Optional[City]:
+        query = (
             City.objects.select_related("channel")
             .filter(channel__default_country=country_code)
             .first()
