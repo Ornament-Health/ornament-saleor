@@ -117,8 +117,10 @@ class OrnamentSSOAuthBackend(BasePlugin):
                 if not city:
                     raise Exception("city not found by channel_slug")  # TODO custom
             elif country_code:
-                city = self._get_city_for_country_code(country_code)
-                city = city or self._get_default_city_for_country_code(country_code)
+                city = (
+                    self._get_city_for_country_code(country_code)
+                    or self._get_default_city_for_country_code(country_code)
+                )
 
         if created:
             user.set_unusable_password()
