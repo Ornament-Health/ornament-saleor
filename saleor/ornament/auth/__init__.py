@@ -71,8 +71,13 @@ class OrnamentSSOAuthBackend(BasePlugin):
         query = (
             City.objects.select_related("channel")
             .filter(channel__default_country=country_code)
-            .first()
         )
+
+        if exclude_channels:
+            query = query.exclude(channel__slug__in=exclude_channels)
+
+        city = query.first()
+        return city
 
     def _get_default_city_for_channel_slug(self, channel_slug: str) -> Optional[City]:
         return (
@@ -118,12 +123,17 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         if settings.REGION_CITY_CHANGE_ENABLED:
             if input_channel_slug:
+                # Set channel = worldwide-with-usd
                 city = self._get_default_city_for_channel_slug(input_channel_slug)
                 if not city:
                     raise Exception("city not found by channel_slug")  # TODO custom
             elif country_code:
+                # Set channel != worldwide-with-usd
                 city = (
-                    self._get_city_for_country_code(country_code)
+                    self._get_city_for_country_code(
+                        country_code,
+                        exclude_channels=settings.EXCLUDE_CHANNELS,
+                    )
                     or self._get_default_city_for_country_code(country_code)
                 )
 
