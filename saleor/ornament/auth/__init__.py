@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 from dataclasses import dataclass
+from typing import List
 from typing import Optional
 
 import requests
@@ -62,10 +63,26 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         return sso_id, email, country_code
 
-    def _get_city_for_country_code(self, country_code: str) -> Optional[City]:
-        return (
+    def _get_city_for_country_code(
+        self,
+        country_code: str,
+        exclude_channels: List[str] = None,
+    ) -> Optional[City]:
+        query = (
             City.objects.select_related("channel")
             .filter(channel__default_country=country_code)
+        )
+
+        if exclude_channels:
+            query = query.exclude(channel__slug__in=exclude_channels)
+
+        city = query.first()
+        return city
+
+    def _get_default_city_for_channel_slug(self, channel_slug: str) -> Optional[City]:
+        return (
+            City.objects.select_related("channel")
+            .filter(channel__slug=channel_slug)
             .first()
         )
 
@@ -86,6 +103,7 @@ class OrnamentSSOAuthBackend(BasePlugin):
         self, data: dict, request: WSGIRequest, previous_value
     ) -> ExternalAccessTokens:
         token = data.get("token")
+        input_channel_slug = data.get("channel_slug")
 
         if not token:
             msg = "Missing required field - token"
@@ -103,10 +121,21 @@ class OrnamentSSOAuthBackend(BasePlugin):
 
         city = None
 
-        if settings.REGION_CITY_CHANGE_ENABLED and country_code:
-            city = self._get_city_for_country_code(
-                country_code
-            ) or self._get_default_city_for_country_code(country_code)
+        if settings.REGION_CITY_CHANGE_ENABLED:
+            if input_channel_slug:
+                # Set channel = worldwide-with-usd
+                city = self._get_default_city_for_channel_slug(input_channel_slug)
+                if not city:
+                    raise Exception("city not found by channel_slug")  # TODO custom
+            elif country_code:
+                # Set channel != worldwide-with-usd
+                city = (
+                    self._get_city_for_country_code(
+                        country_code,
+                        exclude_channels=settings.EXCLUDE_CHANNELS,
+                    )
+                    or self._get_default_city_for_country_code(country_code)
+                )
 
         if created:
             user.set_unusable_password()
