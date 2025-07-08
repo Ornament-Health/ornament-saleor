@@ -3,6 +3,9 @@ import traceback
 import json
 from functools import wraps
 
+from saleor import settings
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,19 +34,23 @@ def log_mutation(log_prefix: str):
     def decorator(func):
         @wraps(func)
         def wrapper(cls, *args, **kwargs):
-            input_str = safe_serialize(log_prefix=log_prefix, data=kwargs)
-            logger.info(f"{log_prefix} - Input: {input_str}")
+            if settings.ENABLE_LOG_REQUEST_BODY:
+                input_str = safe_serialize(log_prefix=log_prefix, data=kwargs)
+                logger.info(f"{log_prefix} - Input: {input_str}")
 
             try:
                 result = func(cls, *args, **kwargs)
 
-                result_str = serialize_result(log_prefix=log_prefix, result=result)
-                logger.info(f"{log_prefix} - Success result_str = {result_str}")
+                if settings.ENABLE_LOG_RESPONSE_BODY:
+                    result_str = serialize_result(log_prefix=log_prefix, result=result)
+                    logger.info(f"{log_prefix} - Success result_str = {result_str}")
 
                 return result
             except Exception as e:
-                logger.error(f"{log_prefix} - Error: %s", e)
-                logger.error(f"Traceback: {traceback.format_exc()}")
+                if settings.ENABLE_LOG_FAILED_REQUEST:
+                    logger.error(f"{log_prefix} - Error: %s", e)
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+
                 raise
 
         return wrapper
