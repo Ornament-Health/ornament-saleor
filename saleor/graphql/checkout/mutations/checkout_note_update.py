@@ -1,5 +1,6 @@
 import graphene
 
+from ..log_utils import log_mutation
 from ....webhook.event_types import WebhookEventAsyncType
 from ...core import ResolveInfo
 from ...core.descriptions import ADDED_IN_34
@@ -40,6 +41,7 @@ class CheckoutNoteUpdate(BaseMutation):
         ]
 
     @classmethod
+    @log_mutation("CheckoutNoteUpdate")
     def perform_mutation(  # type: ignore[override]
         cls,
         _root,

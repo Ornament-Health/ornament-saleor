@@ -1,5 +1,6 @@
 import graphene
 
+from ..log_utils import log_mutation
 from ....checkout import AddressType
 from ....checkout.actions import call_checkout_event_for_checkout_info
 from ....checkout.fetch import fetch_checkout_info, fetch_checkout_lines
@@ -65,6 +66,7 @@ class CheckoutBillingAddressUpdate(CheckoutShippingAddressUpdate):
         ]
 
     @classmethod
+    @log_mutation("CheckoutBillingAddressUpdate")
     def perform_mutation(  # type: ignore[override]
         cls,
         _root,
