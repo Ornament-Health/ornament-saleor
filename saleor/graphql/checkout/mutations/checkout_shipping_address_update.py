@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 import graphene
 from django.core.exceptions import ValidationError
 
+from ..log_utils import log_mutation
 from ....checkout import AddressType, models
 from ....checkout.actions import call_checkout_event_for_checkout_info
 from ....checkout.error_codes import CheckoutErrorCode
@@ -120,6 +121,7 @@ class CheckoutShippingAddressUpdate(AddressMetadataMixin, BaseMutation, I18nMixi
         )
 
     @classmethod
+    @log_mutation("checkoutShippingAddressUpdate")
     def perform_mutation(
         cls,
         _root,
