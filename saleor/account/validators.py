@@ -10,7 +10,7 @@ def validate_possible_number(phone, country=None):
     if (
         phone_number
         and not is_possible_number(phone_number)
-        or not phone_number.is_valid()
+        # or not phone_number.is_valid()  # CORE-3557
     ):
         raise ValidationError(
             "The phone number entered is not valid.",
