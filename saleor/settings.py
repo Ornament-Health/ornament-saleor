@@ -1154,3 +1154,4 @@ ATTRIBUTE_IDS = os.environ.get(
 REGION_CITY_CHANGE_ENABLED = get_bool_from_env("REGION_CITY_CHANGE_ENABLED", False)
 
 DEFAULT_COUNTRY_CHANNEL = json.loads(os.environ.get("DEFAULT_COUNTRY_CHANNEL", "{}"))
+ENABLE_PHONE_VALIDATION: bool = True
