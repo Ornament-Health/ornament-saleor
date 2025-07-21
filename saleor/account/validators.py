@@ -8,6 +8,7 @@ from django.conf import settings
 
 def validate_possible_number(phone, country=None):
     if not settings.ENABLE_PHONE_VALIDATION:
+        # @cf::ornament:CORE-3557
         # Without phone_number.is_valid
         phone_number = to_python(phone, country)
         if (
