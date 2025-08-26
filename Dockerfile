@@ -32,7 +32,6 @@ RUN apt-get update \
   libwebp7 \
   libxml2 \
   libpq5 \
-  libmagic1\
   shared-mime-info \
   mime-support \
   && apt-get clean \
