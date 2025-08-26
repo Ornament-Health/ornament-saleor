@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Iterable
 from decimal import Decimal
+import json
 from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlencode
 
@@ -80,6 +81,25 @@ def get_product_attributes_payload(product):
     return attributes_payload
 
 
+# @cf:ornament.saleor.notifications
+def get_description_block_by_type(description: dict, type: str) -> list:
+    return [block for block in description["blocks"] if block["type"] == type]
+
+
+# @cf:ornament.saleor.notifications
+def get_product_name(product: Product) -> str:
+    legacy_title_value = product.product_type.get_value_from_metadata("legacyTitle")
+    if not legacy_title_value:
+        return product.name
+    try:
+        if json.loads(legacy_title_value) == True:
+            name_blocks = get_description_block_by_type(product.description, "header")
+            return name_blocks[0]["data"]["text"] if name_blocks else product.name
+        return product.name
+    except Exception:
+        return product.name
+
+
 def get_product_payload(product: Product):
     all_media = product.media.all()
     images = [media for media in all_media if media.type == ProductMediaTypes.IMAGE]
@@ -87,6 +107,8 @@ def get_product_payload(product: Product):
         "id": to_global_id_or_none(product),
         "attributes": get_product_attributes_payload(product),
         "weight": str(product.weight or ""),
+        # @cf:ornament.saleor.notifications
+        "name": get_product_name(product),
         **get_default_images_payload(images),
     }
 
