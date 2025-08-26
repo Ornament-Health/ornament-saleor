@@ -22,7 +22,7 @@ RUN groupadd -r saleor && useradd -r -g saleor saleor
 RUN apt-get update \
   && apt-get install -y \
   libcairo2 \
-  libgdk-pixbuf-2.0-0 \
+  libgdk-pixbuf2.0-0 \
   liblcms2-2 \
   libopenjp2-7 \
   libpango-1.0-0 \
@@ -34,7 +34,7 @@ RUN apt-get update \
   libpq5 \
   libmagic1\
   shared-mime-info \
-  media-types \
+  mime-support \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
