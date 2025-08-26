@@ -1,5 +1,5 @@
 ### Build and install packages
-FROM python:3.9-bookworm as build-python
+FROM python:3.9 as build-python
 
 RUN apt-get -y update \
   && apt-get install -y gettext \
@@ -15,14 +15,14 @@ COPY poetry.lock pyproject.toml /app/
 RUN --mount=type=cache,mode=0755,target=/root/.cache/pypoetry poetry install --no-root
 
 ### Final image
-FROM python:3.9-slim-bookworm
+FROM python:3.9-slim
 
 RUN groupadd -r saleor && useradd -r -g saleor saleor
 
 RUN apt-get update \
   && apt-get install -y \
   libcairo2 \
-  libgdk-pixbuf2.0-0 \
+  libgdk-pixbuf-2.0-0 \
   liblcms2-2 \
   libopenjp2-7 \
   libpango-1.0-0 \
@@ -32,8 +32,9 @@ RUN apt-get update \
   libwebp7 \
   libxml2 \
   libpq5 \
+  libmagic1\
   shared-mime-info \
-  mime-support \
+  media-types \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
