@@ -24,6 +24,14 @@ def order_event_post_save_handler(sender, instance: OrderEvent, created, **kwarg
 
     order_event_text = get_order_event_text(instance.type)
 
+    extra_message = ""
+
+    if instance.parameters:
+        if instance.parameters.get("iid"):
+            extra_message = f"\n iid: {str(instance.parameters['iid'])}"
+        elif instance.parameters.get("error"):
+            extra_message = f"\n error: {str(instance.parameters['error'])}"
+
     slack_message = {
         "attachments": [
             {
@@ -40,6 +48,7 @@ def order_event_post_save_handler(sender, instance: OrderEvent, created, **kwarg
                                 f"Order event:\n"
                                 f"*{order_event_text}"
                                 f"{' by ' + str(instance.user.email) if instance.user and instance.user.email else ''}*"
+                                f"{extra_message}"
                             ),
                         },
                     },

@@ -183,6 +183,10 @@ def upload_pdf_to_imageset_api(
         order_id=order_id, user_id=user_id, lab_name="KDL", error=error, iid=iid
     )
     os.remove(full_path)
+
+    if error:
+        return
+
     # If everything went well we fetch the whole order with all lines and pass it for
     # automatic fulfillment. Local import to avoid circular import.
     whole_order = models.Order.objects.prefetch_related("lines").get(pk=order_id)
