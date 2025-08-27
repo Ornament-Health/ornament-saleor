@@ -1,4 +1,4 @@
-FROM python:3.9 as intermediate
+FROM python:3.9-bookworm as intermediate
 LABEL maintainer="Dmitry Gurinenko <dmitry.gurinenko@ornament.health>"
 RUN apt-get -y update \
   && apt-get install -y gettext \
@@ -19,7 +19,7 @@ RUN poetry export \
         && rm requirements.txt
 
 
-FROM python:3.9-slim as app
+FROM python:3.9-slim-bookworm as app
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_INDEX=1 \
